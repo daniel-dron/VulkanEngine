@@ -1,0 +1,265 @@
+src/CMakeFiles/engine.dir/vk_engine.cpp.o: \
+ /home/danield/projects/vkguide/src/vk_engine.cpp \
+ /usr/include/stdc-predef.h \
+ /home/danield/projects/vkguide/src/vk_engine.h \
+ /home/danield/projects/vkguide/src/vk_types.h /usr/include/c++/14/memory \
+ /usr/include/c++/14/optional /usr/include/c++/14/string \
+ /usr/include/c++/14/vector /usr/include/c++/14/span \
+ /usr/include/c++/14/bits/version.h \
+ /usr/include/c++/14/x86_64-redhat-linux/bits/c++config.h \
+ /usr/include/c++/14/array /usr/include/c++/14/compare \
+ /usr/include/c++/14/initializer_list /usr/include/c++/14/type_traits \
+ /usr/include/c++/14/bits/functexcept.h \
+ /usr/include/c++/14/bits/stl_algobase.h \
+ /usr/include/c++/14/bits/range_access.h \
+ /usr/include/c++/14/bits/utility.h \
+ /usr/include/c++/14/debug/assertions.h /usr/include/c++/14/cstddef \
+ /usr/include/c++/14/bits/stl_iterator.h \
+ /usr/include/c++/14/bits/ranges_base.h /usr/include/c++/14/functional \
+ /usr/include/c++/14/bits/stl_function.h /usr/include/c++/14/tuple \
+ /usr/include/c++/14/bits/functional_hash.h \
+ /usr/include/c++/14/bits/invoke.h /usr/include/c++/14/bits/refwrap.h \
+ /usr/include/c++/14/bits/std_function.h /usr/include/c++/14/new \
+ /usr/include/c++/14/typeinfo /usr/include/c++/14/unordered_map \
+ /usr/include/c++/14/bits/ranges_cmp.h /usr/include/c++/14/deque \
+ /usr/include/c++/14/bits/requires_hosted.h \
+ /usr/include/c++/14/bits/allocator.h \
+ /usr/include/c++/14/bits/stl_construct.h \
+ /usr/include/c++/14/bits/stl_uninitialized.h \
+ /usr/include/c++/14/bits/stl_deque.h \
+ /usr/include/c++/14/bits/concept_check.h \
+ /usr/include/c++/14/bits/stl_iterator_base_types.h \
+ /usr/include/c++/14/bits/stl_iterator_base_funcs.h \
+ /usr/include/c++/14/bits/deque.tcc \
+ /usr/include/c++/14/bits/memory_resource.h /usr/include/vulkan/vulkan.h \
+ /usr/include/vulkan/vk_enum_string_helper.h \
+ /home/danield/projects/vkguide/third_party/vma/vk_mem_alloc.h \
+ /home/danield/projects/vkguide/third_party/fmt/include/fmt/core.h \
+ /usr/include/c++/14/cstdio /usr/include/stdio.h \
+ /usr/include/c++/14/cstring /usr/include/string.h \
+ /usr/include/bits/libc-header-start.h /usr/include/features.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/stddef.h \
+ /usr/include/bits/types/locale_t.h /usr/include/strings.h \
+ /usr/include/c++/14/iterator /usr/include/c++/14/bits/stream_iterator.h \
+ /usr/include/c++/14/iosfwd /usr/include/c++/14/bits/move.h \
+ /usr/include/c++/14/debug/debug.h \
+ /usr/include/c++/14/bits/streambuf_iterator.h /usr/include/c++/14/limits \
+ /usr/include/c++/14/string_view \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_main.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_stdinc.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include-config-/SDL2/SDL_config.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_platform.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/begin_code.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/close_code.h \
+ /usr/include/sys/types.h /usr/include/c++/14/stdlib.h \
+ /usr/include/c++/14/cstdlib \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/stdarg.h \
+ /usr/include/wchar.h /usr/include/inttypes.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/stdint.h \
+ /usr/include/ctype.h /usr/include/c++/14/math.h \
+ /usr/include/c++/14/cmath /usr/include/c++/14/bits/cpp_type_traits.h \
+ /usr/include/c++/14/ext/type_traits.h /usr/include/math.h \
+ /usr/include/c++/14/bits/std_abs.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/float.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_assert.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_atomic.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_platform.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_audio.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_error.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_endian.h \
+ /usr/include/endian.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_mutex.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_thread.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_rwops.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_clipboard.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_cpuinfo.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/immintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/x86gprintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/ia32intrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/adxintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/bmiintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/bmi2intrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/cetintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/cldemoteintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/clflushoptintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/clwbintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/clzerointrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/cmpccxaddintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/enqcmdintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/fxsrintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/lzcntintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/lwpintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/movdirintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/mwaitintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/mwaitxintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/pconfigintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/popcntintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/pkuintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/prfchiintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/raointintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/rdseedintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/rtmintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/serializeintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/sgxintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/tbmintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/tsxldtrkintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/uintrintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/waitpkgintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/wbnoinvdintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/xsaveintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/xsavecintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/xsaveoptintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/xsavesintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/xtestintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/hresetintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/usermsrintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/mmintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/xmmintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/mm_malloc.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/emmintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/pmmintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/tmmintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/smmintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/wmmintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avxintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avxvnniintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avxifmaintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avxvnniint8intrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avxvnniint16intrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx2intrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512fintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512erintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512pfintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512cdintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512vlintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512bwintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512dqintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512vlbwintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512vldqintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512ifmaintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512ifmavlintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512vbmiintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512vbmivlintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx5124fmapsintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx5124vnniwintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512vpopcntdqintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512vbmi2intrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512vbmi2vlintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512vnniintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512vnnivlintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512vpopcntdqvlintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512bitalgintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512bitalgvlintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512vp2intersectintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512vp2intersectvlintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512fp16intrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512fp16vlintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/shaintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/sm3intrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/sha512intrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/sm4intrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/fmaintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/f16cintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/gfniintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/vaesintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/vpclmulqdqintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512bf16vlintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avx512bf16intrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/avxneconvertintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/amxtileintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/amxint8intrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/amxbf16intrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/amxcomplexintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/prfchwintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/keylockerintrin.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/amxfp16intrin.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_events.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_video.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_pixels.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_rect.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_surface.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_blendmode.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_keyboard.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_keycode.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_scancode.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_mouse.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_joystick.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_guid.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_gamecontroller.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_sensor.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_quit.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_gesture.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_touch.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_filesystem.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_haptic.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_hidapi.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_hints.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_loadso.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_log.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_messagebox.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_metal.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_power.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_render.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_shape.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_system.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_timer.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_version.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_locale.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_misc.h \
+ /home/danield/projects/vkguide/build/third_party/SDL/include/SDL2/SDL_vulkan.h \
+ /home/danield/projects/vkguide/src/vk_initializers.h \
+ /usr/include/c++/14/chrono /usr/include/c++/14/bits/chrono.h \
+ /usr/include/c++/14/ratio /usr/include/c++/14/cstdint \
+ /usr/include/c++/14/ctime /usr/include/time.h \
+ /usr/include/c++/14/bits/parse_numbers.h \
+ /usr/include/c++/14/ext/numeric_traits.h /usr/include/c++/14/concepts \
+ /usr/include/c++/14/bit /usr/include/c++/14/sstream \
+ /usr/include/c++/14/istream /usr/include/c++/14/ios \
+ /usr/include/c++/14/ostream /usr/include/c++/14/bits/istream.tcc \
+ /usr/include/c++/14/bits/cxxabi_forced.h \
+ /usr/include/c++/14/bits/alloc_traits.h \
+ /usr/include/c++/14/bits/sstream.tcc /usr/include/c++/14/bits/stl_algo.h \
+ /usr/include/c++/14/bits/algorithmfwd.h \
+ /usr/include/c++/14/bits/stl_pair.h /usr/include/c++/14/bits/stl_heap.h \
+ /usr/include/c++/14/bits/predefined_ops.h \
+ /usr/include/c++/14/bits/uniform_int_dist.h \
+ /usr/include/c++/14/bits/stl_tempbuf.h \
+ /usr/include/c++/14/bits/shared_ptr.h \
+ /usr/include/c++/14/bits/unique_ptr.h \
+ /usr/include/c++/14/bits/chrono_io.h /usr/include/c++/14/iomanip \
+ /usr/include/c++/14/bits/ios_base.h /usr/include/c++/14/locale \
+ /usr/include/c++/14/bits/localefwd.h \
+ /usr/include/c++/14/bits/locale_classes.h \
+ /usr/include/c++/14/bits/locale_facets.h \
+ /usr/include/c++/14/bits/locale_facets_nonio.h \
+ /usr/include/c++/14/x86_64-redhat-linux/bits/time_members.h \
+ /usr/include/c++/14/x86_64-redhat-linux/bits/messages_members.h \
+ /usr/include/libintl.h /usr/include/c++/14/bits/codecvt.h \
+ /usr/include/c++/14/bits/locale_facets_nonio.tcc \
+ /usr/include/c++/14/bits/locale_conv.h /usr/include/c++/14/streambuf \
+ /usr/include/c++/14/bits/stringfwd.h \
+ /usr/include/c++/14/bits/quoted_string.h /usr/include/c++/14/format \
+ /usr/include/c++/14/charconv /usr/include/c++/14/bits/charconv.h \
+ /usr/include/c++/14/x86_64-redhat-linux/bits/error_constants.h \
+ /usr/include/c++/14/variant \
+ /usr/include/c++/14/bits/enable_special_members.h \
+ /usr/include/c++/14/bits/exception_defines.h \
+ /usr/include/c++/14/bits/ranges_util.h \
+ /usr/include/c++/14/bits/ranges_algobase.h \
+ /usr/include/c++/14/bits/unicode.h \
+ /usr/include/c++/14/bits/unicode-data.h /usr/include/c++/14/thread \
+ /usr/include/c++/14/stop_token /usr/include/c++/14/atomic \
+ /usr/include/c++/14/bits/atomic_base.h \
+ /usr/include/c++/14/bits/std_thread.h \
+ /usr/include/c++/14/x86_64-redhat-linux/bits/gthr.h \
+ /usr/include/c++/14/semaphore /usr/include/c++/14/bits/semaphore_base.h \
+ /usr/include/c++/14/bits/atomic_timed_wait.h \
+ /usr/include/c++/14/bits/atomic_wait.h \
+ /usr/include/c++/14/bits/this_thread_sleep.h /usr/include/c++/14/cerrno \
+ /usr/include/errno.h /usr/include/sys/time.h /usr/include/bits/types.h \
+ /usr/include/bits/types/time_t.h \
+ /usr/include/bits/types/struct_timeval.h /usr/include/sys/select.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/limits.h \
+ /usr/include/semaphore.h /usr/include/bits/types/struct_timespec.h \
+ /usr/include/bits/semaphore.h /usr/include/bits/wordsize.h

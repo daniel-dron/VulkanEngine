@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "*.ipp": "cpp",
+        "istream": "cpp",
+        "mutex": "cpp",
+        "ostream": "cpp",
+        "stop_token": "cpp",
+        "typeinfo": "cpp"
+    },
+    "C_Cpp.default.compilerPath": "/usr/bin/g++"
+}
