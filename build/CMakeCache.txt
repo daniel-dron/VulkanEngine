@@ -852,7 +852,7 @@ pkgcfg_lib_PKG_WAYLAND_wayland-egl:FILEPATH=/usr/lib64/libwayland-egl.so
 pkgcfg_lib_PKG_WAYLAND_xkbcommon:FILEPATH=/usr/lib64/libxkbcommon.so
 
 //Dependencies for the target
-vkbootstrap_LIB_DEPENDS:STATIC=general;Vulkan::Vulkan;
+vkbootstrap_LIB_DEPENDS:STATIC=general;Vulkan::Vulkan;general;dl;
 
 //Value Computed by CMake
 vulkan_guide_BINARY_DIR:STATIC=/home/danield/projects/vkguide/build
