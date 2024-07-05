@@ -44,6 +44,12 @@ src/CMakeFiles/engine.dir/vk_engine.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
  /usr/include/c++/11/iterator /usr/include/c++/11/limits \
  /usr/include/c++/11/string_view /usr/include/vulkan/vulkan_core.h \
+ /home/danield/personal/vkquide/third_party/imgui/imgui.h \
+ /home/danield/personal/vkquide/third_party/imgui/imconfig.h \
+ /usr/lib/gcc/x86_64-linux-gnu/11/include/float.h \
+ /usr/lib/gcc/x86_64-linux-gnu/11/include/stdarg.h /usr/include/assert.h \
+ /home/danield/personal/vkquide/third_party/imgui/imgui_impl_sdl2.h \
+ /home/danield/personal/vkquide/third_party/imgui/imgui_impl_vulkan.h \
  /home/danield/personal/vkquide/build/third_party/SDL/include/SDL2/SDL.h \
  /home/danield/personal/vkquide/build/third_party/SDL/include/SDL2/SDL_main.h \
  /home/danield/personal/vkquide/build/third_party/SDL/include/SDL2/SDL_stdinc.h \
@@ -52,15 +58,12 @@ src/CMakeFiles/engine.dir/vk_engine.cpp.o: \
  /home/danield/personal/vkquide/build/third_party/SDL/include/SDL2/begin_code.h \
  /home/danield/personal/vkquide/build/third_party/SDL/include/SDL2/close_code.h \
  /usr/include/x86_64-linux-gnu/sys/types.h /usr/include/c++/11/stdlib.h \
- /usr/include/c++/11/cstdlib \
- /usr/lib/gcc/x86_64-linux-gnu/11/include/stdarg.h /usr/include/wchar.h \
- /usr/include/inttypes.h \
+ /usr/include/c++/11/cstdlib /usr/include/wchar.h /usr/include/inttypes.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h /usr/include/ctype.h \
  /usr/include/c++/11/math.h /usr/include/c++/11/cmath \
  /usr/include/c++/11/bits/cpp_type_traits.h \
  /usr/include/c++/11/ext/type_traits.h /usr/include/math.h \
  /usr/include/c++/11/bits/std_abs.h \
- /usr/lib/gcc/x86_64-linux-gnu/11/include/float.h \
  /home/danield/personal/vkquide/build/third_party/SDL/include/SDL2/SDL_assert.h \
  /home/danield/personal/vkquide/build/third_party/SDL/include/SDL2/SDL_atomic.h \
  /home/danield/personal/vkquide/build/third_party/SDL/include/SDL2/SDL_platform.h \
@@ -195,8 +198,7 @@ src/CMakeFiles/engine.dir/vk_engine.cpp.o: \
  /home/danield/personal/vkquide/src/vk_initializers.h \
  /home/danield/personal/vkquide/src/vk_pipelines.h \
  /home/danield/personal/vkquide/third_party/vkbootstrap/VkBootstrap.h \
- /usr/include/c++/11/cassert /usr/include/assert.h \
- /usr/include/c++/11/system_error \
+ /usr/include/c++/11/cassert /usr/include/c++/11/system_error \
  /home/danield/personal/vkquide/third_party/vkbootstrap/VkBootstrapDispatch.h \
  /usr/include/c++/11/chrono /usr/include/c++/11/ratio \
  /usr/include/c++/11/cstdint /usr/include/c++/11/ctime \

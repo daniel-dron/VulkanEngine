@@ -59,6 +59,9 @@ public:
   // run main loop
   void run();
 
+  void immediate_submit(std::function<void(VkCommandBuffer cmd)> &&function);
+  void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
+
   // vulkan stuff
   VkInstance _instance;
   VkDebugUtilsMessengerEXT _debug_messenger;
@@ -67,6 +70,9 @@ public:
   VkSurfaceKHR _surface;
   DeletionQueue _mainDeletionQueue;
   VmaAllocator _allocator;
+
+  VkQueue _graphicsQueue;
+  uint32_t _graphicsQueueFamily;
 
   //
   AllocatedImage _drawImage;
@@ -104,8 +110,12 @@ public:
   VkPipeline _gradientPipeline;
   VkPipelineLayout _gradientPipelineLayout;
 
-  VkQueue _graphicsQueue;
-  uint32_t _graphicsQueueFamily;
+  //
+  // immediate commands
+  //
+  VkFence _immFence;
+  VkCommandBuffer _immCommandBuffer;
+  VkCommandPool _immCommandPool;
 
 private:
   void init_vulkan();
@@ -115,6 +125,7 @@ private:
   void init_descriptors();
   void init_pipelines();
   void init_background_pipelines();
+  void init_imgui();
 
   void draw_background(VkCommandBuffer cmd);
 

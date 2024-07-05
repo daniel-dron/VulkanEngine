@@ -673,6 +673,10 @@ src/CMakeFiles/engine.dir/vk_engine.cpp.o
  /home/danield/personal/vkquide/src/vk_pipelines.h
  /home/danield/personal/vkquide/src/vk_types.h
  /home/danield/personal/vkquide/third_party/fmt/include/fmt/core.h
+ /home/danield/personal/vkquide/third_party/imgui/imconfig.h
+ /home/danield/personal/vkquide/third_party/imgui/imgui.h
+ /home/danield/personal/vkquide/third_party/imgui/imgui_impl_sdl2.h
+ /home/danield/personal/vkquide/third_party/imgui/imgui_impl_vulkan.h
  /home/danield/personal/vkquide/third_party/vkbootstrap/VkBootstrap.h
  /home/danield/personal/vkquide/third_party/vkbootstrap/VkBootstrapDispatch.h
  /home/danield/personal/vkquide/third_party/vma/vk_mem_alloc.h

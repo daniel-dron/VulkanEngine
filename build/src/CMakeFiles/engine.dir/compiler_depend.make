@@ -668,6 +668,10 @@ src/CMakeFiles/engine.dir/vk_engine.cpp.o: src/CMakeFiles/engine.dir/cmake_pch.h
   /home/danield/personal/vkquide/src/vk_pipelines.h \
   /home/danield/personal/vkquide/src/vk_types.h \
   /home/danield/personal/vkquide/third_party/fmt/include/fmt/core.h \
+  /home/danield/personal/vkquide/third_party/imgui/imconfig.h \
+  /home/danield/personal/vkquide/third_party/imgui/imgui.h \
+  /home/danield/personal/vkquide/third_party/imgui/imgui_impl_sdl2.h \
+  /home/danield/personal/vkquide/third_party/imgui/imgui_impl_vulkan.h \
   /home/danield/personal/vkquide/third_party/vkbootstrap/VkBootstrap.h \
   /home/danield/personal/vkquide/third_party/vkbootstrap/VkBootstrapDispatch.h \
   /home/danield/personal/vkquide/third_party/vma/vk_mem_alloc.h \
@@ -1403,6 +1407,8 @@ third_party/SDL/include/SDL2/SDL_loadso.h:
 
 /usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h:
 
+/home/danield/personal/vkquide/third_party/imgui/imgui_impl_vulkan.h:
+
 third_party/SDL/include/SDL2/begin_code.h:
 
 /usr/include/x86_64-linux-gnu/bits/stdio2.h:
@@ -1528,6 +1534,8 @@ third_party/SDL/include/SDL2/SDL_touch.h:
 /usr/include/c++/11/clocale:
 
 /home/danield/personal/vkquide/third_party/glm/glm/ext/matrix_double2x2_precision.hpp:
+
+/home/danield/personal/vkquide/third_party/imgui/imgui_impl_sdl2.h:
 
 /usr/include/c++/11/ext/type_traits.h:
 
@@ -1762,6 +1770,8 @@ third_party/SDL/include/SDL2/SDL_blendmode.h:
 /home/danield/personal/vkquide/third_party/glm/glm/ext/vector_bool3_precision.hpp:
 
 /usr/include/c++/11/tr1/modified_bessel_func.tcc:
+
+/home/danield/personal/vkquide/third_party/imgui/imgui.h:
 
 /usr/include/c++/11/string_view:
 
@@ -2074,6 +2084,8 @@ third_party/SDL/include/SDL2/SDL_audio.h:
 /usr/include/c++/11/bits/alloc_traits.h:
 
 /usr/include/c++/11/bits/char_traits.h:
+
+/home/danield/personal/vkquide/third_party/imgui/imconfig.h:
 
 /usr/include/c++/11/bits/hash_bytes.h:
 
