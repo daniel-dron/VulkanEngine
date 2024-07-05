@@ -3,14 +3,36 @@
 
 #pragma once
 
+#include "vk_descriptors.h"
 #include <vk_types.h>
 #include <vulkan/vulkan_core.h>
+
+#include <deque>
+#include <functional>
+
+struct DeletionQueue {
+  std::deque<std::function<void()>> deletors;
+
+  void push_function(std::function<void()> &&deletor) {
+    deletors.push_back(deletor);
+  }
+
+  void flush() {
+    // reverse iterate the deletion queue to execute all the functions
+    for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
+      (*it)(); // call functors
+    }
+
+    deletors.clear();
+  }
+};
 
 struct FrameData {
   VkCommandPool _commandPool;
   VkCommandBuffer _mainCommandBuffer;
   VkSemaphore _swapchainSemaphore, _renderSemaphore;
   VkFence _renderFence;
+  DeletionQueue _deletionQueue;
 };
 constexpr unsigned int FRAME_OVERLAP = 2;
 
@@ -43,6 +65,12 @@ public:
   VkPhysicalDevice _chosenGPU;
   VkDevice _device;
   VkSurfaceKHR _surface;
+  DeletionQueue _mainDeletionQueue;
+  VmaAllocator _allocator;
+
+  //
+  AllocatedImage _drawImage;
+  VkExtent2D _drawExtent;
 
   //
   // swapchain
@@ -62,6 +90,20 @@ public:
     return _frames[_frameNumber % FRAME_OVERLAP];
   }
 
+  //
+  // descriptors
+  //
+  DescriptorAllocator globalDescriptorAllocator;
+
+  VkDescriptorSet _drawImageDescriptors;
+  VkDescriptorSetLayout _drawImageDescriptorLayout;
+
+  //
+  // Pipeline
+  //
+  VkPipeline _gradientPipeline;
+  VkPipelineLayout _gradientPipelineLayout;
+
   VkQueue _graphicsQueue;
   uint32_t _graphicsQueueFamily;
 
@@ -70,6 +112,11 @@ private:
   void init_swapchain();
   void init_commands();
   void init_sync_structures();
+  void init_descriptors();
+  void init_pipelines();
+  void init_background_pipelines();
+
+  void draw_background(VkCommandBuffer cmd);
 
   void create_swapchain(uint32_t width, uint32_t height);
   void destroy_swapchain();

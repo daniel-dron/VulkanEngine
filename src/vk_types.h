@@ -29,3 +29,11 @@
             abort();                                                    \
         }                                                               \
     } while (0)
+
+struct AllocatedImage {
+    VkImage image;
+    VkImageView view;
+    VmaAllocation allocation;
+    VkExtent3D extent;
+    VkFormat format;
+};

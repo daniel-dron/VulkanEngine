@@ -98,8 +98,8 @@
 #define HAVE_MEMMOVE 1
 #define HAVE_MEMCMP 1
 #define HAVE_WCSLEN 1
-#define HAVE_WCSLCPY 1
-#define HAVE_WCSLCAT 1
+/* #undef HAVE_WCSLCPY */
+/* #undef HAVE_WCSLCAT */
 /* #undef HAVE__WCSDUP */
 #define HAVE_WCSDUP 1
 #define HAVE_WCSSTR 1
@@ -110,8 +110,8 @@
 #define HAVE_WCSNCASECMP 1
 /* #undef HAVE__WCSNICMP */
 #define HAVE_STRLEN 1
-#define HAVE_STRLCPY 1
-#define HAVE_STRLCAT 1
+/* #undef HAVE_STRLCPY */
+/* #undef HAVE_STRLCAT */
 /* #undef HAVE__STRREV */
 /* #undef HAVE__STRUPR */
 /* #undef HAVE__STRLWR */
@@ -216,8 +216,8 @@
 #endif /* HAVE_LIBC */
 
 /* #undef HAVE_ALTIVEC_H */
-#define HAVE_DBUS_DBUS_H 1
-#define HAVE_FCITX 1
+/* #undef HAVE_DBUS_DBUS_H */
+/* #undef HAVE_FCITX */
 /* #undef HAVE_IBUS_IBUS_H */
 #define HAVE_SYS_INOTIFY_H 1
 #define HAVE_INOTIFY_INIT 1
@@ -238,7 +238,7 @@
 #define HAVE_IMMINTRIN_H 1
 #endif
 
-/* #undef HAVE_LIBUDEV_H */
+#define HAVE_LIBUDEV_H 1
 /* #undef HAVE_LIBSAMPLERATE_H */
 /* #undef HAVE_LIBDECOR_H */
 
@@ -362,7 +362,7 @@
 /* #undef SDL_HAPTIC_XINPUT */
 /* #undef SDL_HAPTIC_ANDROID */
 /* #undef SDL_LIBUSB_DYNAMIC */
-/* #undef SDL_UDEV_DYNAMIC */
+#define SDL_UDEV_DYNAMIC "libudev.so.1"
 
 /* Enable various sensor drivers */
 /* #undef SDL_SENSOR_ANDROID */
@@ -414,7 +414,7 @@
 #define SDL_VIDEO_DRIVER_OFFSCREEN 1
 /* #undef SDL_VIDEO_DRIVER_WINDOWS */
 /* #undef SDL_VIDEO_DRIVER_WINRT */
-#define SDL_VIDEO_DRIVER_WAYLAND 1
+/* #undef SDL_VIDEO_DRIVER_WAYLAND */
 /* #undef SDL_VIDEO_DRIVER_RPI */
 /* #undef SDL_VIDEO_DRIVER_VIVANTE */
 /* #undef SDL_VIDEO_DRIVER_VIVANTE_VDK */
@@ -428,11 +428,11 @@
 /* #undef SDL_VIDEO_DRIVER_KMSDRM_DYNAMIC */
 /* #undef SDL_VIDEO_DRIVER_KMSDRM_DYNAMIC_GBM */
 
-#define SDL_VIDEO_DRIVER_WAYLAND_QT_TOUCH 1
-#define SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC "libwayland-client.so.0"
-#define SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC_EGL "libwayland-egl.so.1"
-#define SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC_CURSOR "libwayland-cursor.so.0"
-#define SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC_XKBCOMMON "libxkbcommon.so.0"
+/* #undef SDL_VIDEO_DRIVER_WAYLAND_QT_TOUCH */
+/* #undef SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC */
+/* #undef SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC_EGL */
+/* #undef SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC_CURSOR */
+/* #undef SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC_XKBCOMMON */
 /* #undef SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC_LIBDECOR */
 
 #define SDL_VIDEO_DRIVER_X11 1
@@ -460,7 +460,7 @@
 /* #undef SDL_VIDEO_RENDER_D3D11 */
 /* #undef SDL_VIDEO_RENDER_D3D12 */
 #define SDL_VIDEO_RENDER_OGL 1
-#define SDL_VIDEO_RENDER_OGL_ES 1
+/* #undef SDL_VIDEO_RENDER_OGL_ES */
 #define SDL_VIDEO_RENDER_OGL_ES2 1
 /* #undef SDL_VIDEO_RENDER_DIRECTFB */
 /* #undef SDL_VIDEO_RENDER_METAL */
@@ -470,7 +470,7 @@
 
 /* Enable OpenGL support */
 #define SDL_VIDEO_OPENGL 1
-#define SDL_VIDEO_OPENGL_ES 1
+/* #undef SDL_VIDEO_OPENGL_ES */
 #define SDL_VIDEO_OPENGL_ES2 1
 /* #undef SDL_VIDEO_OPENGL_BGL */
 /* #undef SDL_VIDEO_OPENGL_CGL */
@@ -533,7 +533,7 @@
 /* #undef SDL_LIBSAMPLERATE_DYNAMIC */
 
 /* Enable ime support */
-#define SDL_USE_IME 1
+/* #undef SDL_USE_IME */
 
 /* Platform specific definitions */
 /* #undef SDL_IPHONE_KEYBOARD */

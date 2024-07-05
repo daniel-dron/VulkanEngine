@@ -7,7 +7,7 @@ bindir=$(cd -P -- "$(dirname -- "$0")" && printf '%s\n' "$(pwd -P)")
 prefix=$(cd -P -- "$bindir/../" && printf '%s\n' "$(pwd -P)")
 exec_prefix=${prefix}
 exec_prefix_set=no
-libdir=${exec_prefix}/lib64
+libdir=${exec_prefix}/lib
 
 #usage="\
 #Usage: $0 [--prefix[=DIR]] [--exec-prefix[=DIR]] [--version] [--cflags] [--libs]"
@@ -49,12 +49,12 @@ while test $# -gt 0; do
       echo -I${prefix}/include/SDL2  -D_REENTRANT
       ;;
     --libs)
-      echo -L${exec_prefix}/lib64 -Wl,-rpath,${libdir} -Wl,--enable-new-dtags  -lSDL2
+      echo -L${exec_prefix}/lib -Wl,-rpath,${libdir} -Wl,--enable-new-dtags  -lSDL2
       ;;
     --static-libs)
 #    --libs|--static-libs)
       sdl_static_libs=$(echo " -lSDL2  -lSDL2 -pthread  -lm" | sed -E "s#-lSDL2[ $]#$libdir/libSDL2.a #g")
-      echo -L${exec_prefix}/lib64 $sdl_static_libs
+      echo -L${exec_prefix}/lib $sdl_static_libs
       ;;
     *)
       echo "${usage}" 1>&2
