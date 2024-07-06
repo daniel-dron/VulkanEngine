@@ -1,4 +1,6 @@
 # Hashes of file build rules.
+7caad0bc8485a4379e85ea8482c16889 /home/danield/personal/vkquide/shaders/colored_triangle.frag.spv
+99615fc3b034ac9f18ab1a6a452e7e98 /home/danield/personal/vkquide/shaders/colored_triangle.vert.spv
 143011d86e62216c1b45bcee8f573b0c /home/danield/personal/vkquide/shaders/gradient.comp.spv
 ca26e86ef49a4b41fc165f304d954517 /home/danield/personal/vkquide/shaders/gradient_color.comp.spv
 b669d7955fdddfc399c3909e7d76061b /home/danield/personal/vkquide/shaders/sky.comp.spv

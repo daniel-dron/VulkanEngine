@@ -66,23 +66,35 @@ include CMakeFiles/Shaders.dir/compiler_depend.make
 # Include the progress variables for this target.
 include CMakeFiles/Shaders.dir/progress.make
 
+CMakeFiles/Shaders: /home/danield/personal/vkquide/shaders/colored_triangle.frag.spv
+CMakeFiles/Shaders: /home/danield/personal/vkquide/shaders/colored_triangle.vert.spv
 CMakeFiles/Shaders: /home/danield/personal/vkquide/shaders/gradient.comp.spv
 CMakeFiles/Shaders: /home/danield/personal/vkquide/shaders/gradient_color.comp.spv
 CMakeFiles/Shaders: /home/danield/personal/vkquide/shaders/sky.comp.spv
 
+/home/danield/personal/vkquide/shaders/colored_triangle.frag.spv: /home/danield/personal/vkquide/shaders/colored_triangle.frag
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/danield/personal/vkquide/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Generating /home/danield/personal/vkquide/shaders/colored_triangle.frag.spv"
+	/usr/bin/glslangValidator -V /home/danield/personal/vkquide/shaders/colored_triangle.frag -o /home/danield/personal/vkquide/shaders/colored_triangle.frag.spv
+
+/home/danield/personal/vkquide/shaders/colored_triangle.vert.spv: /home/danield/personal/vkquide/shaders/colored_triangle.vert
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/danield/personal/vkquide/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Generating /home/danield/personal/vkquide/shaders/colored_triangle.vert.spv"
+	/usr/bin/glslangValidator -V /home/danield/personal/vkquide/shaders/colored_triangle.vert -o /home/danield/personal/vkquide/shaders/colored_triangle.vert.spv
+
 /home/danield/personal/vkquide/shaders/gradient.comp.spv: /home/danield/personal/vkquide/shaders/gradient.comp
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/danield/personal/vkquide/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Generating /home/danield/personal/vkquide/shaders/gradient.comp.spv"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/danield/personal/vkquide/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Generating /home/danield/personal/vkquide/shaders/gradient.comp.spv"
 	/usr/bin/glslangValidator -V /home/danield/personal/vkquide/shaders/gradient.comp -o /home/danield/personal/vkquide/shaders/gradient.comp.spv
 
 /home/danield/personal/vkquide/shaders/gradient_color.comp.spv: /home/danield/personal/vkquide/shaders/gradient_color.comp
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/danield/personal/vkquide/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Generating /home/danield/personal/vkquide/shaders/gradient_color.comp.spv"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/danield/personal/vkquide/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Generating /home/danield/personal/vkquide/shaders/gradient_color.comp.spv"
 	/usr/bin/glslangValidator -V /home/danield/personal/vkquide/shaders/gradient_color.comp -o /home/danield/personal/vkquide/shaders/gradient_color.comp.spv
 
 /home/danield/personal/vkquide/shaders/sky.comp.spv: /home/danield/personal/vkquide/shaders/sky.comp
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/danield/personal/vkquide/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Generating /home/danield/personal/vkquide/shaders/sky.comp.spv"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/danield/personal/vkquide/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Generating /home/danield/personal/vkquide/shaders/sky.comp.spv"
 	/usr/bin/glslangValidator -V /home/danield/personal/vkquide/shaders/sky.comp -o /home/danield/personal/vkquide/shaders/sky.comp.spv
 
 Shaders: CMakeFiles/Shaders
+Shaders: /home/danield/personal/vkquide/shaders/colored_triangle.frag.spv
+Shaders: /home/danield/personal/vkquide/shaders/colored_triangle.vert.spv
 Shaders: /home/danield/personal/vkquide/shaders/gradient.comp.spv
 Shaders: /home/danield/personal/vkquide/shaders/gradient_color.comp.spv
 Shaders: /home/danield/personal/vkquide/shaders/sky.comp.spv

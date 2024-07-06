@@ -36,6 +36,22 @@ struct FrameData {
 };
 constexpr unsigned int FRAME_OVERLAP = 2;
 
+struct ComputePushConstants {
+  glm::vec4 data1;
+  glm::vec4 data2;
+  glm::vec4 data3;
+  glm::vec4 data4;
+};
+
+struct ComputeEffect {
+  const char *name;
+
+  VkPipeline pipeline;
+  VkPipelineLayout layout;
+
+  ComputePushConstants data;
+};
+
 class VulkanEngine {
 public:
   bool _isInitialized{false};
@@ -107,7 +123,7 @@ public:
   //
   // Pipeline
   //
-  VkPipeline _gradientPipeline;
+  // VkPipeline _gradientPipeline;
   VkPipelineLayout _gradientPipelineLayout;
 
   //
@@ -116,6 +132,15 @@ public:
   VkFence _immFence;
   VkCommandBuffer _immCommandBuffer;
   VkCommandPool _immCommandPool;
+
+  std::vector<ComputeEffect> backgroundEffects;
+  int currentBackgroundEffect{0};
+
+  //
+  // triangle pipeline
+  //
+  VkPipelineLayout _trianglePipelineLayout;
+  VkPipeline _trianglePipeline;
 
 private:
   void init_vulkan();
@@ -126,8 +151,10 @@ private:
   void init_pipelines();
   void init_background_pipelines();
   void init_imgui();
+  void init_triangle_pipeline();
 
   void draw_background(VkCommandBuffer cmd);
+  void draw_geometry(VkCommandBuffer cmd);
 
   void create_swapchain(uint32_t width, uint32_t height);
   void destroy_swapchain();
