@@ -102,6 +102,7 @@ public:
   AllocatedImage _drawImage;
   AllocatedImage _depthImage;
   VkExtent2D _drawExtent;
+  float renderScale = 1.f;
 
   //
   // swapchain
@@ -153,6 +154,8 @@ public:
   std::vector<std::shared_ptr<MeshAsset>> testMeshes;
 
 private:
+  bool resize_requested = false;
+
   void init_vulkan();
   void init_swapchain();
   void init_commands();
@@ -172,5 +175,6 @@ private:
   void destroy_buffer(const AllocatedBuffer &buffer);
 
   void create_swapchain(uint32_t width, uint32_t height);
+  void resize_swapchain();
   void destroy_swapchain();
 };
