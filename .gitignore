@@ -61,3 +61,6 @@ vcpkg_installed/
 *.user
 *.userosscache
 *.sln.docstates
+
+# Clangd cache
+.cache/clangd/
