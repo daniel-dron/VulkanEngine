@@ -5,6 +5,7 @@
 
 #include "SDL_stdinc.h"
 #include "vk_descriptors.h"
+#include "vk_loader.h"
 #include <cstdint>
 #include <span>
 #include <vk_types.h>
@@ -80,9 +81,10 @@ public:
 
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)> &&function);
   void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
-  
+
   // mesh
-  GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
+  GPUMeshBuffers uploadMesh(std::span<uint32_t> indices,
+                            std::span<Vertex> vertices);
 
   // vulkan stuff
   VkInstance _instance;
@@ -98,6 +100,7 @@ public:
 
   //
   AllocatedImage _drawImage;
+  AllocatedImage _depthImage;
   VkExtent2D _drawExtent;
 
   //
@@ -143,17 +146,11 @@ public:
   int currentBackgroundEffect{0};
 
   //
-  // triangle pipeline
-  //
-  VkPipelineLayout _trianglePipelineLayout;
-  VkPipeline _trianglePipeline;
-
-  //
   // Mesh Pipeline
   //
   VkPipelineLayout _meshPipelineLayout;
   VkPipeline _meshPipeline;
-  GPUMeshBuffers rectangle;
+  std::vector<std::shared_ptr<MeshAsset>> testMeshes;
 
 private:
   void init_vulkan();
@@ -164,15 +161,15 @@ private:
   void init_pipelines();
   void init_background_pipelines();
   void init_imgui();
-  void init_triangle_pipeline();
   void init_mesh_pipeline();
 
   void draw_background(VkCommandBuffer cmd);
   void draw_geometry(VkCommandBuffer cmd);
   void init_default_data();
 
-  AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-  void destroy_buffer(const AllocatedBuffer& buffer);
+  AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage,
+                                VmaMemoryUsage memoryUsage);
+  void destroy_buffer(const AllocatedBuffer &buffer);
 
   void create_swapchain(uint32_t width, uint32_t height);
   void destroy_swapchain();
