@@ -3,7 +3,10 @@
 
 #pragma once
 
+#include "SDL_stdinc.h"
 #include "vk_descriptors.h"
+#include <cstdint>
+#include <span>
 #include <vk_types.h>
 #include <vulkan/vulkan_core.h>
 
@@ -75,8 +78,11 @@ public:
   // run main loop
   void run();
 
-  void immediate_submit(std::function<void(VkCommandBuffer cmd)> &&function);
-  void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
+  void immediateSubmit(std::function<void(VkCommandBuffer cmd)> &&function);
+  void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
+  
+  // mesh
+  GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 
   // vulkan stuff
   VkInstance _instance;
@@ -142,6 +148,13 @@ public:
   VkPipelineLayout _trianglePipelineLayout;
   VkPipeline _trianglePipeline;
 
+  //
+  // Mesh Pipeline
+  //
+  VkPipelineLayout _meshPipelineLayout;
+  VkPipeline _meshPipeline;
+  GPUMeshBuffers rectangle;
+
 private:
   void init_vulkan();
   void init_swapchain();
@@ -152,9 +165,14 @@ private:
   void init_background_pipelines();
   void init_imgui();
   void init_triangle_pipeline();
+  void init_mesh_pipeline();
 
   void draw_background(VkCommandBuffer cmd);
   void draw_geometry(VkCommandBuffer cmd);
+  void init_default_data();
+
+  AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+  void destroy_buffer(const AllocatedBuffer& buffer);
 
   void create_swapchain(uint32_t width, uint32_t height);
   void destroy_swapchain();

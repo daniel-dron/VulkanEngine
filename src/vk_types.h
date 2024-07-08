@@ -2,6 +2,7 @@
 // or project specific include files.
 #pragma once
 
+#include "glm/ext/vector_float4.hpp"
 #include <memory>
 #include <optional>
 #include <string>
@@ -19,6 +20,7 @@
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
+#include <vulkan/vulkan_core.h>
 
 
 #define VK_CHECK(x)                                                     \
@@ -36,4 +38,31 @@ struct AllocatedImage {
     VmaAllocation allocation;
     VkExtent3D extent;
     VkFormat format;
+};
+
+struct AllocatedBuffer {
+    VkBuffer buffer;
+    VmaAllocation allocation;
+    VmaAllocationInfo info;
+};
+
+struct Vertex {
+    glm::vec3 position;
+    float uv_x;
+    glm::vec3 normal;
+    float uv_y;
+    glm::vec4 color;
+};
+
+// resources needed for a single mesh
+struct GPUMeshBuffers {
+    AllocatedBuffer indexBuffer;
+    AllocatedBuffer vertexBuffer;
+    VkDeviceAddress vertexBufferAddress;
+};
+
+// push constants for our mesh object to be drawn
+struct GPUDrawPushConstants {
+    glm::mat4 worldMatrix;
+    VkDeviceAddress vertexBuffer;
 };
