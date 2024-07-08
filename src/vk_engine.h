@@ -98,7 +98,8 @@ public:
   VkQueue _graphicsQueue;
   uint32_t _graphicsQueueFamily;
 
-  //
+  // Used as the color attachement for actual rendering
+  // will be copied into the final swapchain image
   AllocatedImage _drawImage;
   AllocatedImage _depthImage;
   VkExtent2D _drawExtent;
@@ -154,8 +155,6 @@ public:
   std::vector<std::shared_ptr<MeshAsset>> testMeshes;
 
 private:
-  bool resize_requested = false;
-
   void init_vulkan();
   void init_swapchain();
   void init_commands();
@@ -174,7 +173,7 @@ private:
                                 VmaMemoryUsage memoryUsage);
   void destroy_buffer(const AllocatedBuffer &buffer);
 
-  void create_swapchain(uint32_t width, uint32_t height);
-  void resize_swapchain();
+  void create_swapchain(uint32_t width, uint32_t height, VkSwapchainKHR old = VK_NULL_HANDLE);
+  void resize_swapchain(uint32_t width, uint32_t height);
   void destroy_swapchain();
 };

@@ -1,5 +1,7 @@
 ﻿//> includes
 #include "vk_engine.h"
+#include "SDL_events.h"
+#include "SDL_video.h"
 #include "fmt/core.h"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_transform.hpp"
@@ -10,6 +12,7 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
 
+#include <cassert>
 #include <cstring>
 #include <vk_images.h>
 #include <vk_initializers.h>
@@ -595,7 +598,7 @@ GPUMeshBuffers VulkanEngine::uploadMesh(std::span<uint32_t> indices,
   return newSurface;
 }
 
-void VulkanEngine::create_swapchain(uint32_t width, uint32_t height) {
+void VulkanEngine::create_swapchain(uint32_t width, uint32_t height, VkSwapchainKHR old) {
   vkb::SwapchainBuilder swapchainBuilder{_chosenGPU, _device, _surface};
 
   _swapchainImageFormat = VK_FORMAT_B8G8R8A8_SRGB;
@@ -607,6 +610,7 @@ void VulkanEngine::create_swapchain(uint32_t width, uint32_t height) {
               .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
           .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
           .set_desired_extent(width, height)
+          .set_old_swapchain(old)
           .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
           .build()
           .value();
@@ -617,19 +621,28 @@ void VulkanEngine::create_swapchain(uint32_t width, uint32_t height) {
   _swapchainExtent = {.width = width, .height = height};
 }
 
-void VulkanEngine::resize_swapchain() {
+void VulkanEngine::resize_swapchain(uint32_t width, uint32_t height) {
   vkDeviceWaitIdle(_device);
 
-  destroy_swapchain();
+  _windowExtent.width = width;
+  _windowExtent.height = height;
 
-  int w, h;
-  SDL_GetWindowSize(_window, &w, &h);
-  _windowExtent.width = w;
-  _windowExtent.height = h;
+  // save to delete them after creating the swap chain
+  auto old = _swapchain;
+  auto oldImagesViews = _swapchainImageViews;
 
-  create_swapchain(_windowExtent.width, _windowExtent.height);
+  create_swapchain(_windowExtent.width, _windowExtent.height, _swapchain);
+  
+  // recreate the swapchain semaphore since it has already been signaled by the vkAcquireNextImageKHR
+  vkDestroySemaphore(_device, get_current_frame()._swapchainSemaphore, nullptr);
+  auto semaphoreCreateInfo = vkinit::semaphore_create_info();
+  VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr,
+                               &get_current_frame()._swapchainSemaphore));
 
-  resize_requested = false;
+  vkDestroySwapchainKHR(_device, old, nullptr);
+  for (unsigned int i = 0; i < oldImagesViews.size(); i++) {
+    vkDestroyImageView(_device, oldImagesViews.at(i), nullptr);
+  }
 }
 
 void VulkanEngine::destroy_swapchain() {
@@ -692,11 +705,12 @@ void VulkanEngine::draw() {
                                       get_current_frame()._swapchainSemaphore,
                                       0, &swapchainImageIndex));
   if (e != VK_SUCCESS) {
-    fmt::println("acquire: {:x}", (uint32_t)e);
-    resize_requested = true;
     return;
   }
 
+  // Reset after acquire the next image from the swapchain
+  // Incase of error, this fence would never get passed to the queue, thus never
+  // triggering leaving us with a timeout next time we wait for fence
   VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._renderFence));
 
   _drawExtent.height =
@@ -798,11 +812,7 @@ void VulkanEngine::draw() {
 
   presentInfo.pImageIndices = &swapchainImageIndex;
 
-  e = (vkQueuePresentKHR(_graphicsQueue, &presentInfo));
-  if (e != VK_SUCCESS) {
-    fmt::println("present: {:x}", (uint32_t)e);
-    resize_requested = true;
-  }
+  vkQueuePresentKHR(_graphicsQueue, &presentInfo);
 
   // increase frame number for next loop
   _frameNumber++;
@@ -957,6 +967,13 @@ void VulkanEngine::run() {
         bQuit = true;
 
       if (e.type == SDL_WINDOWEVENT) {
+        if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED &&
+            e.window.data1 > 0 && e.window.data2 > 0) {
+          resize_swapchain(e.window.data1, e.window.data2);
+        }
+      }
+
+      if (e.type == SDL_WINDOWEVENT) {
         if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) {
           stop_rendering = true;
         }
@@ -971,11 +988,6 @@ void VulkanEngine::run() {
       // throttle the speed to avoid the endless spinning
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
       continue;
-    }
-
-    if (resize_requested) {
-      fmt::println("resizing!");
-      resize_swapchain();
     }
 
     ImGui_ImplVulkan_NewFrame();
