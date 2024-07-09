@@ -6,6 +6,7 @@
 #include "vk_descriptors.h"
 #include "vk_loader.h"
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <vk_types.h>
 #include <vulkan/vulkan_core.h>
@@ -96,6 +97,27 @@ struct GLTFMetallic_Roughness {
   write_material(VkDevice device, MaterialPass pass,
                  const MaterialResources &resources,
                  DescriptorAllocatorGrowable &descriptorAllocator);
+};
+
+struct RenderObject {
+  uint32_t indexCount;
+  uint32_t firstIndex;
+  VkBuffer indexBuffer;
+
+  MaterialInstance *material;
+
+  glm::mat4 transform;
+  VkDeviceAddress vertexBufferAddress;
+};
+
+struct DrawContext {
+  std::vector<RenderObject> OpaqueSurfaces;
+};
+
+struct MeshNode : public Node {
+  std::shared_ptr<MeshAsset> mesh;
+
+  virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
 };
 
 class VulkanEngine {
@@ -216,6 +238,9 @@ public:
   MaterialInstance defaultData;
   GLTFMetallic_Roughness metalRoughMaterial;
 
+  DrawContext mainDrawContext;
+  std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
+
 private:
   void init_vulkan();
   void init_swapchain();
@@ -231,6 +256,8 @@ private:
   void draw_geometry(VkCommandBuffer cmd);
   void init_default_data();
   void init_images();
+
+  void update_scene();
 
   //
   // resources
