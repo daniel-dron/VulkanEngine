@@ -37,6 +37,7 @@ struct FrameData {
   VkSemaphore _swapchainSemaphore, _renderSemaphore;
   VkFence _renderFence;
   DeletionQueue _deletionQueue;
+  DescriptorAllocatorGrowable _frameDescriptors;
 };
 constexpr unsigned int FRAME_OVERLAP = 2;
 
@@ -54,6 +55,15 @@ struct ComputeEffect {
   VkPipelineLayout layout;
 
   ComputePushConstants data;
+};
+
+struct GPUSceneData {
+  glm::mat4 view;
+  glm::mat4 proj;
+  glm::mat4 viewproj;
+  glm::vec4 ambientColor;
+  glm::vec4 sunlightDirection; // w for sun power
+  glm::vec4 sunlightColor;
 };
 
 class VulkanEngine {
@@ -154,6 +164,23 @@ public:
   VkPipeline _meshPipeline;
   std::vector<std::shared_ptr<MeshAsset>> testMeshes;
 
+  //
+  // scene
+  //
+  GPUSceneData sceneData;
+  VkDescriptorSetLayout _gpuSceneDataDescriptorLayout;
+
+  AllocatedImage _whiteImage;
+  AllocatedImage _blackImage;
+  AllocatedImage _greyImage;
+  AllocatedImage _errorCheckerboardImage;
+
+  VkSampler _defaultSamplerLinear;
+  VkSampler _defaultSamplerNearest;
+
+  // describes a descriptor set with only 1 texture input
+  VkDescriptorSetLayout _singleImageDescriptorLayout;
+
 private:
   void init_vulkan();
   void init_swapchain();
@@ -168,12 +195,22 @@ private:
   void draw_background(VkCommandBuffer cmd);
   void draw_geometry(VkCommandBuffer cmd);
   void init_default_data();
+  void init_images();
 
+  //
+  // resources
+  //
   AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage,
                                 VmaMemoryUsage memoryUsage);
   void destroy_buffer(const AllocatedBuffer &buffer);
+  AllocatedImage create_image(VkExtent3D size, VkFormat format,
+                              VkImageUsageFlags usage, bool mipmapped = false);
+  AllocatedImage create_image(void *data, VkExtent3D size, VkFormat format,
+                              VkImageUsageFlags usage, bool mipmapped = false);
+  void destroy_image(const AllocatedImage &img);
 
-  void create_swapchain(uint32_t width, uint32_t height, VkSwapchainKHR old = VK_NULL_HANDLE);
+  void create_swapchain(uint32_t width, uint32_t height,
+                        VkSwapchainKHR old = VK_NULL_HANDLE);
   void resize_swapchain(uint32_t width, uint32_t height);
   void destroy_swapchain();
 };
