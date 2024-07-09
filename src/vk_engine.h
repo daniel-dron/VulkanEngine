@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "SDL_stdinc.h"
 #include "vk_descriptors.h"
 #include "vk_loader.h"
 #include <cstdint>
@@ -64,6 +63,39 @@ struct GPUSceneData {
   glm::vec4 ambientColor;
   glm::vec4 sunlightDirection; // w for sun power
   glm::vec4 sunlightColor;
+};
+
+struct GLTFMetallic_Roughness {
+  MaterialPipeline opaquePipeline;
+  MaterialPipeline transparentPipeline;
+
+  VkDescriptorSetLayout materialLayout;
+
+  struct MaterialConstants {
+    glm::vec4 colorFactors;
+    glm::vec4 metal_rough_factors;
+    // padding?
+    glm::vec4 extra[14];
+  };
+
+  struct MaterialResources {
+    AllocatedImage colorImage;
+    VkSampler colorSampler;
+    AllocatedImage metalRoughImage;
+    VkSampler metalRoughSampler;
+    VkBuffer dataBuffer;
+    uint32_t dataBufferOffset;
+  };
+
+  DescriptorWriter writer;
+
+  void build_pipelines(VulkanEngine *engine);
+  void clear_resources(VkDevice device);
+
+  MaterialInstance
+  write_material(VkDevice device, MaterialPass pass,
+                 const MaterialResources &resources,
+                 DescriptorAllocatorGrowable &descriptorAllocator);
 };
 
 class VulkanEngine {
@@ -136,7 +168,7 @@ public:
   //
   // descriptors
   //
-  DescriptorAllocator globalDescriptorAllocator;
+  DescriptorAllocatorGrowable globalDescriptorAllocator;
 
   VkDescriptorSet _drawImageDescriptors;
   VkDescriptorSetLayout _drawImageDescriptorLayout;
@@ -180,6 +212,9 @@ public:
 
   // describes a descriptor set with only 1 texture input
   VkDescriptorSetLayout _singleImageDescriptorLayout;
+
+  MaterialInstance defaultData;
+  GLTFMetallic_Roughness metalRoughMaterial;
 
 private:
   void init_vulkan();
