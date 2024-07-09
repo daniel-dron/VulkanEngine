@@ -5,6 +5,7 @@
 
 #include "vk_descriptors.h"
 #include "vk_loader.h"
+#include "camera.h"
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -241,6 +242,7 @@ public:
   DrawContext mainDrawContext;
   std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
 
+  Camera mainCamera;
 private:
   void init_vulkan();
   void init_swapchain();
