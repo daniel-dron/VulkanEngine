@@ -243,6 +243,7 @@ public:
   // scene
   //
   GPUSceneData sceneData;
+  bool enableFrustumCulling = true;
   VkDescriptorSetLayout _gpuSceneDataDescriptorLayout;
 
   AllocatedImage _whiteImage;

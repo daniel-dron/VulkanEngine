@@ -54,7 +54,7 @@ void VulkanEngine::init() {
 		_windowExtent.height, window_flags);
 
 	// SDL_ShowCursor(SDL_DISABLE);
-	// SDL_SetRelativeMouseMode(SDL_TRUE);
+	//SDL_SetRelativeMouseMode(SDL_TRUE);
 
 	init_vulkan();
 
@@ -748,7 +748,7 @@ void VulkanEngine::create_swapchain(uint32_t width, uint32_t height,
 		.set_desired_format(VkSurfaceFormatKHR{
 			.format = _swapchainImageFormat,
 			.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
-			.set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
+			.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
 		.set_desired_extent(width, height)
 		.set_old_swapchain(old)
 		.add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
@@ -1052,7 +1052,13 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd) {
 	opaque_draws.reserve(mainDrawContext.OpaqueSurfaces.size());
 
 	for (uint32_t i = 0; i < mainDrawContext.OpaqueSurfaces.size(); i++) {
-		if (is_visible(mainDrawContext.OpaqueSurfaces[i], sceneData.viewproj)) {
+		if (enableFrustumCulling) {
+			auto& viewproj = sceneData.viewproj;
+			if (is_visible(mainDrawContext.OpaqueSurfaces[i], viewproj)) {
+				opaque_draws.push_back(i);
+			}
+		}
+		else {
 			opaque_draws.push_back(i);
 		}
 	}
@@ -1376,6 +1382,12 @@ void VulkanEngine::run() {
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
 		{
+			if (ImGui::Begin("Settings")) {
+				ImGui::SeparatorText("Frustum Culling");
+				ImGui::Checkbox("Enable", &enableFrustumCulling);
+			}
+			ImGui::End();
+
 			if (ImGui::Begin("background")) {
 				ImGui::SliderFloat("Render Scale", &renderScale, 0.3f, 1.f);
 				ComputeEffect& selected = backgroundEffects[currentBackgroundEffect];
