@@ -122,7 +122,7 @@ VkPipeline vkutil::PipelineBuilder::build_pipeline(VkDevice device) {
   VkPipeline newPipeline;
   if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo,
                                 nullptr, &newPipeline) != VK_SUCCESS) {
-    fmt::println("failed to create pipeline");
+    // fmt::println("failed to create pipeline");
     return VK_NULL_HANDLE; // failed to create graphics pipeline
   } else {
     return newPipeline;

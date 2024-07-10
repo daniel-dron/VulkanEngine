@@ -108,7 +108,7 @@ struct RenderObject {
   VkBuffer indexBuffer;
 
   MaterialInstance *material;
-
+  Bounds bounds;
   glm::mat4 transform;
   VkDeviceAddress vertexBufferAddress;
 };

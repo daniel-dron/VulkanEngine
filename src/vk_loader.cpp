@@ -18,20 +18,18 @@
 #include <fastgltf/glm_element_traits.hpp>
 #include <fastgltf/parser.hpp>
 #include <fastgltf/tools.hpp>
-#include <vulkan/vulkan_core.h>
-#include <xcb/xproto.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 std::optional<std::vector<std::shared_ptr<MeshAsset>>>
 loadGltfMeshes(VulkanEngine *engine, std::filesystem::path filePath) {
-  fmt::println("Loading GLTF: {}", filePath.c_str());
+  //fmt::println("Loading GLTF: {}", filePath.c_str());
 
   fastgltf::GltfDataBuffer data;
   data.loadFromFile(filePath);
 
-  fmt::println("Size: {}", data.getBufferSize());
+  // fmt::println("Size: {}", data.getBufferSize());
 
   constexpr auto gltfOptions = fastgltf::Options::LoadGLBBuffers |
                                fastgltf::Options::LoadExternalBuffers;
@@ -43,8 +41,8 @@ loadGltfMeshes(VulkanEngine *engine, std::filesystem::path filePath) {
   if (load) {
     gltf = std::move(load.get());
   } else {
-    fmt::println("Failed to load glTF: {}",
-                 fastgltf::to_underlying(load.error()));
+    // fmt::println("Failed to load glTF: {}",
+    //             fastgltf::to_underlying(load.error()));
     return {};
   }
 
@@ -458,6 +456,17 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine *engine,
         newSurface.material = materials[0];
       }
 
+      glm::vec3 minpos = vertices[initial_vtx].position;
+      glm::vec3 maxpos = vertices[initial_vtx].position;
+      for (int i = initial_vtx; i < vertices.size(); i++) {
+          minpos = glm::min(minpos, vertices[i].position);
+          maxpos = glm::max(maxpos, vertices[i].position);
+      }
+      // calculate origin and extents from the min/max, use extent lenght for radius
+      newSurface.bounds.origin = (maxpos + minpos) / 2.f;
+      newSurface.bounds.extents = (maxpos - minpos) / 2.f;
+      newSurface.bounds.sphereRadius = glm::length(newSurface.bounds.extents);
+
       newmesh->surfaces.push_back(newSurface);
     }
 
@@ -552,7 +561,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine *engine,
 
               newImage = engine->create_image(
                   data, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
-                  VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                  VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
               stbi_image_free(data);
             }
@@ -569,7 +578,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine *engine,
 
               newImage = engine->create_image(
                   data, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
-                  VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                  VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
               stbi_image_free(data);
             }
@@ -596,7 +605,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine *engine,
 
                                newImage = engine->create_image(
                                    data, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
-                                   VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                                   VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                                stbi_image_free(data);
                              }
