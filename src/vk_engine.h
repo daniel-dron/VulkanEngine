@@ -3,9 +3,9 @@
 
 #pragma once
 
+#include "camera.h"
 #include "vk_descriptors.h"
 #include "vk_loader.h"
-#include "camera.h"
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -67,6 +67,8 @@ struct GPUSceneData {
   glm::vec4 sunlightColor;
 };
 
+class VulkanEngine;
+
 struct GLTFMetallic_Roughness {
   MaterialPipeline opaquePipeline;
   MaterialPipeline transparentPipeline;
@@ -85,7 +87,7 @@ struct GLTFMetallic_Roughness {
     VkSampler colorSampler;
     AllocatedImage metalRoughImage;
     VkSampler metalRoughSampler;
-    VkBuffer dataBuffer;
+    VkBuffer dataBuffer; // material constants
     uint32_t dataBufferOffset;
   };
 
@@ -113,6 +115,7 @@ struct RenderObject {
 
 struct DrawContext {
   std::vector<RenderObject> OpaqueSurfaces;
+  std::vector<RenderObject> TransparentSurfaces;
 };
 
 struct MeshNode : public Node {
@@ -121,12 +124,21 @@ struct MeshNode : public Node {
   virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
 };
 
+struct EngineStats {
+  float frametime;
+  int triangle_count;
+  int drawcall_count;
+  float scene_update_time;
+  float mesh_draw_time;
+};
+
 class VulkanEngine {
 public:
   bool _isInitialized{false};
   int _frameNumber{0};
   bool stop_rendering{false};
   VkExtent2D _windowExtent{1700, 900};
+  EngineStats stats;
 
   struct SDL_Window *_window{nullptr};
 
@@ -146,6 +158,14 @@ public:
 
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)> &&function);
   void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
+  AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage,
+                                VmaMemoryUsage memoryUsage);
+  void destroy_buffer(const AllocatedBuffer &buffer);
+  AllocatedImage create_image(VkExtent3D size, VkFormat format,
+                              VkImageUsageFlags usage, bool mipmapped = false);
+  AllocatedImage create_image(void *data, VkExtent3D size, VkFormat format,
+                              VkImageUsageFlags usage, bool mipmapped = false);
+  void destroy_image(const AllocatedImage &img);
 
   // mesh
   GPUMeshBuffers uploadMesh(std::span<uint32_t> indices,
@@ -242,7 +262,9 @@ public:
   DrawContext mainDrawContext;
   std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
 
+  std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
   Camera mainCamera;
+
 private:
   void init_vulkan();
   void init_swapchain();
@@ -264,15 +286,6 @@ private:
   //
   // resources
   //
-  AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage,
-                                VmaMemoryUsage memoryUsage);
-  void destroy_buffer(const AllocatedBuffer &buffer);
-  AllocatedImage create_image(VkExtent3D size, VkFormat format,
-                              VkImageUsageFlags usage, bool mipmapped = false);
-  AllocatedImage create_image(void *data, VkExtent3D size, VkFormat format,
-                              VkImageUsageFlags usage, bool mipmapped = false);
-  void destroy_image(const AllocatedImage &img);
-
   void create_swapchain(uint32_t width, uint32_t height,
                         VkSwapchainKHR old = VK_NULL_HANDLE);
   void resize_swapchain(uint32_t width, uint32_t height);
