@@ -34,6 +34,10 @@
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 
+#define TRACY_ENABLE
+#include "tracy/tracy/Tracy.hpp"
+#include "tracy/TracyClient.cpp"
+
 VulkanEngine* loadedEngine = nullptr;
 constexpr bool bUseValidationLayers = false;
 
@@ -52,9 +56,6 @@ void VulkanEngine::init() {
 	_window = SDL_CreateWindow("Vulkan Engine", SDL_WINDOWPOS_UNDEFINED,
 		SDL_WINDOWPOS_UNDEFINED, _windowExtent.width,
 		_windowExtent.height, window_flags);
-
-	// SDL_ShowCursor(SDL_DISABLE);
-	//SDL_SetRelativeMouseMode(SDL_TRUE);
 
 	init_vulkan();
 
@@ -320,17 +321,7 @@ void VulkanEngine::init_descriptors() {
 			_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 			nullptr);
 	}
-	{
-		DescriptorLayoutBuilder builder;
-		builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		_singleImageDescriptorLayout =
-			builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
-		_mainDeletionQueue.push_function([&]() {
-			vkDestroyDescriptorSetLayout(_device, _singleImageDescriptorLayout,
-				nullptr);
-			});
-	}
-
+	
 	// make sure both the descriptor allocator and the new layout get cleaned up
 	// properly
 	_mainDeletionQueue.push_function([&]() {
@@ -343,9 +334,6 @@ void VulkanEngine::init_descriptors() {
 void VulkanEngine::init_pipelines() {
 	// compute
 	init_background_pipelines();
-
-	// graphics
-	init_mesh_pipeline();
 
 	metalRoughMaterial.build_pipelines(this);
 }
@@ -493,75 +481,6 @@ void VulkanEngine::init_imgui() {
 	_mainDeletionQueue.push_function([&, imguiPool]() {
 		ImGui_ImplVulkan_Shutdown();
 		vkDestroyDescriptorPool(_device, imguiPool, nullptr);
-		});
-}
-
-void VulkanEngine::init_mesh_pipeline() {
-	VkShaderModule triangleFragShader;
-	if (!vkutil::load_shader_module("../../shaders/tex_image.frag.spv", _device,
-		&triangleFragShader)) {
-		fmt::println("Error when building the triangle fragment shader module");
-	}
-	else {
-		fmt::println("Triangle fragment shader succesfully loaded");
-	}
-
-	VkShaderModule triangleVertexShader;
-	if (!vkutil::load_shader_module("../../shaders/colored_triangle_mesh.vert.spv",
-		_device, &triangleVertexShader)) {
-		fmt::println("Error when building the triangle vertex shader module");
-	}
-	else {
-		fmt::println("Triangle vertex shader succesfully loaded");
-	}
-
-	VkPushConstantRange bufferRange{};
-	bufferRange.offset = 0;
-	bufferRange.size = sizeof(GPUDrawPushConstants);
-	bufferRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-	VkPipelineLayoutCreateInfo pipeline_layout_info =
-		vkinit::pipeline_layout_create_info();
-	pipeline_layout_info.pPushConstantRanges = &bufferRange;
-	pipeline_layout_info.pushConstantRangeCount = 1;
-	pipeline_layout_info.pSetLayouts = &_singleImageDescriptorLayout;
-	pipeline_layout_info.setLayoutCount = 1;
-
-	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr,
-		&_meshPipelineLayout));
-
-	vkutil::PipelineBuilder pipelineBuilder;
-	// use the triangle layout we created
-	pipelineBuilder._pipelineLayout = _meshPipelineLayout;
-	// connecting the vertex and pixel shaders to the pipeline
-	pipelineBuilder.set_shaders(triangleVertexShader, triangleFragShader);
-	// it will draw triangles
-	pipelineBuilder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-	// filled triangles
-	pipelineBuilder.set_polygon_mode(VK_POLYGON_MODE_FILL);
-	// no backface culling
-	pipelineBuilder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-	// no multisampling
-	pipelineBuilder.set_multisampling_none();
-	// blending
-	pipelineBuilder.disable_blending();
-	// depth testing
-	pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-
-	// connect the image format we will draw into, from draw image
-	pipelineBuilder.set_color_attachment_format(_drawImage.format);
-	pipelineBuilder.set_depth_format(_depthImage.format);
-
-	// finally build the pipeline
-	_meshPipeline = pipelineBuilder.build_pipeline(_device);
-
-	// clean structures
-	vkDestroyShaderModule(_device, triangleFragShader, nullptr);
-	vkDestroyShaderModule(_device, triangleVertexShader, nullptr);
-
-	_mainDeletionQueue.push_function([&]() {
-		vkDestroyPipelineLayout(_device, _meshPipelineLayout, nullptr);
-		vkDestroyPipeline(_device, _meshPipeline, nullptr);
 		});
 }
 
@@ -812,11 +731,6 @@ void VulkanEngine::cleanup() {
 			_frames[i]._deletionQueue.flush();
 		}
 
-		for (auto& mesh : testMeshes) {
-			destroy_buffer(mesh->meshBuffers.indexBuffer);
-			destroy_buffer(mesh->meshBuffers.vertexBuffer);
-		}
-
 		vkDestroyDescriptorSetLayout(_device, _gpuSceneDataDescriptorLayout,
 			nullptr);
 
@@ -840,27 +754,31 @@ void VulkanEngine::cleanup() {
 }
 
 void VulkanEngine::draw() {
+	ZoneScopedN("draw");
 	update_scene();
 
-	// wait for last frame rendering phase. 1 sec timeout
-	VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true,
-		1000000000));
-
-	get_current_frame()._deletionQueue.flush();
-	get_current_frame()._frameDescriptors.clear_pools(_device);
-
 	uint32_t swapchainImageIndex;
-	VkResult e = (vkAcquireNextImageKHR(_device, _swapchain, 1000000000,
-		get_current_frame()._swapchainSemaphore,
-		0, &swapchainImageIndex));
-	if (e != VK_SUCCESS) {
-		return;
-	}
+	{
+		ZoneScopedN("vsync");
+		// wait for last frame rendering phase. 1 sec timeout
+		VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true,
+			1000000000));
 
-	// Reset after acquire the next image from the swapchain
-	// Incase of error, this fence would never get passed to the queue, thus never
-	// triggering leaving us with a timeout next time we wait for fence
-	VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._renderFence));
+		get_current_frame()._deletionQueue.flush();
+		get_current_frame()._frameDescriptors.clear_pools(_device);
+
+		VkResult e = (vkAcquireNextImageKHR(_device, _swapchain, 1000000000,
+			get_current_frame()._swapchainSemaphore,
+			0, &swapchainImageIndex));
+		if (e != VK_SUCCESS) {
+			return;
+		}
+
+		// Reset after acquire the next image from the swapchain
+		// Incase of error, this fence would never get passed to the queue, thus never
+		// triggering leaving us with a timeout next time we wait for fence
+		VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._renderFence));
+	}
 
 	_drawExtent.height =
 		std::min(_swapchainExtent.height, _drawImage.extent.height) * renderScale;
@@ -968,6 +886,7 @@ void VulkanEngine::draw() {
 }
 
 void VulkanEngine::draw_background(VkCommandBuffer cmd) {
+	ZoneScopedN("draw_background");
 	// flash color 120 frames period
 	VkClearColorValue clearValue;
 	float flash = std::abs(std::sin(_frameNumber / 120.0f));
@@ -1039,6 +958,8 @@ bool is_visible(const RenderObject& obj, const glm::mat4& viewproj) {
 }
 
 void VulkanEngine::draw_geometry(VkCommandBuffer cmd) {
+	ZoneScopedN("draw_geometry");
+
 	// reset counters
 	stats.drawcall_count = 0;
 	stats.triangle_count = 0;
@@ -1050,31 +971,33 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd) {
 	//
 	std::vector<uint32_t> opaque_draws;
 	opaque_draws.reserve(mainDrawContext.OpaqueSurfaces.size());
-
-	for (uint32_t i = 0; i < mainDrawContext.OpaqueSurfaces.size(); i++) {
-		if (enableFrustumCulling) {
-			auto& viewproj = sceneData.viewproj;
-			if (is_visible(mainDrawContext.OpaqueSurfaces[i], viewproj)) {
+	{
+		ZoneScopedN("order");
+		for (uint32_t i = 0; i < mainDrawContext.OpaqueSurfaces.size(); i++) {
+			if (enableFrustumCulling) {
+				auto& viewproj = sceneData.viewproj;
+				if (is_visible(mainDrawContext.OpaqueSurfaces[i], viewproj)) {
+					opaque_draws.push_back(i);
+				}
+			}
+			else {
 				opaque_draws.push_back(i);
 			}
 		}
-		else {
-			opaque_draws.push_back(i);
-		}
+
+		std::sort(opaque_draws.begin(), opaque_draws.end(),
+			[&](const auto& iA, const auto& iB) {
+				const RenderObject& A = mainDrawContext.OpaqueSurfaces[iA];
+				const RenderObject& B = mainDrawContext.OpaqueSurfaces[iB];
+
+				if (A.material == B.material) {
+					return A.indexBuffer < B.indexBuffer;
+				}
+				else {
+					return A.material < B.material;
+				}
+			});
 	}
-
-	std::sort(opaque_draws.begin(), opaque_draws.end(),
-		[&](const auto& iA, const auto& iB) {
-			const RenderObject& A = mainDrawContext.OpaqueSurfaces[iA];
-			const RenderObject& B = mainDrawContext.OpaqueSurfaces[iB];
-
-			if (A.material == B.material) {
-				return A.indexBuffer < B.indexBuffer;
-			}
-			else {
-				return A.material < B.material;
-			}
-		});
 
 	//
 	// scene buffers setup
@@ -1173,12 +1096,15 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd) {
 		stats.triangle_count += r.indexCount / 3;
 		};
 
-	for (auto& r : opaque_draws) {
-		draw(mainDrawContext.OpaqueSurfaces[r]);
-	}
+	{
+		ZoneScopedN("render");
+		for (auto& r : opaque_draws) {
+			draw(mainDrawContext.OpaqueSurfaces[r]);
+		}
 
-	for (auto& r : mainDrawContext.TransparentSurfaces) {
-		draw(r);
+		for (auto& r : mainDrawContext.TransparentSurfaces) {
+			draw(r);
+		}
 	}
 
 	vkCmdEndRendering(cmd);
@@ -1192,52 +1118,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd) {
 }
 
 void VulkanEngine::init_default_data() {
-	testMeshes = loadGltfMeshes(this, "../../assets/basicmesh.glb").value();
 	init_images();
-
-	//
-	/// Create default GLTF material
-	//
-	GLTFMetallic_Roughness::MaterialResources materialResources;
-	// default the material textures
-	materialResources.colorImage = _errorCheckerboardImage;
-	materialResources.colorSampler = _defaultSamplerNearest;
-	materialResources.metalRoughImage = _whiteImage;
-	materialResources.metalRoughSampler = _defaultSamplerLinear;
-
-	// set the uniform buffer for the material data
-	AllocatedBuffer materialConstants = create_buffer(
-		sizeof(GLTFMetallic_Roughness::MaterialConstants),
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-	// write the buffer
-	GLTFMetallic_Roughness::MaterialConstants* sceneUniformData =
-		(GLTFMetallic_Roughness::MaterialConstants*)
-		materialConstants.allocation->GetMappedData();
-	sceneUniformData->colorFactors = glm::vec4{ 1, 1, 1, 1 };
-	sceneUniformData->metal_rough_factors = glm::vec4{ 1, 0.5, 0, 0 };
-
-	_mainDeletionQueue.push_function(
-		[=, this]() { destroy_buffer(materialConstants); });
-	materialResources.dataBuffer = materialConstants.buffer;
-	materialResources.dataBufferOffset = 0;
-	defaultData = metalRoughMaterial.write_material(
-		_device, MaterialPass::MainColor, materialResources,
-		globalDescriptorAllocator);
-
-	for (auto& m : testMeshes) {
-		std::shared_ptr<MeshNode> newNode = std::make_shared<MeshNode>();
-		newNode->mesh = m;
-
-		newNode->localTransform = glm::mat4{ 1.f };
-		newNode->worldTransform = glm::mat4{ 1.f };
-
-		for (auto& s : newNode->mesh->surfaces) {
-			s.material = std::make_shared<GLTFMaterial>(defaultData);
-		}
-
-		loadedNodes[m->name] = std::move(newNode);
-	}
 }
 
 void VulkanEngine::init_images() {
@@ -1342,6 +1223,7 @@ void VulkanEngine::run() {
 
 	// main loop
 	while (!bQuit) {
+		FrameMarkNamed("main");
 		// begin clock
 		auto start = std::chrono::system_clock::now();
 
@@ -1462,21 +1344,13 @@ void VulkanEngine::immediateSubmit(
 }
 
 void VulkanEngine::update_scene() {
+	ZoneScopedN("update_scene");
 	auto start = std::chrono::system_clock::now();
 
 	mainDrawContext.OpaqueSurfaces.clear();
 	mainDrawContext.TransparentSurfaces.clear();
 
 	loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
-
-	loadedNodes["Suzanne"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
-
-	for (int x = -3; x < 3; x++) {
-		glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3{ 0.2 });
-		glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3{ x, 1, 0 });
-
-		loadedNodes["Cube"]->Draw(translation * scale, mainDrawContext);
-	}
 
 	mainCamera.update();
 	sceneData.view = mainCamera.getViewMatrix();

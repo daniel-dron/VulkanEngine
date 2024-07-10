@@ -40,7 +40,7 @@ struct FrameData {
   DeletionQueue _deletionQueue;
   DescriptorAllocatorGrowable _frameDescriptors;
 };
-constexpr unsigned int FRAME_OVERLAP = 2;
+constexpr unsigned int FRAME_OVERLAP = 3;
 
 struct ComputePushConstants {
   glm::vec4 data1;
@@ -132,6 +132,7 @@ struct EngineStats {
   float mesh_draw_time;
 };
 
+/// @brief This is the main Vulkan Engine class
 class VulkanEngine {
 public:
   bool _isInitialized{false};
@@ -144,7 +145,7 @@ public:
 
   static VulkanEngine &Get();
 
-  // initializes everything in the engine
+  /// @brief This is the init function!
   void init();
 
   // shuts down the engine
@@ -167,9 +168,11 @@ public:
                               VkImageUsageFlags usage, bool mipmapped = false);
   void destroy_image(const AllocatedImage &img);
 
-  // mesh
-  GPUMeshBuffers uploadMesh(std::span<uint32_t> indices,
-                            std::span<Vertex> vertices);
+  /// @brief Uploads mesh data to gpu buffers
+  /// @param indices list of indices in uint32_t format
+  /// @param vertices list of vertices
+  /// @return returns a struct containing the allocated index and vertex buffer and its corresponding gpu address
+  GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 
   // vulkan stuff
   VkInstance _instance;
@@ -231,14 +234,7 @@ public:
 
   std::vector<ComputeEffect> backgroundEffects;
   int currentBackgroundEffect{0};
-
-  //
-  // Mesh Pipeline
-  //
-  VkPipelineLayout _meshPipelineLayout;
-  VkPipeline _meshPipeline;
-  std::vector<std::shared_ptr<MeshAsset>> testMeshes;
-
+  
   //
   // scene
   //
@@ -254,14 +250,10 @@ public:
   VkSampler _defaultSamplerLinear;
   VkSampler _defaultSamplerNearest;
 
-  // describes a descriptor set with only 1 texture input
-  VkDescriptorSetLayout _singleImageDescriptorLayout;
-
   MaterialInstance defaultData;
   GLTFMetallic_Roughness metalRoughMaterial;
 
   DrawContext mainDrawContext;
-  std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
 
   std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
   Camera mainCamera;
@@ -275,7 +267,6 @@ private:
   void init_pipelines();
   void init_background_pipelines();
   void init_imgui();
-  void init_mesh_pipeline();
 
   void draw_background(VkCommandBuffer cmd);
   void draw_geometry(VkCommandBuffer cmd);
