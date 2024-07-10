@@ -15,8 +15,10 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <vk_images.h>
 #include <vk_initializers.h>
@@ -1010,6 +1012,28 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd) {
   auto start = std::chrono::system_clock::now();
 
   //
+  // sort opaque surfaces by material and mesh
+  //
+  std::vector<uint32_t> opaque_draws;
+  opaque_draws.reserve(mainDrawContext.OpaqueSurfaces.size());
+
+  for (uint32_t i = 0; i < mainDrawContext.OpaqueSurfaces.size(); i++) {
+    opaque_draws.push_back(i);
+  }
+
+  std::sort(opaque_draws.begin(), opaque_draws.end(),
+            [&](const auto &iA, const auto &iB) {
+              const RenderObject &A = mainDrawContext.OpaqueSurfaces[iA];
+              const RenderObject &B = mainDrawContext.OpaqueSurfaces[iB];
+
+              if (A.material == B.material) {
+                return A.indexBuffer < B.indexBuffer;
+              } else {
+                return A.material < B.material;
+              }
+            });
+
+  //
   // scene buffers setup
   //
   auto gpuSceneDataBuffer =
@@ -1106,8 +1130,8 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd) {
     stats.triangle_count += r.indexCount / 3;
   };
 
-  for (auto &r : mainDrawContext.OpaqueSurfaces) {
-    draw(r);
+  for (auto &r : opaque_draws) {
+    draw(mainDrawContext.OpaqueSurfaces[r]);
   }
 
   for (auto &r : mainDrawContext.TransparentSurfaces) {
