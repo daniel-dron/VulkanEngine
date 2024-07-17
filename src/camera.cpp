@@ -156,38 +156,3 @@ void FirstPersonFlyingController::draw_debug()
   ImGui::DragFloat("Sensitivity", &sensitivity, 0.01f);
   ImGui::DragFloat("Move Speed", &move_speed, 0.01f);
 }
-
-void DroneController::update(float deltaTime)
-{
-  if (EG_INPUT.is_key_down(EG_KEY::MOUSE_LEFT))
-  {
-    if (!isDragging)
-    {
-      isDragging = true;
-      auto pos = EG_INPUT.get_mouse_pos();
-      lastMousePosition = {pos.first, pos.second};
-    }
-    else
-    {
-      auto pos = EG_INPUT.get_mouse_pos();
-      glm::vec2 currentMousePosition = {pos.first, pos.second};
-      float deltaX = currentMousePosition.x - lastMousePosition.x;
-      float deltaY = currentMousePosition.y - lastMousePosition.y;
-
-      float deltaYaw = deltaX * sensitivity;
-      float deltaPitch = deltaY * sensitivity;
-
-      camera->rotateAroundPoint(centerPoint, deltaYaw, deltaPitch);
-
-      lastMousePosition = currentMousePosition;
-    }
-  }
-  else
-  {
-    isDragging = false;
-  }
-}
-
-void DroneController::draw_debug()
-{
-}

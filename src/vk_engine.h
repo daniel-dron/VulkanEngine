@@ -275,7 +275,6 @@ public:
   std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
   Camera3D camera;
   std::unique_ptr<FirstPersonFlyingController> fps_controller;
-  std::unique_ptr<DroneController> drone_controller;
   CameraController* camera_controller;
 
 private:

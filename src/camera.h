@@ -55,18 +55,3 @@ private:
   float sensitivity;
   float move_speed;
 };
-
-class DroneController : public CameraController
-{
-public:
-  DroneController(Camera3D *cam) : CameraController(cam) {}
-
-  virtual void update(float deltaTime) override;
-  virtual void draw_debug() override;
-
-private:
-  float sensitivity = 0.1f;
-  bool isDragging = false;
-  glm::vec2 lastMousePosition;
-  glm::vec3 centerPoint = glm::vec3(0.0f);
-};
