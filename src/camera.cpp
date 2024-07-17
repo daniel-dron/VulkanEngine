@@ -111,6 +111,11 @@ void Camera3D::draw_debug()
 
 void FirstPersonFlyingController::update(float deltaTime)
 {
+  if (EG_INPUT.is_key_up(EG_KEY::MOUSE_RIGHT))
+  {
+    return;
+  }
+
   glm::vec3 movement(0.0f);
 
   if (EG_INPUT.is_key_down(EG_KEY::W))

@@ -68,8 +68,8 @@ void VulkanEngine::init()
 	// init camera
 	fps_controller = std::make_unique<FirstPersonFlyingController>(&camera, 0.1f, 5.0f);
 	drone_controller = std::make_unique<DroneController>(&camera);
-	camera_controller = drone_controller.get();
-	camera.setPosition({0.0f, 0.0f, 200.0f});
+	camera_controller = fps_controller.get();
+	camera.setPosition({0.0f, 0.0f, 100.0f});
 
 	// everything went fine
 	_isInitialized = true;
