@@ -69,10 +69,7 @@ void VulkanEngine::init()
 	loadedScenes["structure"] = *structureFile;
 
 	// init camera
-	mainCamera.velocity = glm::vec3(0.f);
-	mainCamera.position = glm::vec3(30.f, -00.f, -085.f);
-	mainCamera.pitch = 0;
-	mainCamera.yaw = 0;
+	fps_controller = std::make_unique<FirstPersonFlyingController>(&camera, 0.1f, 5.0f);
 
 	// everything went fine
 	_isInitialized = true;
@@ -1307,15 +1304,15 @@ void VulkanEngine::run()
 			EG_INPUT.poll_events();
 		}
 
-		if (EG_INPUT.should_quit())
-			bQuit = true;
-
-		mainCamera.update();
-
-		if (EG_INPUT.was_key_pressed(EG_KEY::ESCAPE))
-		{
+		if (EG_INPUT.should_quit()) {
 			bQuit = true;
 		}
+
+		if (EG_INPUT.was_key_pressed(EG_KEY::ESCAPE)) {
+			bQuit = true;
+		}
+
+		fps_controller->update(1.0f / 165.0f);
 
 		// do not draw if we are minimized
 		if (stop_rendering)
@@ -1430,8 +1427,7 @@ void VulkanEngine::update_scene()
 
 	loadedScenes["structure"]->Draw(glm::mat4{1.f}, mainDrawContext);
 
-	// mainCamera.update();
-	sceneData.view = mainCamera.getViewMatrix();
+	sceneData.view = camera.getViewMatrix();
 	// camera projection
 	sceneData.proj = glm::perspective(
 		glm::radians(70.f),

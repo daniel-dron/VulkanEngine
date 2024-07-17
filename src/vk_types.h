@@ -21,6 +21,7 @@
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <vulkan/vulkan_core.h>
 
 #define VK_CHECK(x)                                                            \

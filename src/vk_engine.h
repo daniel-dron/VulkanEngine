@@ -275,7 +275,8 @@ public:
   DrawContext mainDrawContext;
 
   std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
-  Camera mainCamera;
+  Camera3D camera;
+  std::unique_ptr<FirstPersonFlyingController> fps_controller;
 
 private:
   /// @brief Initializes SDL context and creates SDL window
