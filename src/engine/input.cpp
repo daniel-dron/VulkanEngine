@@ -96,6 +96,8 @@ void Input::process_sdl_event(SDL_Event &e)
     {
         xrel += e.motion.xrel;
         yrel += e.motion.yrel;
+        x = e.motion.x;
+        y = e.motion.y;
     }
     break;
     case SDL_KEYDOWN:
@@ -110,6 +112,24 @@ void Input::process_sdl_event(SDL_Event &e)
     case SDL_KEYUP:
     {
         auto code = translation_lut[e.key.keysym.scancode];
+        auto &key = keys.at(static_cast<uint32_t>(code));
+        key.half_count += 1;
+        key.just_released = !key.just_released && key.is_down;
+        key.is_down = false;
+    }
+    break;
+    case SDL_MOUSEBUTTONDOWN:
+    {
+        auto code = translation_lut[e.button.button];
+        auto &key = keys.at(static_cast<uint32_t>(code));
+        key.half_count += 1;
+        key.just_pressed = !key.just_pressed && !key.is_down;
+        key.is_down = true;
+    }
+    break;
+    case SDL_MOUSEBUTTONUP:
+    {
+        auto code = translation_lut[e.button.button];
         auto &key = keys.at(static_cast<uint32_t>(code));
         key.half_count += 1;
         key.just_released = !key.just_released && key.is_down;
@@ -144,6 +164,11 @@ bool Input::was_key_released(EG_KEY key)
 std::pair<int32_t, int32_t> Input::get_mouse_rel()
 {
     return {xrel, yrel};
+}
+
+std::pair<int32_t, int32_t> Input::get_mouse_pos()
+{
+    return {x, y};
 }
 
 bool Input::should_quit()

@@ -3,21 +3,51 @@
 #include <glm/gtx/quaternion.hpp>
 
 #include "engine/input.h"
+#include <imgui.h>
 
 void Camera3D::rotate(float deltaYaw, float deltaPitch, float deltaRoll)
 {
   // Update Euler angles
-  yaw += deltaYaw;
-  pitch += deltaPitch;
-  roll += deltaRoll;
+  euler.y += deltaYaw;
+  euler.x += deltaPitch;
+  euler.z += deltaRoll;
 
+  updateQuaternions();
+}
+
+void Camera3D::rotateAroundPoint(const glm::vec3 &center, float deltaYaw, float deltaPitch)
+{
+  // Translate to origin
+  auto orig_position = position;
+  position = center;
+
+  // Apply rotation
+  glm::quat qYaw = glm::angleAxis(glm::radians(deltaYaw), glm::vec3(0, 1, 0));
+  glm::quat qPitch = glm::angleAxis(glm::radians(deltaPitch), glm::vec3(1, 0, 0));
+  glm::quat rotation = qYaw * qPitch;
+
+  position = rotation * position;
+  orientation = rotation * orientation;
+
+  // Translate back to center
+  position = orig_position;
+
+  // Update Euler angles
+  glm::vec3 eulerAngles = glm::eulerAngles(orientation);
+  euler.x = glm::degrees(eulerAngles.y);
+  euler.y = glm::degrees(eulerAngles.x);
+  euler.z = glm::degrees(eulerAngles.z);
+}
+
+void Camera3D::updateQuaternions()
+{
   // Clamp pitch to avoid gimbal lock
-  pitch = glm::clamp(pitch, -89.0f, 89.0f);
+  euler.x = glm::clamp(euler.x, -89.0f, 89.0f);
 
   // Convert Euler angles to quaternion
-  glm::quat qYaw = glm::angleAxis(glm::radians(yaw), glm::vec3(0, 1, 0));
-  glm::quat qPitch = glm::angleAxis(glm::radians(pitch), glm::vec3(1, 0, 0));
-  glm::quat qRoll = glm::angleAxis(glm::radians(roll), glm::vec3(0, 0, 1));
+  glm::quat qYaw = glm::angleAxis(glm::radians(euler.y), glm::vec3(0, 1, 0));
+  glm::quat qPitch = glm::angleAxis(glm::radians(euler.x), glm::vec3(1, 0, 0));
+  glm::quat qRoll = glm::angleAxis(glm::radians(euler.z), glm::vec3(0, 0, 1));
 
   // Combine rotations
   orientation = qYaw * qPitch * qRoll;
@@ -31,7 +61,7 @@ glm::mat4 Camera3D::getViewMatrix()
 
 glm::vec3 Camera3D::getEulerAngles()
 {
-  return glm::vec3(pitch, yaw, roll);
+  return euler;
 }
 
 glm::vec3 Camera3D::getForward() const
@@ -65,9 +95,18 @@ void Camera3D::setOrientation(const glm::quat &newOrientation)
 
   // Extract Euler angles from the quaternion
   glm::vec3 eulerAngles = glm::eulerAngles(orientation);
-  pitch = glm::degrees(eulerAngles.x);
-  yaw = glm::degrees(eulerAngles.y);
-  roll = glm::degrees(eulerAngles.z);
+  euler.x = glm::degrees(eulerAngles.x);
+  euler.y = glm::degrees(eulerAngles.y);
+  euler.z = glm::degrees(eulerAngles.z);
+}
+
+void Camera3D::draw_debug()
+{
+  ImGui::DragFloat3("Position", &position.x, 0.01f, -1000.0f, 1000.0f);
+  if (ImGui::DragFloat3("Rotation", &euler.x, 0.01f))
+  {
+    updateQuaternions();
+  }
 }
 
 void FirstPersonFlyingController::update(float deltaTime)
@@ -105,4 +144,45 @@ void FirstPersonFlyingController::update(float deltaTime)
   float delta_yaw = -static_cast<float>(rel.first) * sensitivity;
   float delta_pitch = -static_cast<float>(rel.second) * sensitivity;
   camera->rotate(delta_yaw, delta_pitch, 0.0f);
+}
+
+void FirstPersonFlyingController::draw_debug()
+{
+  ImGui::DragFloat("Sensitivity", &sensitivity, 0.01f);
+  ImGui::DragFloat("Move Speed", &move_speed, 0.01f);
+}
+
+void DroneController::update(float deltaTime)
+{
+  if (EG_INPUT.is_key_down(EG_KEY::MOUSE_LEFT))
+  {
+    if (!isDragging)
+    {
+      isDragging = true;
+      auto pos = EG_INPUT.get_mouse_pos();
+      lastMousePosition = {pos.first, pos.second};
+    }
+    else
+    {
+      auto pos = EG_INPUT.get_mouse_pos();
+      glm::vec2 currentMousePosition = {pos.first, pos.second};
+      float deltaX = currentMousePosition.x - lastMousePosition.x;
+      float deltaY = currentMousePosition.y - lastMousePosition.y;
+
+      float deltaYaw = deltaX * sensitivity;
+      float deltaPitch = deltaY * sensitivity;
+
+      camera->rotateAroundPoint(centerPoint, deltaYaw, deltaPitch);
+
+      lastMousePosition = currentMousePosition;
+    }
+  }
+  else
+  {
+    isDragging = false;
+  }
+}
+
+void DroneController::draw_debug()
+{
 }

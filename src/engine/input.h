@@ -90,6 +90,7 @@ public:
     bool was_key_pressed(EG_KEY key);
     bool was_key_released(EG_KEY key);
     std::pair<int32_t, int32_t> get_mouse_rel();
+    std::pair<int32_t, int32_t> get_mouse_pos();
     bool should_quit();
 
 private:

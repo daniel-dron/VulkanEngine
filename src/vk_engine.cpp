@@ -60,9 +60,6 @@ void VulkanEngine::init()
 
 	EG_INPUT.init();
 
-	// test
-	texID = ImGui_ImplVulkan_AddTexture(_defaultSamplerNearest, _drawImage.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
 	std::string structurePath = {"../../assets/structure.glb"};
 	auto structureFile = loadGltf(this, structurePath);
 	assert(structureFile.has_value());
@@ -70,6 +67,9 @@ void VulkanEngine::init()
 
 	// init camera
 	fps_controller = std::make_unique<FirstPersonFlyingController>(&camera, 0.1f, 5.0f);
+	drone_controller = std::make_unique<DroneController>(&camera);
+	camera_controller = drone_controller.get();
+	camera.setPosition({0.0f, 0.0f, 200.0f});
 
 	// everything went fine
 	_isInitialized = true;
@@ -824,9 +824,9 @@ void VulkanEngine::draw()
 	}
 
 	_drawExtent.height =
-		std::min(_swapchainExtent.height, _drawImage.extent.height) * renderScale;
+		static_cast<uint32_t>(std::min(_swapchainExtent.height, _drawImage.extent.height) * renderScale);
 	_drawExtent.width =
-		std::min(_swapchainExtent.width, _drawImage.extent.width) * renderScale;
+		static_cast<uint32_t>(std::min(_swapchainExtent.width, _drawImage.extent.width) * renderScale);
 
 	//
 	// commands
@@ -958,8 +958,8 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
 
 	// execute the compute pipeline dispatch. We are using 16x16 workgroup size so
 	// we need to divide by it
-	vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0),
-				  std::ceil(_drawExtent.height / 16.0), 1);
+	vkCmdDispatch(cmd, (uint32_t)::ceil(_drawExtent.width / 16.0),
+				  (uint32_t)std::ceil(_drawExtent.height / 16.0), 1);
 }
 
 bool is_visible(const RenderObject &obj, const glm::mat4 &viewproj)
@@ -1114,8 +1114,8 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 				VkViewport viewport = {};
 				viewport.x = 0;
 				viewport.y = 0;
-				viewport.width = _drawExtent.width;
-				viewport.height = _drawExtent.height;
+				viewport.width = (float)_drawExtent.width;
+				viewport.height = (float)_drawExtent.height;
 				viewport.minDepth = 0.0f;
 				viewport.maxDepth = 1.0f;
 
@@ -1274,10 +1274,10 @@ void draw_fps_graph(bool useGraph = false)
 	else
 	{
 		// Graph version
-		ImGui::PlotLines("FPS", fpsHistory.data(), fpsHistory.size(), 0, nullptr,
+		ImGui::PlotLines("FPS", fpsHistory.data(), (int)fpsHistory.size(), 0, nullptr,
 						 0.0f, 200.0f, ImVec2(0, 80));
 		ImGui::PlotLines("Frame Time (ms)", frameTimeHistory.data(),
-						 frameTimeHistory.size(), 0, nullptr, 0.0f, 33.3f,
+						 (int)frameTimeHistory.size(), 0, nullptr, 0.0f, 33.3f,
 						 ImVec2(0, 80));
 
 		// Display current values
@@ -1304,15 +1304,17 @@ void VulkanEngine::run()
 			EG_INPUT.poll_events();
 		}
 
-		if (EG_INPUT.should_quit()) {
+		if (EG_INPUT.should_quit())
+		{
 			bQuit = true;
 		}
 
-		if (EG_INPUT.was_key_pressed(EG_KEY::ESCAPE)) {
+		if (EG_INPUT.was_key_pressed(EG_KEY::ESCAPE))
+		{
 			bQuit = true;
 		}
 
-		fps_controller->update(1.0f / 165.0f);
+		camera_controller->update(1.0f / 165.0f);
 
 		// do not draw if we are minimized
 		if (stop_rendering)
@@ -1329,6 +1331,11 @@ void VulkanEngine::run()
 			ImGui::ShowDemoWindow();
 			if (ImGui::Begin("Settings"))
 			{
+				ImGui::SeparatorText("Camera 3D");
+				camera.draw_debug();
+				ImGui::SeparatorText("Camera Controller");
+				camera_controller->draw_debug();
+			
 				ImGui::SeparatorText("Frustum Culling");
 				ImGui::Checkbox("Enable", &enableFrustumCulling);
 				static char text[256];
@@ -1337,7 +1344,6 @@ void VulkanEngine::run()
 					fmt::println("text: {}", text);
 					memset(text, 0, 256);
 				}
-				ImGui::Image(texID, {200, 200});
 			}
 			ImGui::End();
 
@@ -1347,7 +1353,7 @@ void VulkanEngine::run()
 				ComputeEffect &selected = backgroundEffects[currentBackgroundEffect];
 				ImGui::Text("Selected effect: %s", selected.name);
 				ImGui::SliderInt("Effect Index", &currentBackgroundEffect, 0,
-								 backgroundEffects.size() - 1);
+								 (int)backgroundEffects.size() - 1);
 				ImGui::InputFloat4("data1", (float *)&selected.data.data1);
 				ImGui::InputFloat4("data2", (float *)&selected.data.data2);
 				ImGui::InputFloat4("data3", (float *)&selected.data.data3);

@@ -8,13 +8,14 @@ public:
 private:
   glm::vec3 position;
   glm::quat orientation;
-  float yaw, pitch, roll;
+  glm::vec3 euler; // pitch, yaw, roll
 
 public:
   Camera3D() : position(0.0f, 0.0f, 0.0f), orientation(glm::quat(1.0f, 0.0f, 0.0f, 0.0f)),
-               yaw(0.0f), pitch(0.0f), roll(0.0f) {}
+               euler(0.0f, 0.0f, 0.0f) {}
 
   void rotate(float deltaYaw, float deltaPitch, float deltaRoll);
+  void rotateAroundPoint(const glm::vec3 &center, float deltaYaw, float deltaPitch);
   glm::mat4 getViewMatrix();
   glm::vec3 getEulerAngles();
   glm::vec3 getForward() const;
@@ -23,17 +24,49 @@ public:
   glm::vec3 getPosition() const;
   void translate(const glm::vec3 &translation);
   void setOrientation(const glm::quat &newOrientation);
-};
 
-class FirstPersonFlyingController
-{
-public:
-  FirstPersonFlyingController(Camera3D* cam, float sens = 0.1f, float speed = 5.0f) : camera(cam), sensitivity(sens), move_speed(speed) {}
-
-  void update(float deltaTime);
+  void draw_debug();
 
 private:
-  Camera3D* camera;
+  void updateQuaternions();
+};
+
+class CameraController
+{
+public:
+  CameraController(Camera3D *cam) : camera(cam) {}
+
+  virtual void update(float delta) = 0;
+  virtual void draw_debug() = 0;
+
+protected:
+  Camera3D *camera;
+};
+
+class FirstPersonFlyingController : public CameraController
+{
+public:
+  FirstPersonFlyingController(Camera3D *cam, float sens = 0.1f, float speed = 5.0f) : CameraController(cam), sensitivity(sens), move_speed(speed) {}
+
+  virtual void update(float deltaTime) override;
+  virtual void draw_debug() override;
+
+private:
   float sensitivity;
   float move_speed;
+};
+
+class DroneController : public CameraController
+{
+public:
+  DroneController(Camera3D *cam) : CameraController(cam) {}
+
+  virtual void update(float deltaTime) override;
+  virtual void draw_debug() override;
+
+private:
+  float sensitivity = 0.1f;
+  bool isDragging = false;
+  glm::vec2 lastMousePosition;
+  glm::vec3 centerPoint = glm::vec3(0.0f);
 };
