@@ -91,6 +91,7 @@ public:
     bool was_key_released(EG_KEY key);
     std::pair<int32_t, int32_t> get_mouse_rel();
     std::pair<int32_t, int32_t> get_mouse_pos();
+    float get_mouse_wheel();
     bool should_quit();
 
 private:
@@ -103,6 +104,7 @@ private:
     int32_t yrel;
     int32_t x;
     int32_t y;
+    float mwheel;
 
     std::unordered_map<uint16_t, EG_KEY> translation_lut;
 };

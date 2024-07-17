@@ -1313,6 +1313,17 @@ void VulkanEngine::run()
 			bQuit = true;
 		}
 
+		// hide mouse
+		if (EG_INPUT.was_key_pressed(EG_KEY::MOUSE_RIGHT))
+		{
+			SDL_SetRelativeMouseMode(SDL_TRUE);
+		}
+		// reveal mouse
+		if (EG_INPUT.was_key_released(EG_KEY::MOUSE_RIGHT))
+		{
+			SDL_SetRelativeMouseMode(SDL_FALSE);
+		}
+
 		camera_controller->update(1.0f / 165.0f);
 
 		// do not draw if we are minimized
@@ -1334,7 +1345,7 @@ void VulkanEngine::run()
 				camera.draw_debug();
 				ImGui::SeparatorText("Camera Controller");
 				camera_controller->draw_debug();
-			
+
 				ImGui::SeparatorText("Frustum Culling");
 				ImGui::Checkbox("Enable", &enableFrustumCulling);
 				static char text[256];

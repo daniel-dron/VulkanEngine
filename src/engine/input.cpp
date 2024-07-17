@@ -75,6 +75,7 @@ void Input::poll_events()
     // reset mouse rel
     xrel = 0;
     yrel = 0;
+    mwheel = 0;
 
     SDL_Event e;
     while (SDL_PollEvent(&e) != 0)
@@ -136,6 +137,11 @@ void Input::process_sdl_event(SDL_Event &e)
         key.is_down = false;
     }
     break;
+    case SDL_MOUSEWHEEL:
+    {
+        mwheel += e.wheel.preciseY;
+    }
+    break;
     default:
         break;
     }
@@ -174,6 +180,11 @@ std::pair<int32_t, int32_t> Input::get_mouse_pos()
 bool Input::should_quit()
 {
     return _should_quit;
+}
+
+float Input::get_mouse_wheel()
+{
+    return mwheel;
 }
 
 void EngineInput::process_sdl_event(SDL_Event &event)

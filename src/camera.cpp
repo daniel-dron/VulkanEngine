@@ -116,6 +116,12 @@ void FirstPersonFlyingController::update(float deltaTime)
     return;
   }
 
+  move_speed += EG_INPUT.get_mouse_wheel() * 10.0f;
+  if (move_speed <= 0.1f)
+  {
+    move_speed = 0.1f;
+  }
+
   glm::vec3 movement(0.0f);
 
   if (EG_INPUT.is_key_down(EG_KEY::W))
