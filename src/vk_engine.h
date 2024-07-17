@@ -15,16 +15,20 @@
 #include <deque>
 #include <functional>
 
-struct DeletionQueue {
+struct DeletionQueue
+{
   std::deque<std::function<void()>> deletors;
 
-  void push_function(std::function<void()> &&deletor) {
+  void push_function(std::function<void()> &&deletor)
+  {
     deletors.push_back(deletor);
   }
 
-  void flush() {
+  void flush()
+  {
     // reverse iterate the deletion queue to execute all the functions
-    for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
+    for (auto it = deletors.rbegin(); it != deletors.rend(); it++)
+    {
       (*it)(); // call functors
     }
 
@@ -32,7 +36,8 @@ struct DeletionQueue {
   }
 };
 
-struct FrameData {
+struct FrameData
+{
   VkCommandPool _commandPool;
   VkCommandBuffer _mainCommandBuffer;
   VkSemaphore _swapchainSemaphore, _renderSemaphore;
@@ -42,14 +47,16 @@ struct FrameData {
 };
 constexpr unsigned int FRAME_OVERLAP = 3;
 
-struct ComputePushConstants {
+struct ComputePushConstants
+{
   glm::vec4 data1;
   glm::vec4 data2;
   glm::vec4 data3;
   glm::vec4 data4;
 };
 
-struct ComputeEffect {
+struct ComputeEffect
+{
   const char *name;
 
   VkPipeline pipeline;
@@ -58,7 +65,8 @@ struct ComputeEffect {
   ComputePushConstants data;
 };
 
-struct GPUSceneData {
+struct GPUSceneData
+{
   glm::mat4 view;
   glm::mat4 proj;
   glm::mat4 viewproj;
@@ -69,20 +77,23 @@ struct GPUSceneData {
 
 class VulkanEngine;
 
-struct GLTFMetallic_Roughness {
+struct GLTFMetallic_Roughness
+{
   MaterialPipeline opaquePipeline;
   MaterialPipeline transparentPipeline;
 
   VkDescriptorSetLayout materialLayout;
 
-  struct MaterialConstants {
+  struct MaterialConstants
+  {
     glm::vec4 colorFactors;
     glm::vec4 metal_rough_factors;
     // padding?
     glm::vec4 extra[14];
   };
 
-  struct MaterialResources {
+  struct MaterialResources
+  {
     AllocatedImage colorImage;
     VkSampler colorSampler;
     AllocatedImage metalRoughImage;
@@ -102,7 +113,8 @@ struct GLTFMetallic_Roughness {
                  DescriptorAllocatorGrowable &descriptorAllocator);
 };
 
-struct RenderObject {
+struct RenderObject
+{
   uint32_t indexCount;
   uint32_t firstIndex;
   VkBuffer indexBuffer;
@@ -113,18 +125,21 @@ struct RenderObject {
   VkDeviceAddress vertexBufferAddress;
 };
 
-struct DrawContext {
+struct DrawContext
+{
   std::vector<RenderObject> OpaqueSurfaces;
   std::vector<RenderObject> TransparentSurfaces;
 };
 
-struct MeshNode : public Node {
+struct MeshNode : public Node
+{
   std::shared_ptr<MeshAsset> mesh;
 
   virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
 };
 
-struct EngineStats {
+struct EngineStats
+{
   float frametime;
   int triangle_count;
   int drawcall_count;
@@ -133,7 +148,8 @@ struct EngineStats {
 };
 
 /// @brief This is the main Vulkan Engine class
-class VulkanEngine {
+class VulkanEngine
+{
 public:
   bool _isInitialized{false};
   int _frameNumber{0};
@@ -145,7 +161,7 @@ public:
 
   static VulkanEngine &Get();
 
-  /// @brief This is the init function!
+  /// @brief Does most of the engine initialization 
   void init();
 
   // shuts down the engine
@@ -193,6 +209,8 @@ public:
   VkExtent2D _drawExtent;
   float renderScale = 1.f;
 
+  void *texID;
+
   //
   // swapchain
   //
@@ -207,7 +225,8 @@ public:
   // command
   //
   FrameData _frames[FRAME_OVERLAP];
-  FrameData &get_current_frame() {
+  FrameData &get_current_frame()
+  {
     return _frames[_frameNumber % FRAME_OVERLAP];
   }
 
@@ -234,7 +253,7 @@ public:
 
   std::vector<ComputeEffect> backgroundEffects;
   int currentBackgroundEffect{0};
-  
+
   //
   // scene
   //
@@ -259,25 +278,67 @@ public:
   Camera mainCamera;
 
 private:
+  /// @brief Initializes SDL context and creates SDL window
+  void init_sdl();
+  
+  /// @brief Initializes core vulkan resources
   void init_vulkan();
+
+  /// @brief Initializes vulkan device and its queues
+  void init_device();
+
+  /// @brief Initializes VMA
+  void init_allocator();
+
+  /// @brief Initializes swapchain.
+  /// Creates an intermediate draw image where the actual frame rendering is done onto.
+  /// The contents are then blipped to the swap chain image at the end of the frame.
+  /// Also creates a depth image.
   void init_swapchain();
+
+  /// @brief Initializes a command pool for each inflight frame of the swapchain.
+  /// Also creates an immediate command pool that is used to execute immediate commands
+  /// on the gpu. Usefull for ImGui and other generic purposes.
   void init_commands();
+
+  /// @brief Creates a synchronization structures.
+  /// Creates a fence for the immediate command pool.
+  /// Creates a fence and two semaphores for each inflight frame of the swapchain.
   void init_sync_structures();
+
+  /// @brief Creates pipeline descriptors and its allocators.
+  /// Creates a growable descriptor allocator for each inflight frame.
+  /// Creates a descriptor set for the background compute shader.
+  /// Creates a descriptor set for scene data.
   void init_descriptors();
+
+  /// @brief Creates general pipelines.
+  /// Creates the background compute pipeline.
+  /// Creates the PBR Metalness pipeline.
   void init_pipelines();
+
+  /// @brief Creates the background compute pipeline.
   void init_background_pipelines();
+
+  /// @brief Initializes ImGui entire context
   void init_imgui();
 
+  /// @brief Dispatches compute shader to fill in main image
+  /// @param cmd VkCommandBuffer that will queue in the work
   void draw_background(VkCommandBuffer cmd);
+
+  /// @brief Responsible for queueing commands to render all Renderables.
+  /// Sorts based on material and performs frustum culling.
+  /// @param cmd VkCommandBuffer that will queue in the work
   void draw_geometry(VkCommandBuffer cmd);
+
+  /// @brief Initializes default white, black, error images and its samplers
   void init_default_data();
   void init_images();
 
+  /// @brief Updates scene data and call Draw on each scene node.
   void update_scene();
 
-  //
-  // resources
-  //
   void create_swapchain(uint32_t width, uint32_t height,
                         VkSwapchainKHR old = VK_NULL_HANDLE);
   void resize_swapchain(uint32_t width, uint32_t height);

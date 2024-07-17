@@ -318,6 +318,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine *engine,
     materials.push_back(newMat);
     file.materials[mat.name.c_str()] = newMat;
 
+    fmt::println("Loading mat: {}", mat.name.c_str());
+
     GLTFMetallic_Roughness::MaterialConstants constants;
     constants.colorFactors.x = mat.pbrData.baseColorFactor[0];
     constants.colorFactors.y = mat.pbrData.baseColorFactor[1];

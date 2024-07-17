@@ -2,7 +2,39 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 
+#include "engine/input.h"
+
 void Camera::update() {
+  if (EG_INPUT.is_key_down(EG_KEY::W)) {
+    velocity.z = -1;
+  }
+  if (EG_INPUT.is_key_down(EG_KEY::S)) {
+    velocity.z = 1;
+  }
+  if (EG_INPUT.is_key_down(EG_KEY::A)) {
+    velocity.x = -1;
+  }
+  if (EG_INPUT.is_key_down(EG_KEY::D)) {
+    velocity.x = 1;
+  }
+
+  if (EG_INPUT.is_key_up(EG_KEY::W)) {
+    velocity.z = 0;
+  }
+  if (EG_INPUT.is_key_up(EG_KEY::S)) {
+    velocity.z = 0;
+  }
+  if (EG_INPUT.is_key_up(EG_KEY::A)) {
+    velocity.x = 0;
+  }
+  if (EG_INPUT.is_key_up(EG_KEY::D)) {
+    velocity.x = 0;
+  }
+
+  auto mrel = EG_INPUT.get_mouse_rel();
+  yaw += static_cast<float>(mrel.first) / 200.0f;
+  pitch -= static_cast<float>(mrel.second) / 200.0f;
+
   glm::mat4 rotation = getRotationMatrix();
   position += glm::vec3(rotation * glm::vec4(velocity * 0.1f, 0.0f));
 }
