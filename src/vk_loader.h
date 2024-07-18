@@ -68,6 +68,4 @@ private:
 std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine *engine,
                                                     std::string_view filePath);
 
-std::optional<std::vector<std::shared_ptr<MeshAsset>>>
-loadGltfMeshes(VulkanEngine *engine, std::filesystem::path filePath);
 std::optional<std::pair<AllocatedImage, std::string>> load_image(VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image);
