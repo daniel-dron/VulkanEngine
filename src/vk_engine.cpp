@@ -60,7 +60,7 @@ void VulkanEngine::init()
 
 	EG_INPUT.init();
 
-	std::string structurePath = {"../../assets/structure.glb"};
+	std::string structurePath = {"../../assets/sponza_scene.glb"};
 	auto structureFile = loadGltf(this, structurePath);
 	assert(structureFile.has_value());
 	loadedScenes["structure"] = *structureFile;
@@ -68,7 +68,7 @@ void VulkanEngine::init()
 	// init camera
 	fps_controller = std::make_unique<FirstPersonFlyingController>(&camera, 0.1f, 5.0f);
 	camera_controller = fps_controller.get();
-	camera.setPosition({0.0f, 0.0f, 100.0f});
+	// camera.transform.set_position({0.0f, 0.0f, 100.0f});
 
 	// everything went fine
 	_isInitialized = true;
@@ -961,7 +961,8 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
 				  (uint32_t)std::ceil(_drawExtent.height / 16.0), 1);
 }
 
-bool is_visible(const RenderObject &obj, const glm::mat4 &viewproj)
+// TODO: breaking at certain angles
+static bool is_visible(const RenderObject &obj, const glm::mat4 &viewproj)
 {
 	std::array<glm::vec3, 8> corners{
 		glm::vec3{1, 1, 1},
@@ -1443,15 +1444,12 @@ void VulkanEngine::update_scene()
 
 	loadedScenes["structure"]->Draw(glm::mat4{1.f}, mainDrawContext);
 
-	sceneData.view = camera.getViewMatrix();
+	sceneData.view = camera.get_view_matrix();
 	// camera projection
 	sceneData.proj = glm::perspective(
 		glm::radians(70.f),
 		(float)_windowExtent.width / (float)_windowExtent.height, 10000.f, 0.1f);
 
-	// invert the Y direction on projection matrix so that we are more similar
-	// to opengl and gltf axis
-	sceneData.proj[1][1] *= -1;
 	sceneData.viewproj = sceneData.proj * sceneData.view;
 
 	// some default lighting parameters

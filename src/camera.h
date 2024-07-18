@@ -2,37 +2,51 @@
 #include "SDL_events.h"
 #include <vk_types.h>
 
-class Camera3D
-{
+class Transform3D {
 public:
-private:
-  glm::vec3 position;
-  glm::quat orientation;
-  glm::vec3 euler; // pitch, yaw, roll
+  const glm::vec3 &get_position() const;
+  const glm::quat &get_heading() const;
+  const glm::vec3 &get_scale() const;
 
-public:
-  Camera3D() : position(0.0f, 0.0f, 0.0f), orientation(glm::quat(1.0f, 0.0f, 0.0f, 0.0f)),
-               euler(0.0f, 0.0f, 0.0f) {}
+  void set_position(const glm::vec3 &pos);
+  void set_heading(const glm::quat &h);
+  void set_scale(const glm::vec3 &s);
 
-  void rotate(float deltaYaw, float deltaPitch, float deltaRoll);
-  void rotateAroundPoint(const glm::vec3 &center, float deltaYaw, float deltaPitch);
-  glm::mat4 getViewMatrix();
-  glm::vec3 getEulerAngles();
-  glm::vec3 getForward() const;
-  glm::vec3 getRight() const;
-  void setPosition(const glm::vec3 &newPosition);
-  glm::vec3 getPosition() const;
-  void translate(const glm::vec3 &translation);
-  void setOrientation(const glm::quat &newOrientation);
+  const glm::vec3 &get_position();
+  const glm::quat &get_heading();
+  const glm::vec3 &get_scale();
 
-  void draw_debug();
+  glm::vec3 get_local_up();
+  glm::vec3 get_local_right();
+  glm::vec3 get_local_front();
 
 private:
-  void updateQuaternions();
+  glm::vec3 position{};
+  glm::quat heading = glm::identity<glm::quat>();
+  glm::vec3 scale{1.0f};
+
+  mutable glm::mat4 matrix = glm::identity<glm::mat4>();
+  mutable bool is_dirty = false;
 };
 
-class CameraController
-{
+class Camera3D {
+private:
+  glm::vec3 euler{};
+
+public:
+  Transform3D transform;
+
+public:
+  Camera3D() {}
+
+  glm::mat4 get_view_matrix();
+  void look_at(const glm::vec3 &target);
+  void rotate_by(const glm::vec3 &rot);
+
+  void draw_debug();
+};
+
+class CameraController {
 public:
   CameraController(Camera3D *cam) : camera(cam) {}
 
@@ -43,10 +57,11 @@ protected:
   Camera3D *camera;
 };
 
-class FirstPersonFlyingController : public CameraController
-{
+class FirstPersonFlyingController : public CameraController {
 public:
-  FirstPersonFlyingController(Camera3D *cam, float sens = 0.1f, float speed = 5.0f) : CameraController(cam), sensitivity(sens), move_speed(speed) {}
+  FirstPersonFlyingController(Camera3D *cam, float sens = 0.1f,
+                              float speed = 5.0f)
+      : CameraController(cam), sensitivity(sens), move_speed(speed) {}
 
   virtual void update(float deltaTime) override;
   virtual void draw_debug() override;

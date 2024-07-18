@@ -19,9 +19,9 @@
 
 #include <fmt/core.h>
 
+#include <glm/gtx/quaternion.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
-#include <glm/gtx/quaternion.hpp>
 #include <vulkan/vulkan_core.h>
 
 #define VK_CHECK(x)                                                            \
@@ -33,6 +33,10 @@
       abort();                                                                 \
     }                                                                          \
   } while (0)
+
+const glm::vec3 GlobalUp{0.0f, -1.0f, 0.0f};
+const glm::vec3 GlobalRight{1.0f, 0.0f, 0.0f};
+const glm::vec3 GlobalFront{0.0f, 0.0f, 1.0f};
 
 struct AllocatedImage {
   VkImage image;
