@@ -1608,4 +1608,6 @@ void MeshNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
 			ctx.OpaqueSurfaces.push_back(def);
 		}
 	}
+
+	Node::Draw(topMatrix, ctx);
 }
