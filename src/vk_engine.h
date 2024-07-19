@@ -74,6 +74,7 @@ class VulkanEngine;
 struct GltfMetallicRoughness {
   MaterialPipeline opaque_pipeline;
   MaterialPipeline transparent_pipeline;
+  MaterialPipeline wireframe_pipeline;
 
   VkDescriptorSetLayout material_layout;
 
@@ -133,13 +134,18 @@ struct EngineStats {
   float mesh_draw_time;
 };
 
+struct RendererOptions {
+  bool wireframe = false;
+  bool frustum = true;
+};
+
 /// @brief This is the main Vulkan Engine class
 class VulkanEngine {
  public:
   bool is_initialized{false};
   int frame_number{0};
   bool stop_rendering{false};
-  VkExtent2D window_extent{1700, 900};
+  VkExtent2D window_extent{2560, 1440};
   EngineStats stats;
 
   struct SDL_Window* window{nullptr};
@@ -241,7 +247,6 @@ class VulkanEngine {
   // scene
   //
   GpuSceneData scene_data;
-  bool enable_frustum_culling = true;
   VkDescriptorSetLayout gpu_scene_data_descriptor_layout;
 
   AllocatedImage white_image;
@@ -257,10 +262,12 @@ class VulkanEngine {
 
   DrawContext main_draw_context;
 
-  std::unordered_map<std::string, std::shared_ptr<loaded_gltf>> loaded_scenes;
+  std::unordered_map<std::string, std::shared_ptr<LoadedGltf>> loaded_scenes;
   Camera3D camera;
   std::unique_ptr<FirstPersonFlyingController> fps_controller;
   CameraController* camera_controller;
+
+  RendererOptions renderer_options;
 
  private:
   /// @brief Initializes SDL context and creates SDL window
@@ -325,6 +332,8 @@ class VulkanEngine {
 
   /// @brief Updates scene data and call Draw on each scene node.
   void updateScene();
+
+  void draw_scene_hierarchy();
 
   void createSwapchain(uint32_t width, uint32_t height,
                        VkSwapchainKHR old = VK_NULL_HANDLE);

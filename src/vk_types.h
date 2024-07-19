@@ -105,6 +105,8 @@ struct Node : public IRenderable {
   std::weak_ptr<Node> parent;
   std::vector<std::shared_ptr<Node>> children;
 
+  std::string name;
+
   glm::mat4 localTransform;
   glm::mat4 worldTransform;
 

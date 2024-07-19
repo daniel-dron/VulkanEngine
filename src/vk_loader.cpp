@@ -18,18 +18,17 @@
 #include "vk_engine.h"
 #include "vk_types.h"
 
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-void loaded_gltf::Draw(const glm::mat4& top_matrix, DrawContext& ctx) {
+void LoadedGltf::Draw(const glm::mat4& top_matrix, DrawContext& ctx) {
   // create renderables from the scenenodes
   for (const auto& n : top_nodes) {
     n->Draw(top_matrix, ctx);
   }
 }
 
-void loaded_gltf::clear_all() {
+void LoadedGltf::clear_all() {
   const VkDevice dv = creator->device;
 
   descriptor_pool.destroy_pools(dv);
@@ -86,7 +85,6 @@ VkSamplerMipmapMode extract_mipmap_mode(fastgltf::Filter filter) {
 #include <random>
 #include <string>
 
-
 std::string generateRandomNumber() {
   std::random_device rd;
   std::mt19937 gen(rd());
@@ -97,13 +95,13 @@ std::string generateRandomNumber() {
   return std::to_string(randomNum);
 }
 
-std::optional<std::shared_ptr<loaded_gltf>> load_gltf(
+std::optional<std::shared_ptr<LoadedGltf>> load_gltf(
     VulkanEngine* engine, std::string_view filePath) {
   fmt::println("Loading GLTF: {}", filePath);
 
-  auto scene = std::make_shared<loaded_gltf>();
+  auto scene = std::make_shared<LoadedGltf>();
   scene->creator = engine;
-  loaded_gltf& file = *scene.get();
+  LoadedGltf& file = *scene.get();
 
   fastgltf::Parser parser{};
 
@@ -178,7 +176,7 @@ std::optional<std::shared_ptr<loaded_gltf>> load_gltf(
   std::vector<std::shared_ptr<mesh_asset>> meshes;
   std::vector<std::shared_ptr<Node>> nodes;
   std::vector<AllocatedImage> images;
-  std::vector<std::shared_ptr<gltf_material>> materials;
+  std::vector<std::shared_ptr<GltfMaterial>> materials;
 
   // load all textures
   for (fastgltf::Image& image : gltf.images) {
@@ -210,9 +208,10 @@ std::optional<std::shared_ptr<loaded_gltf>> load_gltf(
                                     file.material_data_buffer.info.pMappedData;
 
   for (fastgltf::Material& mat : gltf.materials) {
-    auto newMat = std::make_shared<gltf_material>();
+    auto newMat = std::make_shared<GltfMaterial>();
     materials.push_back(newMat);
     file.materials[mat.name.c_str()] = newMat;
+    newMat->name = mat.name;
 
     fmt::println("Loading mat: {}", mat.name.c_str());
 
@@ -256,6 +255,19 @@ std::optional<std::shared_ptr<loaded_gltf>> load_gltf(
       materialResources.color_sampler = file.samplers[sampler];
     }
 
+    if (mat.pbrData.metallicRoughnessTexture.has_value()) {
+      size_t img = gltf.textures[mat.pbrData.metallicRoughnessTexture.value()
+                                     .textureIndex]
+                       .imageIndex.value();
+      size_t sampler =
+          gltf.textures[mat.pbrData.metallicRoughnessTexture.value()
+                            .texCoordIndex]
+              .samplerIndex.value();
+
+      materialResources.metal_rough_image = images[img];
+      materialResources.metal_rough_sampler = file.samplers[sampler];
+    }
+    
     newMat->data = engine->metal_rough_material.writeMaterial(
         engine->device, passType, materialResources, file.descriptor_pool);
 
@@ -382,6 +394,8 @@ std::optional<std::shared_ptr<loaded_gltf>> load_gltf(
     } else {
       newNode = std::make_shared<Node>();
     }
+
+    newNode->name = node.name.c_str();
 
     nodes.push_back(newNode);
     file.nodes[node.name.c_str()];

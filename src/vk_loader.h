@@ -14,7 +14,8 @@
 #include "fastgltf/types.hpp"
 #include "vk_descriptors.h"
 
-struct gltf_material {
+struct GltfMaterial {
+  std::string name;
   MaterialInstance data;
 };
 
@@ -28,7 +29,7 @@ struct geo_surface {
   uint32_t start_index;
   uint32_t count;
   bounds bounds;
-  std::shared_ptr<gltf_material> material;
+  std::shared_ptr<GltfMaterial> material;
 };
 
 struct mesh_asset {
@@ -39,12 +40,12 @@ struct mesh_asset {
 
 class VulkanEngine;
 
-struct loaded_gltf final : public IRenderable {
+struct LoadedGltf final : public IRenderable {
   using mesh_map = std::unordered_map<std::string, std::shared_ptr<mesh_asset>>;
   using node_map = std::unordered_map<std::string, std::shared_ptr<Node>>;
   using image_map = std::unordered_map<std::string, AllocatedImage>;
   using material_map =
-      std::unordered_map<std::string, std::shared_ptr<gltf_material>>;
+      std::unordered_map<std::string, std::shared_ptr<GltfMaterial>>;
 
   mesh_map meshes;
   node_map nodes;
@@ -59,7 +60,7 @@ struct loaded_gltf final : public IRenderable {
   AllocatedBuffer material_data_buffer;
 
   VulkanEngine* creator;
-  ~loaded_gltf() override { clear_all(); }
+  ~LoadedGltf() override { clear_all(); }
 
   void Draw(const glm::mat4& top_matrix, DrawContext& ctx) override;
 
@@ -67,7 +68,7 @@ struct loaded_gltf final : public IRenderable {
   void clear_all();
 };
 
-std::optional<std::shared_ptr<loaded_gltf>> load_gltf(
+std::optional<std::shared_ptr<LoadedGltf>> load_gltf(
     VulkanEngine* engine, std::string_view filePath);
 
 std::optional<std::pair<AllocatedImage, std::string>> load_image(

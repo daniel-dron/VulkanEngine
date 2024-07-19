@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <stack>
 #include <thread>
 
 #include "SDL_events.h"
@@ -482,6 +483,7 @@ void VulkanEngine::initImgui() {
 
   auto& io = ImGui::GetIO();
   io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
   // add the destroy the imgui created structures
   main_deletion_queue.pushFunction([&, imguiPool]() {
@@ -976,7 +978,7 @@ void VulkanEngine::drawGeometry(VkCommandBuffer cmd) {
   {
     ZoneScopedN("order");
     for (uint32_t i = 0; i < main_draw_context.opaque_surfaces.size(); i++) {
-      if (enable_frustum_culling) {
+      if (renderer_options.frustum) {
         auto& viewproj = scene_data.viewproj;
         if (is_visible(main_draw_context.opaque_surfaces[i], viewproj)) {
           opaque_draws.push_back(i);
@@ -1044,8 +1046,14 @@ void VulkanEngine::drawGeometry(VkCommandBuffer cmd) {
 
       if (r.material->pipeline != lastPipeline) {
         lastPipeline = r.material->pipeline;
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          r.material->pipeline->pipeline);
+
+        if (renderer_options.wireframe) {
+          vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            metal_rough_material.wireframe_pipeline.pipeline);
+        } else {
+          vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            r.material->pipeline->pipeline);
+        }
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 r.material->pipeline->layout, 0, 1,
                                 &global_descriptor, 0, nullptr);
@@ -1213,6 +1221,8 @@ void draw_fps_graph(bool useGraph = false) {
   ImGui::End();
 }
 
+Node* selected_node = nullptr;
+
 void VulkanEngine::run() {
   bool bQuit = false;
 
@@ -1235,13 +1245,18 @@ void VulkanEngine::run() {
       bQuit = true;
     }
 
+    static int savedMouseX, savedMouseY;
     // hide mouse
     if (EG_INPUT.was_key_pressed(EG_KEY::MOUSE_RIGHT)) {
+      SDL_GetMouseState(&savedMouseX, &savedMouseY);
       SDL_SetRelativeMouseMode(SDL_TRUE);
+      SDL_ShowCursor(SDL_DISABLE);
     }
     // reveal mouse
     if (EG_INPUT.was_key_released(EG_KEY::MOUSE_RIGHT)) {
       SDL_SetRelativeMouseMode(SDL_FALSE);
+      SDL_ShowCursor(SDL_ENABLE);
+      SDL_WarpMouseInWindow(window, savedMouseX, savedMouseY);
     }
 
     camera_controller->update(1.0f / 165.0f);
@@ -1257,25 +1272,66 @@ void VulkanEngine::run() {
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
     {
+      ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
+      ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(),
+                                   ImGuiDockNodeFlags_PassthruCentralNode);
+      ImGui::PopStyleColor();
       ImGui::ShowDemoWindow();
+
+      if (ImGui::Begin("Scene")) {
+        draw_scene_hierarchy();
+      }
+      ImGui::End();
+
+      if (EG_INPUT.was_key_pressed(EG_KEY::Z)) {
+        ImGui::OpenPopup("Viewport Context");
+      }
+      if (ImGui::BeginPopup("Viewport Context")) {
+        ImGui::Checkbox("Wireframe", &renderer_options.wireframe);
+        ImGui::Checkbox("Frustum Culling", &renderer_options.frustum);
+        ImGui::EndPopup();
+      }
+
       if (ImGui::Begin("Settings")) {
+        if (selected_node != nullptr) {
+          ImGui::SeparatorText(selected_node->name.c_str());
+          MeshNode* node = dynamic_cast<MeshNode*>(selected_node);
+          if (node) {
+            ImGui::TextColored(ImVec4(0.7f, 0.2f, 0.5f, 1.0f), "Mesh: %s",
+                               node->mesh->name.c_str());
+            static ImGuiTableFlags flags =
+                ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg |
+                ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable |
+                ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
+            if (ImGui::BeginTable("Surfaces", 2, flags)) {
+              ImGui::TableSetupColumn("Material",
+                                      ImGuiTableColumnFlags_WidthFixed);
+              ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+              ImGui::TableHeadersRow();
+              for (auto& surface : node->mesh->surfaces) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text(surface.material->name.c_str());
+                ImGui::TableSetColumnIndex(1);
+                if (surface.material->data.passType ==
+                    MaterialPass::MainColor) {
+                  ImGui::Text("Opaque");
+                } else if (surface.material->data.passType ==
+                           MaterialPass::Transparent) {
+                  ImGui::Text("Transparent");
+                } else {
+                  ImGui::Text("Other");
+                }
+              }
+              ImGui::EndTable();
+            }
+          }
+        }
         ImGui::SeparatorText("Camera 3D");
         camera.draw_debug();
         ImGui::SeparatorText("Camera Controller");
         camera_controller->draw_debug();
-
-        ImGui::SeparatorText("Frustum Culling");
-        ImGui::Checkbox("Enable", &enable_frustum_culling);
-        static char text[256];
-        if (ImGui::InputText("Command: ", text, 256,
-                             ImGuiInputTextFlags_EnterReturnsTrue)) {
-          fmt::println("text: {}", text);
-          memset(text, 0, 256);
-        }
-      }
-      ImGui::End();
-
-      if (ImGui::Begin("background")) {
+        ImGui::SeparatorText("Background");
         ImGui::SliderFloat("Render Scale", &render_scale, 0.3f, 1.f);
         ComputeEffect& selected = background_effects[current_background_effect];
         ImGui::Text("Selected effect: %s", selected.name);
@@ -1288,15 +1344,14 @@ void VulkanEngine::run() {
       }
       ImGui::End();
 
-      ImGui::Begin("Stats");
-      ImGui::Text("frametime %f ms", stats.frametime);
-      ImGui::Text("draw time %f ms", stats.mesh_draw_time);
-      ImGui::Text("update time %f ms", stats.scene_update_time);
-      ImGui::Text("triangles %i", stats.triangle_count);
-      ImGui::Text("draws %i", stats.drawcall_count);
+      if (ImGui::Begin("Stats")) {
+        ImGui::Text("frametime %f ms", stats.frametime);
+        ImGui::Text("draw time %f ms", stats.mesh_draw_time);
+        ImGui::Text("update time %f ms", stats.scene_update_time);
+        ImGui::Text("triangles %i", stats.triangle_count);
+        ImGui::Text("draws %i", stats.drawcall_count);
+      }
       ImGui::End();
-
-      draw_fps_graph(true);
     }
     ImGui::Render();
 
@@ -1378,6 +1433,36 @@ void VulkanEngine::updateScene() {
   stats.scene_update_time = elapsed.count() / 1000.f;
 }
 
+void draw_scene_node(Node* node) {
+  MeshNode* mesh_node = dynamic_cast<MeshNode*>(node);
+
+  if (mesh_node) {
+    if (ImGui::Selectable(node->name.c_str(), selected_node == node)) {
+      selected_node = node;
+    }
+  } else {
+    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    if (ImGui::TreeNode(node, node->name.c_str())) {
+      for (auto& n : node->children) {
+        draw_scene_node(n.get());
+      }
+      ImGui::TreePop();
+    }
+  }
+}
+
+void VulkanEngine::draw_scene_hierarchy() {
+  for (auto& [k, v] : loaded_scenes) {
+    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    if (ImGui::TreeNode(k.c_str())) {
+      for (auto& root : v->top_nodes) {
+        draw_scene_node(root.get());
+      }
+      ImGui::TreePop();
+    }
+  }
+}
+
 void GltfMetallicRoughness::buildPipelines(VulkanEngine* engine) {
   VkShaderModule meshFragShader;
   if (!vkutil::load_shader_module("../../shaders/mesh.frag.spv", engine->device,
@@ -1424,6 +1509,7 @@ void GltfMetallicRoughness::buildPipelines(VulkanEngine* engine) {
 
   opaque_pipeline.layout = newLayout;
   transparent_pipeline.layout = newLayout;
+  wireframe_pipeline.layout = newLayout;
 
   vkutil::PipelineBuilder pipelineBuilder;
   pipelineBuilder.set_shaders(meshVertShader, meshFragShader);
@@ -1448,6 +1534,10 @@ void GltfMetallicRoughness::buildPipelines(VulkanEngine* engine) {
   pipelineBuilder.enable_depthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
   transparent_pipeline.pipeline =
       pipelineBuilder.build_pipeline(engine->device);
+
+  pipelineBuilder.disable_blending();
+  pipelineBuilder.set_polygon_mode(VK_POLYGON_MODE_LINE);
+  wireframe_pipeline.pipeline = pipelineBuilder.build_pipeline(engine->device);
 
   vkDestroyShaderModule(engine->device, meshFragShader, nullptr);
   vkDestroyShaderModule(engine->device, meshVertShader, nullptr);
