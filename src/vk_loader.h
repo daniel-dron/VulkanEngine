@@ -1,7 +1,8 @@
 ﻿#pragma once
 
-#include "fastgltf/types.hpp"
-#include "vk_descriptors.h"
+#include <vk_types.h>
+#include <vulkan/vulkan_core.h>
+
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -9,65 +10,65 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
-#include <vk_types.h>
-#include <vulkan/vulkan_core.h>
 
-struct GLTFMaterial {
+#include "fastgltf/types.hpp"
+#include "vk_descriptors.h"
+
+struct gltf_material {
   MaterialInstance data;
 };
 
-struct Bounds {
+struct bounds {
   glm::vec3 origin;
   float sphereRadius;
   glm::vec3 extents;
 };
 
-struct GeoSurface {
-  uint32_t startIndex;
+struct geo_surface {
+  uint32_t start_index;
   uint32_t count;
-  Bounds bounds;
-  std::shared_ptr<GLTFMaterial> material;
+  bounds bounds;
+  std::shared_ptr<gltf_material> material;
 };
 
-struct MeshAsset {
+struct mesh_asset {
   std::string name;
-  std::vector<GeoSurface> surfaces;
-  GPUMeshBuffers meshBuffers;
+  std::vector<geo_surface> surfaces;
+  GPUMeshBuffers mesh_buffers;
 };
 
 class VulkanEngine;
 
-struct LoadedGLTF : public IRenderable {
-  using MeshMap = std::unordered_map<std::string, std::shared_ptr<MeshAsset>>;
-  using NodeMap = std::unordered_map<std::string, std::shared_ptr<Node>>;
-  using ImageMap = std::unordered_map<std::string, AllocatedImage>;
-  using MaterialMap =
-      std::unordered_map<std::string, std::shared_ptr<GLTFMaterial>>;
+struct loaded_gltf final : public IRenderable {
+  using mesh_map = std::unordered_map<std::string, std::shared_ptr<mesh_asset>>;
+  using node_map = std::unordered_map<std::string, std::shared_ptr<Node>>;
+  using image_map = std::unordered_map<std::string, AllocatedImage>;
+  using material_map =
+      std::unordered_map<std::string, std::shared_ptr<gltf_material>>;
 
-  MeshMap meshes;
-  NodeMap nodes;
-  ImageMap images;
-  MaterialMap materials;
+  mesh_map meshes;
+  node_map nodes;
+  image_map images;
+  material_map materials;
 
   // root nodes with no parents
-  std::vector<std::shared_ptr<Node>> topNodes;
+  std::vector<std::shared_ptr<Node>> top_nodes;
   std::vector<VkSampler> samplers;
 
-  DescriptorAllocatorGrowable descriptorPool;
-  AllocatedBuffer materialDataBuffer;
+  DescriptorAllocatorGrowable descriptor_pool;
+  AllocatedBuffer material_data_buffer;
 
-  VulkanEngine *creator;
-  ~LoadedGLTF() { clearAll(); }
+  VulkanEngine* creator;
+  ~loaded_gltf() override { clear_all(); }
 
-  virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
+  void Draw(const glm::mat4& top_matrix, DrawContext& ctx) override;
 
-private:
-  void clearAll();
+ private:
+  void clear_all();
 };
 
-std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine *engine,
-                                                    std::string_view filePath);
+std::optional<std::shared_ptr<loaded_gltf>> load_gltf(
+    VulkanEngine* engine, std::string_view filePath);
 
-std::optional<std::pair<AllocatedImage, std::string>>
-load_image(VulkanEngine *engine, fastgltf::Asset &asset,
-           fastgltf::Image &image);
+std::optional<std::pair<AllocatedImage, std::string>> load_image(
+    VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image);

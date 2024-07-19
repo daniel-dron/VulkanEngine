@@ -3,12 +3,11 @@
 #include <vulkan/vulkan_core.h>
 
 namespace vkutil {
-
-bool load_shader_module(const char *filePath, VkDevice device,
-                        VkShaderModule *outShaderModule);
+bool load_shader_module(const char* filePath, VkDevice device,
+                        VkShaderModule* outShaderModule);
 
 class PipelineBuilder {
-public:
+ public:
   std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
 
   VkPipelineInputAssemblyStateCreateInfo _inputAssembly;
@@ -20,7 +19,7 @@ public:
   VkPipelineRenderingCreateInfo _renderInfo;
   VkFormat _colorAttachmentFormat;
 
-public:
+ public:
   PipelineBuilder() { clear(); }
 
   void clear();
@@ -39,5 +38,4 @@ public:
 
   VkPipeline build_pipeline(VkDevice device);
 };
-
-}; // namespace vkutil
+};  // namespace vkutil

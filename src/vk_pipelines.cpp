@@ -1,9 +1,11 @@
-﻿#include <fstream>
-#include <vk_initializers.h>
+﻿#include <vk_initializers.h>
 #include <vk_pipelines.h>
 
-bool vkutil::load_shader_module(const char *filePath, VkDevice device,
-                                VkShaderModule *outShaderModule) {
+#include <fstream>
+
+
+bool vkutil::load_shader_module(const char* filePath, VkDevice device,
+                                VkShaderModule* outShaderModule) {
   // open the file. With cursor at the end
   std::ifstream file(filePath, std::ios::ate | std::ios::binary);
 
@@ -23,7 +25,7 @@ bool vkutil::load_shader_module(const char *filePath, VkDevice device,
   file.seekg(0);
 
   // load the entire file into the buffer
-  file.read((char *)buffer.data(), fileSize);
+  file.read((char*)buffer.data(), fileSize);
 
   // now that the file is loaded into the buffer, we can close it
   file.close();
@@ -123,7 +125,7 @@ VkPipeline vkutil::PipelineBuilder::build_pipeline(VkDevice device) {
   if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo,
                                 nullptr, &newPipeline) != VK_SUCCESS) {
     // fmt::println("failed to create pipeline");
-    return VK_NULL_HANDLE; // failed to create graphics pipeline
+    return VK_NULL_HANDLE;  // failed to create graphics pipeline
   } else {
     return newPipeline;
   }

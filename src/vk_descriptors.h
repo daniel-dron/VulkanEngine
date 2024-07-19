@@ -9,7 +9,7 @@ struct DescriptorLayoutBuilder {
   void clear();
 
   VkDescriptorSetLayout build(VkDevice device, VkShaderStageFlags shaderStages,
-                              void *pNext,
+                              void* pNext,
                               VkDescriptorSetLayoutCreateFlags flags = 0);
 };
 
@@ -30,7 +30,7 @@ struct DescriptorAllocator {
 };
 
 struct DescriptorAllocatorGrowable {
-public:
+ public:
   struct PoolSizeRatio {
     VkDescriptorType type;
     float ratio;
@@ -42,9 +42,9 @@ public:
   void destroy_pools(VkDevice device);
 
   VkDescriptorSet allocate(VkDevice device, VkDescriptorSetLayout layout,
-                           void *pNext = nullptr);
+                           void* pNext = nullptr);
 
-private:
+ private:
   VkDescriptorPool get_pool(VkDevice device);
   VkDescriptorPool create_pool(VkDevice device, uint32_t setCount,
                                std::span<PoolSizeRatio> poolRatios);

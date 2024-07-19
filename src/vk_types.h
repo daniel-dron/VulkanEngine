@@ -2,36 +2,36 @@
 // or project specific include files.
 #pragma once
 
-#include "glm/ext/vector_float4.hpp"
+#include <fmt/core.h>
+#include <vk_mem_alloc.h>
+#include <vulkan/vk_enum_string_helper.h>
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
+
 #include <array>
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/vec4.hpp>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
 #include <vector>
 
-#include <vk_mem_alloc.h>
-#include <vulkan/vk_enum_string_helper.h>
-#include <vulkan/vulkan.h>
+#include "glm/ext/vector_float4.hpp"
 
-#include <fmt/core.h>
 
-#include <glm/gtx/quaternion.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/vec4.hpp>
-#include <vulkan/vulkan_core.h>
-
-#define VK_CHECK(x)                                                            \
-  do {                                                                         \
-    VkResult err = x;                                                          \
-    if (err) {                                                                 \
-      fmt::println("{} {} Detected Vulkan error: {}", __FILE__, __LINE__,      \
-                   string_VkResult(err));                                      \
-      abort();                                                                 \
-    }                                                                          \
+#define VK_CHECK(x)                                                       \
+  do {                                                                    \
+    VkResult err = x;                                                     \
+    if (err) {                                                            \
+      fmt::println("{} {} Detected Vulkan error: {}", __FILE__, __LINE__, \
+                   string_VkResult(err));                                 \
+      abort();                                                            \
+    }                                                                     \
   } while (0)
 
 const glm::vec3 GlobalUp{0.0f, -1.0f, 0.0f};
@@ -85,7 +85,7 @@ struct MaterialPipeline {
 };
 
 struct MaterialInstance {
-  MaterialPipeline *pipeline;
+  MaterialPipeline* pipeline;
   MaterialPass passType;
   VkDescriptorSet materialSet;
 };
@@ -93,7 +93,11 @@ struct MaterialInstance {
 struct DrawContext;
 
 class IRenderable {
-  virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) = 0;
+ public:
+  virtual ~IRenderable() = default;
+
+ private:
+  virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) = 0;
 };
 
 struct Node : public IRenderable {
@@ -104,15 +108,15 @@ struct Node : public IRenderable {
   glm::mat4 localTransform;
   glm::mat4 worldTransform;
 
-  void refreshTransform(const glm::mat4 &parentMatrix) {
+  void refreshTransform(const glm::mat4& parentMatrix) {
     worldTransform = parentMatrix * localTransform;
     for (auto c : children) {
       c->refreshTransform(worldTransform);
     }
   }
 
-  virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) {
-    for (auto &c : children) {
+  void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override {
+    for (auto& c : children) {
       c->Draw(topMatrix, ctx);
     }
   }
