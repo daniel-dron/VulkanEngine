@@ -121,7 +121,7 @@ struct DrawContext {
 };
 
 struct MeshNode final : public Node {
-  std::shared_ptr<mesh_asset> mesh;
+  std::shared_ptr<MeshAsset> mesh;
 
   void Draw(const glm::mat4& top_matrix, DrawContext& ctx) override;
 };

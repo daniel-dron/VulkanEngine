@@ -173,7 +173,7 @@ std::optional<std::shared_ptr<LoadedGltf>> load_gltf(
   //
 
   // temporal arrays for all the objects to use while creating the GLTF data
-  std::vector<std::shared_ptr<mesh_asset>> meshes;
+  std::vector<std::shared_ptr<MeshAsset>> meshes;
   std::vector<std::shared_ptr<Node>> nodes;
   std::vector<AllocatedImage> images;
   std::vector<std::shared_ptr<GltfMaterial>> materials;
@@ -281,7 +281,7 @@ std::optional<std::shared_ptr<LoadedGltf>> load_gltf(
   std::vector<Vertex> vertices;
 
   for (fastgltf::Mesh& mesh : gltf.meshes) {
-    auto newmesh = std::make_shared<mesh_asset>();
+    auto newmesh = std::make_shared<MeshAsset>();
     meshes.push_back(newmesh);
     file.meshes[mesh.name.c_str()] = newmesh;
     newmesh->name = mesh.name;
@@ -291,7 +291,7 @@ std::optional<std::shared_ptr<LoadedGltf>> load_gltf(
     vertices.clear();
 
     for (auto&& p : mesh.primitives) {
-      geo_surface newSurface;
+      GeoSurface newSurface;
       newSurface.start_index = (uint32_t)indices.size();
       newSurface.count =
           (uint32_t)gltf.accessors[p.indicesAccessor.value()].count;

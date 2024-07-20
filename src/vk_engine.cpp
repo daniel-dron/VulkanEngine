@@ -1000,9 +1000,8 @@ void VulkanEngine::drawGeometry(VkCommandBuffer cmd) {
     });
   }
 
-  //
+  // ----------
   // scene buffers setup
-  //
   auto gpuSceneDataBuffer =
       createBuffer(sizeof(GpuSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                    VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -1024,6 +1023,7 @@ void VulkanEngine::drawGeometry(VkCommandBuffer cmd) {
                       VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
   writer.update_set(device, global_descriptor);
 
+  // -----------
   // begin render frame
   {
     VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(
@@ -1422,7 +1422,7 @@ void VulkanEngine::updateScene() {
   scene_data.viewproj = scene_data.proj * scene_data.view;
 
   // some default lighting parameters
-  scene_data.ambient_color = glm::vec4(.1f);
+  scene_data.ambient_color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
   scene_data.sunlight_color = glm::vec4(1.f);
   scene_data.sunlight_direction = glm::vec4(0, 1, 0.5, 1.f);
 
@@ -1549,6 +1549,7 @@ void GltfMetallicRoughness::clearResources(VkDevice device) {
 
   vkDestroyPipeline(device, opaque_pipeline.pipeline, nullptr);
   vkDestroyPipeline(device, transparent_pipeline.pipeline, nullptr);
+  vkDestroyPipeline(device, wireframe_pipeline.pipeline, nullptr);
 }
 
 MaterialInstance GltfMetallicRoughness::writeMaterial(

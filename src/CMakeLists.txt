@@ -17,6 +17,10 @@ add_executable (engine
   vk_loader.cpp
   camera/camera.cpp
   camera/camera.h
+  graphics/light.h
+  graphics/light.cpp
+  math/transform.h
+  math/transform.cpp
   engine/input.cpp
 )
 

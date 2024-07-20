@@ -25,23 +25,23 @@ struct bounds {
   glm::vec3 extents;
 };
 
-struct geo_surface {
+struct GeoSurface {
   uint32_t start_index;
   uint32_t count;
   bounds bounds;
   std::shared_ptr<GltfMaterial> material;
 };
 
-struct mesh_asset {
+struct MeshAsset {
   std::string name;
-  std::vector<geo_surface> surfaces;
+  std::vector<GeoSurface> surfaces;
   GPUMeshBuffers mesh_buffers;
 };
 
 class VulkanEngine;
 
 struct LoadedGltf final : public IRenderable {
-  using mesh_map = std::unordered_map<std::string, std::shared_ptr<mesh_asset>>;
+  using mesh_map = std::unordered_map<std::string, std::shared_ptr<MeshAsset>>;
   using node_map = std::unordered_map<std::string, std::shared_ptr<Node>>;
   using image_map = std::unordered_map<std::string, AllocatedImage>;
   using material_map =
