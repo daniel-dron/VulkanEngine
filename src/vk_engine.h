@@ -12,7 +12,7 @@
 #include <memory>
 #include <span>
 
-#include "camera.h"
+#include "camera/camera.h"
 #include "vk_descriptors.h"
 #include "vk_loader.h"
 
