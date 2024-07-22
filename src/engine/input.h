@@ -63,6 +63,8 @@ enum class EG_KEY : uint8_t {
   ESCAPE,
 };
 
+class VulkanEngine;
+
 struct Key {
   bool is_down = false;
   bool just_pressed = false;
@@ -79,9 +81,9 @@ class Input {
 
   void init();
 
-  void poll_events();
+  void poll_events(VulkanEngine* engine);
 
-  virtual void process_sdl_event(SDL_Event &event);
+  virtual void process_sdl_event(SDL_Event &event, VulkanEngine* engine);
 
   bool is_key_down(EG_KEY key);
   bool is_key_up(EG_KEY key);
@@ -114,5 +116,5 @@ class EngineInput : public Input {
     return input;
   }
 
-  virtual void process_sdl_event(SDL_Event &event) override;
+  virtual void process_sdl_event(SDL_Event &event, VulkanEngine* engine) override;
 };

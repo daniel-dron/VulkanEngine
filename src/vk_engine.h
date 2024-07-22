@@ -279,6 +279,8 @@ class VulkanEngine {
   CameraController* camera_controller;
 
   RendererOptions renderer_options;
+  
+  void resizeSwapchain(uint32_t width, uint32_t height);
 
  private:
   /// @brief Initializes SDL context and creates SDL window
@@ -350,6 +352,5 @@ class VulkanEngine {
 
   void createSwapchain(uint32_t width, uint32_t height,
                        VkSwapchainKHR old = VK_NULL_HANDLE);
-  void resizeSwapchain(uint32_t width, uint32_t height);
   void destroySwapchain();
 };

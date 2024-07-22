@@ -39,7 +39,7 @@
 #include "tracy/tracy/Tracy.hpp"
 
 VulkanEngine* loaded_engine = nullptr;
-constexpr bool B_USE_VALIDATION_LAYERS = false;
+constexpr bool B_USE_VALIDATION_LAYERS = true;
 
 VulkanEngine& VulkanEngine::get() { return *loaded_engine; }
 
@@ -1250,7 +1250,7 @@ void VulkanEngine::run() {
 
     {
       ZoneScopedN("poll_events");
-      EG_INPUT.poll_events();
+      EG_INPUT.poll_events(this);
     }
 
     if (EG_INPUT.should_quit()) {
@@ -1453,7 +1453,7 @@ void VulkanEngine::updateScene() {
   scene_data.camera_position = camera.transform.get_position();
 
   // point lights
-  scene_data.number_of_lights = point_lights.size();
+  scene_data.number_of_lights = static_cast<int>(point_lights.size());
   for (size_t i = 0; i < point_lights.size(); i++) {
     auto &light = scene_data.point_lights[i];
     light.position = point_lights[i].transform.get_position();

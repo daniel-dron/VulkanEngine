@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <tracy/tracy/Tracy.hpp>
 
+#include "../vk_engine.h"
 
 void Input::init() {
   translation_lut[SDL_BUTTON_LEFT] = EG_KEY::MOUSE_LEFT;
@@ -63,7 +64,7 @@ void Input::init() {
   translation_lut[SDL_SCANCODE_ESCAPE] = EG_KEY::ESCAPE;
 }
 
-void Input::poll_events() {
+void Input::poll_events(VulkanEngine* engine) {
   ZoneScopedN("poll events");
 
   // reset key states
@@ -79,11 +80,11 @@ void Input::poll_events() {
 
   SDL_Event e;
   while (SDL_PollEvent(&e) != 0) {
-    process_sdl_event(e);
+    process_sdl_event(e, engine);
   }
 }
 
-void Input::process_sdl_event(SDL_Event& e) {
+void Input::process_sdl_event(SDL_Event& e, VulkanEngine* engine) {
   if (e.type == SDL_QUIT) {
     _should_quit = true;
   }
@@ -94,6 +95,12 @@ void Input::process_sdl_event(SDL_Event& e) {
       yrel += e.motion.yrel;
       x = e.motion.x;
       y = e.motion.y;
+    } break;
+    case SDL_WINDOWEVENT: {
+      if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED &&
+          e.window.data1 > 0 && e.window.data2 > 0) {
+        engine->resizeSwapchain(e.window.data1, e.window.data2);
+    }
     } break;
     case SDL_KEYDOWN: {
       auto code = translation_lut[e.key.keysym.scancode];
@@ -155,8 +162,8 @@ bool Input::should_quit() { return _should_quit; }
 
 float Input::get_mouse_wheel() { return mwheel; }
 
-void EngineInput::process_sdl_event(SDL_Event& event) {
+void EngineInput::process_sdl_event(SDL_Event& event, VulkanEngine* engine) {
   ImGui_ImplSDL2_ProcessEvent(&event);
 
-  Input::process_sdl_event(event);
+  Input::process_sdl_event(event, engine);
 }
