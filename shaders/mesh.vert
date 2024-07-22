@@ -8,6 +8,7 @@
 layout (location = 0) out vec3 outNormal;
 layout (location = 1) out vec3 outColor;
 layout (location = 2) out vec2 outUV;
+layout (location = 3) out vec3 out_frag_pos;
 
 struct Vertex {
 	vec3 position;
@@ -34,10 +35,11 @@ void main()
 	
 	vec4 position = vec4(v.position, 1.0f);
 
-	gl_Position =  sceneData.viewproj * PushConstants.model *position;
+	gl_Position =  scene_data.viewproj * PushConstants.model *position;
 
 	outNormal = normalize(mat3(transpose(inverse(PushConstants.model))) * v.normal);//(PushConstants.model * vec4(v.normal, 0.f)).xyz;
 	outColor = v.color.xyz * materialData.colorFactors.xyz;	
 	outUV.x = v.uv_x;
 	outUV.y = v.uv_y;
+	out_frag_pos = vec4(PushConstants.model * position).xyz;
 }

@@ -58,6 +58,8 @@ void VulkanEngine::init() {
 
   EG_INPUT.init();
 
+  initScene();
+
   const std::string structure_path = {"../../assets/sponza_scene.glb"};
   const auto structure_file = loadGltf(this, structure_path);
   assert(structure_file.has_value());
@@ -1177,6 +1179,17 @@ void VulkanEngine::initImages() {
   });
 }
 
+void VulkanEngine::initScene() {
+  PointLight light = {};
+  light.transform.set_position(vec3(0.0f, 2.0f, 0.0f));
+  light.color = vec4(1.0f, 0.0f, 1.0f, 1000.0f);
+  light.diffuse = 1.0f;
+  light.specular = 1.0f;
+  light.radius = 10.0f;
+
+  point_lights.push_back(light);
+}
+
 // Global variables to store FPS history
 std::vector<float> fpsHistory;
 std::vector<float> frameTimeHistory;
@@ -1279,7 +1292,7 @@ void VulkanEngine::run() {
       ImGui::ShowDemoWindow();
 
       if (ImGui::Begin("Scene")) {
-        draw_scene_hierarchy();
+        drawSceneHierarchy();
       }
       ImGui::End();
 
@@ -1423,12 +1436,16 @@ void VulkanEngine::updateScene() {
 
   scene_data.camera_position = camera.transform.get_position();
 
-  // some default lighting parameters
-  scene_data.point_lights[0].color = glm::vec4(1.0f, 1.0f, 1.0f, 1000.0f);
-  scene_data.point_lights[0].diffuse = 1.0f;
-  scene_data.point_lights[0].specular = 1.0f;
-  scene_data.point_lights[0].radius = 100.0f;
-  scene_data.number_of_lights = 1;
+  // point lights
+  scene_data.number_of_lights = point_lights.size();
+  for (size_t i = 0; i < point_lights.size(); i++) {
+    auto &light = scene_data.point_lights[i];
+    light.position = point_lights[i].transform.get_position();
+    light.radius = point_lights[i].radius;
+    light.color = point_lights[i].color;
+    light.diffuse = point_lights[i].diffuse;
+    light.specular = point_lights[i].specular;
+  }
 
   auto end = std::chrono::system_clock::now();
   // convert to microseconds (integer), and then come back to miliseconds
@@ -1437,7 +1454,7 @@ void VulkanEngine::updateScene() {
   stats.scene_update_time = elapsed.count() / 1000.f;
 }
 
-void draw_scene_node(Node* node) {
+void drawSceneNode(Node* node) {
   MeshNode* mesh_node = dynamic_cast<MeshNode*>(node);
 
   if (mesh_node) {
@@ -1448,19 +1465,19 @@ void draw_scene_node(Node* node) {
     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::TreeNode(node, node->name.c_str())) {
       for (auto& n : node->children) {
-        draw_scene_node(n.get());
+        drawSceneNode(n.get());
       }
       ImGui::TreePop();
     }
   }
 }
 
-void VulkanEngine::draw_scene_hierarchy() {
+void VulkanEngine::drawSceneHierarchy() {
   for (auto& [k, v] : loaded_scenes) {
     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::TreeNode(k.c_str())) {
       for (auto& root : v->top_nodes) {
-        draw_scene_node(root.get());
+        drawSceneNode(root.get());
       }
       ImGui::TreePop();
     }

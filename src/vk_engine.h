@@ -61,13 +61,21 @@ struct ComputeEffect {
   ComputePushConstants data;
 };
 
+struct GpuPointLightData {
+  vec3 position;
+  float radius;
+  vec4 color;
+  float diffuse;
+  float specular;
+};
+
 struct GpuSceneData {
   glm::mat4 view;
   glm::mat4 proj;
   glm::mat4 viewproj;
   glm::vec3 camera_position;
   int number_of_lights;
-  PointLight point_lights[10];
+  GpuPointLightData point_lights[10];
 };
 
 class VulkanEngine;
@@ -244,9 +252,9 @@ class VulkanEngine {
   std::vector<ComputeEffect> background_effects;
   int current_background_effect{0};
 
-  //
+  // ----------
   // scene
-  //
+  std::vector<PointLight> point_lights;
   GpuSceneData scene_data;
   VkDescriptorSetLayout gpu_scene_data_descriptor_layout;
 
@@ -331,10 +339,12 @@ class VulkanEngine {
   void initDefaultData();
   void initImages();
 
+  void initScene();
+
   /// @brief Updates scene data and call Draw on each scene node.
   void updateScene();
 
-  void draw_scene_hierarchy();
+  void drawSceneHierarchy();
 
   void createSwapchain(uint32_t width, uint32_t height,
                        VkSwapchainKHR old = VK_NULL_HANDLE);
