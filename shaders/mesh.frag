@@ -14,11 +14,29 @@ void main()
 {
 	vec3 norm = normalize(inNormal);
 	vec3 light_dir = normalize(scene_data.pointLights[0].position.xyz - in_frag_pos);
+	vec3 view_dir = normalize(scene_data.camera_position - in_frag_pos);
+	vec3 reflect_dir = reflect(-light_dir, norm);
 
+	// ----------
+	// ambient
+	float ambient_factor = toLinear(vec4(scene_data.ambient_light_factor, scene_data.ambient_light_factor, scene_data.ambient_light_factor, 1.0f)).r;
+	vec3 ambient = scene_data.ambient_light_color * ambient_factor;
+
+	// ----------
+	// diffuse
 	float diff = max(dot(norm, light_dir), 0.0f);
-	vec3 diffuse = diff * scene_data.pointLights[0].color.rgb;
+	float light_diffuse_factor = scene_data.pointLights[0].diffuse;
+	vec3 diffuse = toLinear(vec4(light_diffuse_factor, light_diffuse_factor, light_diffuse_factor, 1.0f)).r
+					* diff * scene_data.pointLights[0].color.rgb;
 
-	vec3 result = (diffuse) * texture(colorTex, inUV).rgb;
+	// ----------
+	// specular
+	float light_specular_factor = scene_data.pointLights[0].specular;
+	float spec = pow(max(dot(view_dir, reflect_dir), 0.0f), 32.0f);
+	vec3 specular = toLinear(vec4(light_specular_factor, light_specular_factor, light_specular_factor, 1.0f)).r
+					* spec * scene_data.pointLights[0].color.rgb;
+
+	vec3 result = (ambient + diffuse + specular) * texture(colorTex, inUV).rgb;
 
 	outFragColor = vec4(result, 1.0f);
 }

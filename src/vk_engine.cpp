@@ -1180,10 +1180,13 @@ void VulkanEngine::initImages() {
 }
 
 void VulkanEngine::initScene() {
+  scene_data.ambient_light_color = vec3(1.0f, 1.0f, 1.0f);
+  scene_data.ambient_light_factor = 1.0f;
+
   PointLight light = {};
   light.transform.set_position(vec3(0.0f, 2.0f, 0.0f));
   light.color = vec4(1.0f, 0.0f, 1.0f, 1000.0f);
-  light.diffuse = 1.0f;
+  light.diffuse = 0.1f;
   light.specular = 1.0f;
   light.radius = 10.0f;
 
@@ -1342,8 +1345,21 @@ void VulkanEngine::run() {
         }
         ImGui::SeparatorText("Camera 3D");
         camera.draw_debug();
+
         ImGui::SeparatorText("Camera Controller");
         camera_controller->draw_debug();
+
+        ImGui::SeparatorText("Light");
+        ImGui::DragFloat3("Ambient Color", &scene_data.ambient_light_color.x, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat("Ambient Diffuse", &scene_data.ambient_light_factor, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat3("Color", &point_lights.at(0).color.x, 0.01f, 0.0f, 1.0f);
+        auto pos = point_lights.at(0).transform.get_position();
+        ImGui::DragFloat3("Pos", &pos.x, 0.1f);
+        point_lights.at(0).transform.set_position(pos);
+        ImGui::DragFloat("Diffuse", &point_lights.at(0).diffuse, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat("Specular", &point_lights.at(0).specular, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat("Radius", &point_lights.at(0).radius, 0.1f);
+
         ImGui::SeparatorText("Background");
         ImGui::SliderFloat("Render Scale", &render_scale, 0.3f, 1.f);
         ComputeEffect& selected = background_effects[current_background_effect];

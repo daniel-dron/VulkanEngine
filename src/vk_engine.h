@@ -70,10 +70,12 @@ struct GpuPointLightData {
 };
 
 struct GpuSceneData {
-  glm::mat4 view;
-  glm::mat4 proj;
-  glm::mat4 viewproj;
-  glm::vec3 camera_position;
+  mat4 view;
+  mat4 proj;
+  mat4 viewproj;
+  vec3 camera_position;
+  float ambient_light_factor;
+  vec3 ambient_light_color;
   int number_of_lights;
   GpuPointLightData point_lights[10];
 };
