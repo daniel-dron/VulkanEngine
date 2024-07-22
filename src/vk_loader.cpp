@@ -95,7 +95,7 @@ std::string generateRandomNumber() {
   return std::to_string(randomNum);
 }
 
-std::optional<std::shared_ptr<LoadedGltf>> load_gltf(
+std::optional<std::shared_ptr<LoadedGltf>> loadGltf(
     VulkanEngine* engine, std::string_view filePath) {
   fmt::println("Loading GLTF: {}", filePath);
 

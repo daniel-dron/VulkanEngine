@@ -68,7 +68,7 @@ struct LoadedGltf final : public IRenderable {
   void clear_all();
 };
 
-std::optional<std::shared_ptr<LoadedGltf>> load_gltf(
+std::optional<std::shared_ptr<LoadedGltf>> loadGltf(
     VulkanEngine* engine, std::string_view filePath);
 
 std::optional<std::pair<AllocatedImage, std::string>> load_image(

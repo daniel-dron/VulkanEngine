@@ -15,6 +15,7 @@
 #include "camera/camera.h"
 #include "vk_descriptors.h"
 #include "vk_loader.h"
+#include "graphics/light.h"
 
 struct DeletionQueue {
   std::deque<std::function<void()>> deletors;
@@ -64,9 +65,9 @@ struct GpuSceneData {
   glm::mat4 view;
   glm::mat4 proj;
   glm::mat4 viewproj;
-  glm::vec4 ambient_color;
-  glm::vec4 sunlight_direction;  // w for sun power
-  glm::vec4 sunlight_color;
+  glm::vec3 camera_position;
+  int number_of_lights;
+  PointLight point_lights[10];
 };
 
 class VulkanEngine;

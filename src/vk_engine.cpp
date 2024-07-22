@@ -39,7 +39,7 @@
 #include "tracy/tracy/Tracy.hpp"
 
 VulkanEngine* loaded_engine = nullptr;
-constexpr bool B_USE_VALIDATION_LAYERS = true;
+constexpr bool B_USE_VALIDATION_LAYERS = false;
 
 VulkanEngine& VulkanEngine::get() { return *loaded_engine; }
 
@@ -59,7 +59,7 @@ void VulkanEngine::init() {
   EG_INPUT.init();
 
   const std::string structure_path = {"../../assets/sponza_scene.glb"};
-  const auto structure_file = load_gltf(this, structure_path);
+  const auto structure_file = loadGltf(this, structure_path);
   assert(structure_file.has_value());
   loaded_scenes["structure"] = *structure_file;
 
@@ -1421,10 +1421,14 @@ void VulkanEngine::updateScene() {
 
   scene_data.viewproj = scene_data.proj * scene_data.view;
 
+  scene_data.camera_position = camera.transform.get_position();
+
   // some default lighting parameters
-  scene_data.ambient_color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-  scene_data.sunlight_color = glm::vec4(1.f);
-  scene_data.sunlight_direction = glm::vec4(0, 1, 0.5, 1.f);
+  scene_data.point_lights[0].color = glm::vec4(1.0f, 1.0f, 1.0f, 1000.0f);
+  scene_data.point_lights[0].diffuse = 1.0f;
+  scene_data.point_lights[0].specular = 1.0f;
+  scene_data.point_lights[0].radius = 100.0f;
+  scene_data.number_of_lights = 1;
 
   auto end = std::chrono::system_clock::now();
   // convert to microseconds (integer), and then come back to miliseconds
