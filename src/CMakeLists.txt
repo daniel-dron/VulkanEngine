@@ -22,6 +22,20 @@ add_executable (engine
   math/transform.h
   math/transform.cpp
   engine/input.cpp
+
+  # ----------
+  # imguizmo
+  imguizmo/GraphEditor.cpp
+  imguizmo/GraphEditor.h
+  imguizmo/ImCurveEdit.cpp
+  imguizmo/ImCurveEdit.h
+  imguizmo/ImGradient.cpp
+  imguizmo/ImGradient.h
+  imguizmo/ImGuizmo.cpp
+  imguizmo/ImGuizmo.h
+  imguizmo/ImSequencer.cpp
+  imguizmo/ImSequencer.h
+  imguizmo/GraphEditor.h
 )
 
 set_property(TARGET engine PROPERTY CXX_STANDARD 20)

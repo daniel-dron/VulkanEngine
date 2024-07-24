@@ -34,7 +34,10 @@
 #include "vk_mem_alloc.h"
 
 #define TRACY_ENABLE
+#include <glm/gtc/type_ptr.hpp>
+
 #include "engine/input.h"
+#include "imguizmo/ImGuizmo.h"
 #include "tracy/TracyClient.cpp"
 #include "tracy/tracy/Tracy.hpp"
 
@@ -1294,17 +1297,39 @@ void VulkanEngine::run() {
 
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplSDL2_NewFrame();
+    ImGuizmo::SetOrthographic(false);
+
     ImGui::NewFrame();
+    ImGuizmo::BeginFrame();
     {
       // ----------
       // dockspace
       ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
 
       ImGui::ShowDemoWindow();
-      
+
       if (ImGui::Begin("Viewport", 0, ImGuiWindowFlags_NoScrollbar)) {
         ImGui::Image((ImTextureID)(viewport_set),
                      ImGui::GetWindowContentRegionMax());
+
+        // ----------
+        // guizmos
+        if (selected_node != nullptr) {
+          ImGuizmo::SetOrthographic(false);
+          ImGuizmo::SetDrawlist();
+          ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y,
+                            (float)ImGui::GetWindowWidth(),
+                            (float)ImGui::GetWindowHeight());
+          auto camera_view = scene_data.view;
+          auto camera_proj = scene_data.proj;
+          camera_proj[1][1] *= -1;
+
+          auto& tc = selected_node->worldTransform;
+          ImGuizmo::Manipulate(glm::value_ptr(camera_view),
+                               glm::value_ptr(camera_proj),
+                               ImGuizmo::OPERATION::UNIVERSAL,
+                               ImGuizmo::MODE::LOCAL, glm::value_ptr(tc));
+        }
       }
       ImGui::End();
 
@@ -1401,6 +1426,7 @@ void VulkanEngine::run() {
       }
       ImGui::End();
     }
+
     ImGui::Render();
 
     draw();
