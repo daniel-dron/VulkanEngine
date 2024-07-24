@@ -128,12 +128,16 @@ void VulkanEngine::initDevice() {
   features12.bufferDeviceAddress = true;
   features12.descriptorIndexing = true;
 
+  VkPhysicalDeviceFeatures f{};
+  f.fillModeNonSolid = true;
+
   // select gpu than can write to SDL surface and supports 1.3
   vkb::PhysicalDeviceSelector selector{vkb_inst};
   vkb::PhysicalDevice physical_device =
       selector.set_minimum_version(1, 3)
           .set_required_features_13(features)
           .set_required_features_12(features12)
+          .set_required_features(f)
           .set_surface(surface)
           .select()
           .value();
@@ -486,6 +490,10 @@ void VulkanEngine::initImgui() {
   auto& io = ImGui::GetIO();
   io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+  viewport_set =
+      ImGui_ImplVulkan_AddTexture(default_sampler_linear, draw_image.view,
+                                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
   // add the destroy the imgui created structures
   main_deletion_queue.pushFunction([&, imguiPool]() {
@@ -843,9 +851,9 @@ void VulkanEngine::draw() {
                            VK_IMAGE_LAYOUT_UNDEFINED,
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-  vkutil::copy_image_to_image(cmd, draw_image.image,
-                              swapchain_images[swapchainImageIndex],
-                              draw_extent, swapchain_extent);
+  // vkutil::copy_image_to_image(cmd, draw_image.image,
+  //                             swapchain_images[swapchainImageIndex],
+  //                             draw_extent, swapchain_extent);
 
   // transition swapchain to present
   vkutil::transition_image(cmd, swapchain_images[swapchainImageIndex],
@@ -1288,11 +1296,17 @@ void VulkanEngine::run() {
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
     {
-      ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
-      ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(),
-                                   ImGuiDockNodeFlags_PassthruCentralNode);
-      ImGui::PopStyleColor();
+      // ----------
+      // dockspace
+      ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+
       ImGui::ShowDemoWindow();
+      
+      if (ImGui::Begin("Viewport", 0, ImGuiWindowFlags_NoScrollbar)) {
+        ImGui::Image((ImTextureID)(viewport_set),
+                     ImGui::GetWindowContentRegionMax());
+      }
+      ImGui::End();
 
       if (ImGui::Begin("Scene")) {
         drawSceneHierarchy();
@@ -1350,14 +1364,19 @@ void VulkanEngine::run() {
         camera_controller->draw_debug();
 
         ImGui::SeparatorText("Light");
-        ImGui::DragFloat3("Ambient Color", &scene_data.ambient_light_color.x, 0.01f, 0.0f, 1.0f);
-        ImGui::DragFloat("Ambient Diffuse", &scene_data.ambient_light_factor, 0.01f, 0.0f, 1.0f);
-        ImGui::DragFloat3("Color", &point_lights.at(0).color.x, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat3("Ambient Color", &scene_data.ambient_light_color.x,
+                          0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat("Ambient Diffuse", &scene_data.ambient_light_factor,
+                         0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat3("Color", &point_lights.at(0).color.x, 0.01f, 0.0f,
+                          1.0f);
         auto pos = point_lights.at(0).transform.get_position();
         ImGui::DragFloat3("Pos", &pos.x, 0.1f);
         point_lights.at(0).transform.set_position(pos);
-        ImGui::DragFloat("Diffuse", &point_lights.at(0).diffuse, 0.01f, 0.0f, 1.0f);
-        ImGui::DragFloat("Specular", &point_lights.at(0).specular, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat("Diffuse", &point_lights.at(0).diffuse, 0.01f, 0.0f,
+                         1.0f);
+        ImGui::DragFloat("Specular", &point_lights.at(0).specular, 0.01f, 0.0f,
+                         1.0f);
         ImGui::DragFloat("Radius", &point_lights.at(0).radius, 0.1f);
 
         ImGui::SeparatorText("Background");
@@ -1455,7 +1474,7 @@ void VulkanEngine::updateScene() {
   // point lights
   scene_data.number_of_lights = static_cast<int>(point_lights.size());
   for (size_t i = 0; i < point_lights.size(); i++) {
-    auto &light = scene_data.point_lights[i];
+    auto& light = scene_data.point_lights[i];
     light.position = point_lights[i].transform.get_position();
     light.radius = point_lights[i].radius;
     light.color = point_lights[i].color;

@@ -271,6 +271,7 @@ class VulkanEngine {
   MaterialInstance default_data;
   GltfMetallicRoughness metal_rough_material;
 
+  VkDescriptorSet viewport_set;
   DrawContext main_draw_context;
 
   std::unordered_map<std::string, std::shared_ptr<LoadedGltf>> loaded_scenes;

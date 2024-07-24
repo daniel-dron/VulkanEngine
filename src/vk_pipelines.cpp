@@ -147,7 +147,7 @@ void vkutil::PipelineBuilder::set_input_topology(VkPrimitiveTopology topology) {
 
 void vkutil::PipelineBuilder::set_polygon_mode(VkPolygonMode mode) {
   _rasterizer.polygonMode = mode;
-  _rasterizer.lineWidth = 2.0f;
+  _rasterizer.lineWidth = 1.0f;
 }
 
 void vkutil::PipelineBuilder::set_cull_mode(VkCullModeFlags cullMode,
