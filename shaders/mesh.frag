@@ -41,7 +41,18 @@ void main()
 	vec3 specular = toLinear(vec4(light_specular_factor, light_specular_factor, light_specular_factor, 1.0f)).r
 					* spec * scene_data.pointLights[0].color.rgb;
 
+	// ----------
+	// fog
+	float fog_end = scene_data.fog_end;
+	float fog_start = scene_data.fog_start;
+	float cam_to_frag_dist = length(in_frag_pos - scene_data.camera_position);
+	float range = fog_end - fog_start;
+	float dist = fog_end - cam_to_frag_dist;
+	float fog_factor = dist / range;
+	fog_factor = clamp(fog_factor, 0.0f, 1.0f);
+
 	vec3 result = (ambient + diffuse + specular) * texture(colorTex, inUV).rgb;
+	result = mix(scene_data.fog_color, vec4(result, 1.0f), fog_factor).rgb;
 
 	outFragColor = vec4(result, 1.0f);
 }
