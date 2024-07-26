@@ -82,6 +82,8 @@ VkSamplerMipmapMode extract_mipmap_mode(fastgltf::Filter filter) {
   }
 }
 
+#include <imgui_impl_vulkan.h>
+
 #include <random>
 #include <string>
 
@@ -95,8 +97,8 @@ std::string generateRandomNumber() {
   return std::to_string(randomNum);
 }
 
-std::optional<std::shared_ptr<LoadedGltf>> loadGltf(
-    VulkanEngine* engine, std::string_view filePath) {
+std::optional<std::shared_ptr<LoadedGltf>> loadGltf(VulkanEngine* engine,
+                                                    std::string_view filePath) {
   fmt::println("Loading GLTF: {}", filePath);
 
   auto scene = std::make_shared<LoadedGltf>();
@@ -181,7 +183,7 @@ std::optional<std::shared_ptr<LoadedGltf>> loadGltf(
   // load all textures
   for (fastgltf::Image& image : gltf.images) {
     std::optional<std::pair<AllocatedImage, std::string>> loaded_img =
-        load_image(engine, gltf, image);
+        loadImage(engine, gltf, image);
 
     if (loaded_img.has_value()) {
       images.push_back((*loaded_img).first);
@@ -242,6 +244,7 @@ std::optional<std::shared_ptr<LoadedGltf>> loadGltf(
     materialResources.data_buffer_offset =
         data_index * sizeof(GltfMetallicRoughness::MaterialConstants);
 
+    // ----------
     // grab textures
     if (mat.pbrData.baseColorTexture.has_value()) {
       size_t img =
@@ -253,6 +256,9 @@ std::optional<std::shared_ptr<LoadedGltf>> loadGltf(
 
       materialResources.color_image = images[img];
       materialResources.color_sampler = file.samplers[sampler];
+      newMat->debug_sets.base_color_set =
+          ImGui_ImplVulkan_AddTexture(file.samplers[sampler], images[img].view,
+                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
     if (mat.pbrData.metallicRoughnessTexture.has_value()) {
@@ -266,8 +272,24 @@ std::optional<std::shared_ptr<LoadedGltf>> loadGltf(
 
       materialResources.metal_rough_image = images[img];
       materialResources.metal_rough_sampler = file.samplers[sampler];
+      newMat->debug_sets.metal_roughness_set =
+          ImGui_ImplVulkan_AddTexture(file.samplers[sampler], images[img].view,
+                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
-    
+
+    if (mat.normalTexture.has_value()) {
+      size_t img = gltf.textures[mat.normalTexture.value().textureIndex]
+                       .imageIndex.value();
+      size_t sampler = gltf.textures[mat.normalTexture.value().texCoordIndex]
+                           .samplerIndex.value();
+
+      materialResources.normal_map = images[img];
+      materialResources.normal_sampler = file.samplers[sampler];
+      newMat->debug_sets.normal_map_set =
+          ImGui_ImplVulkan_AddTexture(file.samplers[sampler], images[img].view,
+                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+
     newMat->data = engine->metal_rough_material.writeMaterial(
         engine->device, passType, materialResources, file.descriptor_pool);
 
@@ -358,6 +380,15 @@ std::optional<std::shared_ptr<LoadedGltf>> loadGltf(
             });
       }
 
+      auto tangents = p.findAttribute("TANGENT");
+      if (tangents != p.attributes.end()) {
+        auto accessor = gltf.accessors[(*tangents).second];
+        fastgltf::iterateAccessorWithIndex<glm::vec4>(
+          gltf, accessor, [&](glm::vec4 t, size_t index) {
+            vertices[initial_vtx + index].tangent = t;
+          });
+      }
+
       if (p.materialIndex.has_value()) {
         newSurface.material = materials[p.materialIndex.value()];
       } else {
@@ -443,7 +474,7 @@ std::optional<std::shared_ptr<LoadedGltf>> loadGltf(
   return scene;
 }
 
-std::optional<std::pair<AllocatedImage, std::string>> load_image(
+std::optional<std::pair<AllocatedImage, std::string>> loadImage(
     VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image) {
   AllocatedImage newImage{};
 

@@ -1358,27 +1358,54 @@ void VulkanEngine::run() {
                 ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg |
                 ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable |
                 ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
-            if (ImGui::BeginTable("Surfaces", 2, flags)) {
-              ImGui::TableSetupColumn("Material",
-                                      ImGuiTableColumnFlags_WidthFixed);
-              ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
-              ImGui::TableHeadersRow();
-              for (auto& surface : node->mesh->surfaces) {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text(surface.material->name.c_str());
-                ImGui::TableSetColumnIndex(1);
-                if (surface.material->data.passType ==
-                    MaterialPass::MainColor) {
-                  ImGui::Text("Opaque");
-                } else if (surface.material->data.passType ==
-                           MaterialPass::Transparent) {
-                  ImGui::Text("Transparent");
-                } else {
-                  ImGui::Text("Other");
+
+            // material data
+            auto idx = 0;
+            for (auto& surface : node->mesh->surfaces) {
+              if (ImGui::CollapsingHeader(
+                      std::format("Surface {}", idx).c_str())) {
+                ImGui::InputText("Name", (char*)surface.material->name.c_str(),
+                                 surface.material->name.size(),
+                                 ImGuiInputTextFlags_ReadOnly);
+
+                std::string pipeline_name;
+                switch (surface.material->data.passType) {
+                  case MaterialPass::MainColor:
+                    pipeline_name = "Opaque Material";
+                    break;
+                  case MaterialPass::Transparent:
+                    pipeline_name = "Transparent Material";
+                    break;
+                  default:
+                    pipeline_name = "Other";
+                }
+
+                ImGui::InputText("Pipeline", (char*)pipeline_name.c_str(),
+                                 pipeline_name.size(),
+                                 ImGuiInputTextFlags_ReadOnly);
+
+                // albedo
+                if (ImGui::CollapsingHeader("Albedo")) {
+                  ImGui::Image((ImTextureID)(
+                                   surface.material->debug_sets.base_color_set),
+                               ImVec2(200, 200));
+                }
+
+                // metal roughness
+                if (ImGui::CollapsingHeader("Metal Roughness")) {
+                  ImGui::Image(
+                      (ImTextureID)(
+                          surface.material->debug_sets.metal_roughness_set),
+                      ImVec2(200, 200));
+                }
+
+                // normal map
+                if (ImGui::CollapsingHeader("Normal")) {
+                  ImGui::Image((ImTextureID)(
+                                   surface.material->debug_sets.normal_map_set),
+                               ImVec2(200, 200));
                 }
               }
-              ImGui::EndTable();
             }
           }
         }
@@ -1572,6 +1599,7 @@ void GltfMetallicRoughness::buildPipelines(VulkanEngine* engine) {
   layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
   layoutBuilder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
   layoutBuilder.add_binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+  layoutBuilder.add_binding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
   material_layout = layoutBuilder.build(
       engine->device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
       nullptr);
@@ -1656,6 +1684,9 @@ MaterialInstance GltfMetallicRoughness::writeMaterial(
                      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
   writer.write_image(2, resources.metal_rough_image.view,
                      resources.metal_rough_sampler,
+                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+  writer.write_image(3, resources.normal_map.view, resources.normal_sampler,
                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 

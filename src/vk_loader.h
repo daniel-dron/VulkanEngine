@@ -16,6 +16,14 @@
 
 struct GltfMaterial {
   std::string name;
+
+  // ids of textures into LoadedGltf::image_map images
+  struct {
+    VkDescriptorSet base_color_set = 0;
+    VkDescriptorSet metal_roughness_set = 0;
+    VkDescriptorSet normal_map_set = 0;
+  } debug_sets;
+
   MaterialInstance data;
 };
 
@@ -71,5 +79,5 @@ struct LoadedGltf final : public IRenderable {
 std::optional<std::shared_ptr<LoadedGltf>> loadGltf(
     VulkanEngine* engine, std::string_view filePath);
 
-std::optional<std::pair<AllocatedImage, std::string>> load_image(
+std::optional<std::pair<AllocatedImage, std::string>> loadImage(
     VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image);

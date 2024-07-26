@@ -101,6 +101,8 @@ struct GltfMetallicRoughness {
     VkSampler color_sampler;
     AllocatedImage metal_rough_image;
     VkSampler metal_rough_sampler;
+    AllocatedImage normal_map;
+    VkSampler normal_sampler;
     VkBuffer data_buffer;  // material constants
     uint32_t data_buffer_offset;
   };
@@ -147,7 +149,7 @@ struct EngineStats {
 
 struct RendererOptions {
   bool wireframe = false;
-  bool frustum = true;
+  bool frustum = false;
 };
 
 /// @brief This is the main Vulkan Engine class

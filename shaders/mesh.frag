@@ -7,12 +7,17 @@ layout (location = 0) in vec3 inNormal;
 layout (location = 1) in vec3 inColor;
 layout (location = 2) in vec2 inUV;
 layout (location = 3) in vec3 in_frag_pos;
+layout (location = 4) in mat3 in_tbn;
 
 layout (location = 0) out vec4 outFragColor;
 
 void main() 
 {
-	vec3 norm = normalize(inNormal);
+	// vec3 norm = normalize(inNormal);
+	vec3 norm = texture(normalTex, inUV).rgb;
+	norm = normalize(norm * 2.0f - 1.0f);
+	norm = normalize(in_tbn * norm);
+
 	vec3 light_dir = normalize(scene_data.pointLights[0].position.xyz - in_frag_pos);
 	vec3 view_dir = normalize(scene_data.camera_position - in_frag_pos);
 	vec3 reflect_dir = reflect(-light_dir, norm);
