@@ -51,13 +51,12 @@ class VulkanEngine;
 struct LoadedGltf final : public IRenderable {
   using mesh_map = std::unordered_map<std::string, std::shared_ptr<MeshAsset>>;
   using node_map = std::unordered_map<std::string, std::shared_ptr<Node>>;
-  using image_map = std::unordered_map<std::string, AllocatedImage>;
   using material_map =
       std::unordered_map<std::string, std::shared_ptr<GltfMaterial>>;
 
   mesh_map meshes;
   node_map nodes;
-  image_map images;
+  std::vector<ImageID> images;
   material_map materials;
 
   // root nodes with no parents
@@ -79,5 +78,5 @@ struct LoadedGltf final : public IRenderable {
 std::optional<std::shared_ptr<LoadedGltf>> loadGltf(
     VulkanEngine* engine, std::string_view filePath);
 
-std::optional<std::pair<AllocatedImage, std::string>> loadImage(
+std::optional<std::pair<ImageID, std::string>> loadImage(
     VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image);

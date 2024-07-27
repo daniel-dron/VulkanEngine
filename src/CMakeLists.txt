@@ -19,6 +19,12 @@ add_executable (engine
   camera/camera.h
   graphics/light.h
   graphics/light.cpp
+  graphics/gfx_device.h
+  graphics/gfx_device.cpp
+  graphics/gpu_image.h
+  graphics/gpu_image.cpp
+  graphics/image_codex.h
+  graphics/image_codex.cpp
   math/transform.h
   math/transform.cpp
   engine/input.cpp
