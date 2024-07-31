@@ -9,6 +9,7 @@ void ImageCodex::init(VulkanEngine* engine) { this->engine = engine; }
 
 void ImageCodex::cleanup() {
 	for (auto& img : images) {
+		engine->allocation_counter[img.info.debug_name]--;
 		engine->destroyImage(img);
 	}
 }
@@ -63,13 +64,15 @@ ImageID ImageCodex::loadImageFromData(const std::string& name, void* data, VkExt
 	// allocate
 	size_t data_size =
 		image.extent.depth * image.extent.width * image.extent.height * 4;
+
+	engine->allocation_counter["load_image_from_data_staging"]++;
 	AllocatedBuffer staging_buffer = engine->createBuffer(
-		data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+		data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, __FUNCTION__);
 
 	void* mapped_buffer = nullptr;
-	vmaMapMemory(engine->allocator, staging_buffer.allocation, &mapped_buffer);
+	vmaMapMemory(engine->gfx->allocator, staging_buffer.allocation, &mapped_buffer);
 	memcpy(mapped_buffer, data, data_size);
-	vmaUnmapMemory(engine->allocator, staging_buffer.allocation);
+	vmaUnmapMemory(engine->gfx->allocator, staging_buffer.allocation);
 
 	// ----------
 	// allocate image
@@ -85,14 +88,15 @@ ImageID ImageCodex::loadImageFromData(const std::string& name, void* data, VkExt
 		.usage = VMA_MEMORY_USAGE_GPU_ONLY,
 		.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 	};
-	VK_CHECK(vmaCreateImage(engine->allocator, &create_info, &alloc_info, &image.image, &image.allocation, nullptr));
+	engine->allocation_counter[name]++;
+	VK_CHECK(vmaCreateImage(engine->gfx->allocator, &create_info, &alloc_info, &image.image, &image.allocation, nullptr));
 
 	// if the format is for depth, use the correct aspect
 	VkImageAspectFlags aspect = format == VK_FORMAT_D32_SFLOAT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
 	auto view_info = vkinit::imageview_create_info(format, image.image, aspect);
 	view_info.subresourceRange.levelCount = create_info.mipLevels;
-	VK_CHECK(vkCreateImageView(engine->device, &view_info, nullptr, &image.view));
+	VK_CHECK(vkCreateImageView(engine->gfx->device, &view_info, nullptr, &image.view));
 #pragma endregion allocation
 
 	// ----------
@@ -125,7 +129,8 @@ ImageID ImageCodex::loadImageFromData(const std::string& name, void* data, VkExt
 		});
 #pragma endregion copy
 
-	engine->destroyBuffer(staging_buffer);
+	engine->allocation_counter["load_image_from_data_staging"]--;
+	engine->destroyBuffer(staging_buffer, __FUNCTION__);
 
 	ImageID image_id = images.size();
 	image.id = image_id;

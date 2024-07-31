@@ -20,9 +20,15 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <deque>
+#include <functional>
 
 #include "glm/ext/vector_float4.hpp"
 
+// Helper macro for early return
+#define RETURN_IF_ERROR(expression) \
+        if (auto result = (expression); !result) \
+            return std::unexpected(result.error())
 
 #define VK_CHECK(x)                                                       \
   do {                                                                    \
@@ -34,46 +40,67 @@
     }                                                                     \
   } while (0)
 
-const glm::vec3 GlobalUp{0.0f, -1.0f, 0.0f};
-const glm::vec3 GlobalRight{1.0f, 0.0f, 0.0f};
-const glm::vec3 GlobalFront{0.0f, 0.0f, 1.0f};
+const glm::vec3 GlobalUp{ 0.0f, -1.0f, 0.0f };
+const glm::vec3 GlobalRight{ 1.0f, 0.0f, 0.0f };
+const glm::vec3 GlobalFront{ 0.0f, 0.0f, 1.0f };
 
 using ImageID = uint32_t;
 
+struct DeletionQueue {
+	std::deque<std::function<void()>> deletors;
+
+	DeletionQueue() {
+		deletors.clear();
+	}
+
+	void pushFunction(std::function<void()>&& deletor) {
+		deletors.push_back(std::move(deletor));
+	}
+
+	void flush() {
+		// reverse iterate the deletion queue to execute all the functions
+		for (auto it = deletors.rbegin(); it != deletors.rend(); ++it) {
+			(*it)();  // call functors
+		}
+
+		deletors.clear();
+	}
+};
+
 struct AllocatedImage {
-  VkImage image;
-  VkImageView view;
-  VmaAllocation allocation;
-  VkExtent3D extent;
-  VkFormat format;
+	VkImage image;
+	VkImageView view;
+	VmaAllocation allocation;
+	VkExtent3D extent;
+	VkFormat format;
 };
 
 struct AllocatedBuffer {
-  VkBuffer buffer;
-  VmaAllocation allocation;
-  VmaAllocationInfo info;
+	VkBuffer buffer;
+	VmaAllocation allocation;
+	VmaAllocationInfo info;
 };
 
 struct Vertex {
-  glm::vec3 position;
-  float uv_x;
-  glm::vec3 normal;
-  float uv_y;
-  glm::vec4 color;
-  glm::vec4 tangent;
+	glm::vec3 position;
+	float uv_x;
+	glm::vec3 normal;
+	float uv_y;
+	glm::vec4 color;
+	glm::vec4 tangent;
 };
 
 // resources needed for a single mesh
 struct GPUMeshBuffers {
-  AllocatedBuffer indexBuffer;
-  AllocatedBuffer vertexBuffer;
-  VkDeviceAddress vertexBufferAddress;
+	AllocatedBuffer indexBuffer;
+	AllocatedBuffer vertexBuffer;
+	VkDeviceAddress vertexBufferAddress;
 };
 
 // push constants for our mesh object to be drawn
 struct GPUDrawPushConstants {
-  glm::mat4 worldMatrix;
-  VkDeviceAddress vertexBuffer;
+	glm::mat4 worldMatrix;
+	VkDeviceAddress vertexBuffer;
 };
 
 //
@@ -83,46 +110,46 @@ struct GPUDrawPushConstants {
 enum class MaterialPass : uint8_t { MainColor, Transparent, Other };
 
 struct MaterialPipeline {
-  VkPipeline pipeline;
-  VkPipelineLayout layout;
+	VkPipeline pipeline;
+	VkPipelineLayout layout;
 };
 
 struct MaterialInstance {
-  MaterialPipeline* pipeline;
-  MaterialPass passType;
-  VkDescriptorSet materialSet;
+	MaterialPipeline* pipeline;
+	MaterialPass passType;
+	VkDescriptorSet materialSet;
 };
 
 struct DrawContext;
 
 class IRenderable {
- public:
-  virtual ~IRenderable() = default;
+public:
+	virtual ~IRenderable() = default;
 
- private:
-  virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) = 0;
+private:
+	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) = 0;
 };
 
 struct Node : public IRenderable {
-  // parent pointer must be a weak pointer to avoid circular dependencies
-  std::weak_ptr<Node> parent;
-  std::vector<std::shared_ptr<Node>> children;
+	// parent pointer must be a weak pointer to avoid circular dependencies
+	std::weak_ptr<Node> parent;
+	std::vector<std::shared_ptr<Node>> children;
 
-  std::string name;
+	std::string name;
 
-  glm::mat4 localTransform;
-  glm::mat4 worldTransform;
+	glm::mat4 localTransform;
+	glm::mat4 worldTransform;
 
-  void refreshTransform(const glm::mat4& parentMatrix) {
-    worldTransform = parentMatrix * localTransform;
-    for (auto c : children) {
-      c->refreshTransform(worldTransform);
-    }
-  }
+	void refreshTransform(const glm::mat4& parentMatrix) {
+		worldTransform = parentMatrix * localTransform;
+		for (auto c : children) {
+			c->refreshTransform(worldTransform);
+		}
+	}
 
-  void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override {
-    for (auto& c : children) {
-      c->Draw(topMatrix, ctx);
-    }
-  }
+	void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override {
+		for (auto& c : children) {
+			c->Draw(topMatrix, ctx);
+		}
+	}
 };

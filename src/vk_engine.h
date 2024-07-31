@@ -7,8 +7,6 @@
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
-#include <deque>
-#include <functional>
 #include <memory>
 #include <span>
 
@@ -18,24 +16,9 @@
 #include "graphics/light.h"
 #include <graphics/image_codex.h>
 
+#include "graphics/gfx_device.h"
+
 class VulkanEngine;
-
-struct DeletionQueue {
-	std::deque<std::function<void()>> deletors;
-
-	void pushFunction(std::function<void()>&& deletor) {
-		deletors.push_back(std::move(deletor));
-	}
-
-	void flush() {
-		// reverse iterate the deletion queue to execute all the functions
-		for (auto it = deletors.rbegin(); it != deletors.rend(); ++it) {
-			(*it)();  // call functors
-		}
-
-		deletors.clear();
-	}
-};
 
 struct FrameData {
 	VkCommandPool command_pool;
@@ -188,13 +171,15 @@ public:
 	void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
 	void drawImgui(VkCommandBuffer cmd, VkImageView target_image_view);
 	AllocatedBuffer createBuffer(size_t alloc_size, VkBufferUsageFlags usage,
-		VmaMemoryUsage memory_usage);
-	void destroyBuffer(const AllocatedBuffer& buffer);
+	                             VmaMemoryUsage memory_usage, const std::string& name);
+	void destroyBuffer(const AllocatedBuffer& buffer, const std::string& name);
 	AllocatedImage createImage(VkExtent3D size, VkFormat format,
 		VkImageUsageFlags usage, bool mipmapped = false);
 	AllocatedImage createImage(void* data, VkExtent3D size, VkFormat format,
 		VkImageUsageFlags usage, bool mipmapped = false);
 	void destroyImage(const GpuImage& img);
+
+	std::unordered_map<std::string, uint64_t> allocation_counter;
 
 	/// @brief Uploads mesh data to gpu buffers
 	/// @param indices list of indices in uint32_t format
@@ -204,17 +189,10 @@ public:
 	GPUMeshBuffers uploadMesh(std::span<uint32_t> indices,
 		std::span<Vertex> vertices);
 
+	GfxDevice* gfx;
+	
 	// vulkan stuff
-	VkInstance instance;
-	VkDebugUtilsMessengerEXT debug_messenger;
-	VkPhysicalDevice chosen_gpu;
-	VkDevice device;
-	VkSurfaceKHR surface;
 	DeletionQueue main_deletion_queue;
-	VmaAllocator allocator;
-
-	VkQueue graphics_queue;
-	uint32_t graphics_queue_family;
 
 	// Used as the color attachement for actual rendering
 	// will be copied into the final swapchain image
@@ -222,23 +200,6 @@ public:
 	AllocatedImage depth_image;
 	VkExtent2D draw_extent;
 	float render_scale = 1.f;
-
-	//
-	// swapchain
-	//
-	VkSwapchainKHR swapchain;
-	VkFormat swapchain_image_format;
-
-	std::vector<VkImage> swapchain_images;
-	std::vector<VkImageView> swapchain_image_views;
-	VkExtent2D swapchain_extent;
-
-	//
-	// command
-	//
-	FrameData frames[FRAME_OVERLAP];
-
-	FrameData& getCurrentFrame() { return frames[frame_number % FRAME_OVERLAP]; }
 
 	//
 	// descriptors
@@ -312,11 +273,11 @@ private:
 	/// Creates an intermediate draw image where the actual frame rendering is
 	/// done onto. The contents are then blipped to the swap chain image at the
 	/// end of the frame. Also creates a depth image.
-	void initSwapchain();
+	void initDrawImages();
 
 	/// @brief Initializes a command pool for each inflight frame of the
 	/// swapchain. Also creates an immediate command pool that is used to execute
-	/// immediate commands on the gpu. Usefull for ImGui and other generic
+	/// immediate commands on the gpu. Useful for ImGui and other generic
 	/// purposes.
 	void initCommands();
 
@@ -362,8 +323,4 @@ private:
 	void updateScene();
 
 	void drawSceneHierarchy();
-
-	void createSwapchain(uint32_t width, uint32_t height,
-		VkSwapchainKHR old = VK_NULL_HANDLE);
-	void destroySwapchain();
 };

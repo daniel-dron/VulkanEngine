@@ -25,8 +25,11 @@ add_executable (engine
   graphics/gpu_image.cpp
   graphics/image_codex.h
   graphics/image_codex.cpp
+  graphics/swapchain.h
+  graphics/swapchain.cpp
   math/transform.h
   math/transform.cpp
+  engine/input.h
   engine/input.cpp
 
   # ----------
@@ -44,7 +47,7 @@ add_executable (engine
   imguizmo/GraphEditor.h
 )
 
-set_property(TARGET engine PROPERTY CXX_STANDARD 20)
+set_property(TARGET engine PROPERTY CXX_STANDARD 23)
 
 target_compile_definitions(engine PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 target_include_directories(engine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

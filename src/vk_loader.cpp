@@ -19,6 +19,8 @@
 #include "vk_types.h"
 
 #define STB_IMAGE_IMPLEMENTATION
+#include <format>
+
 #include "stb_image.h"
 
 void LoadedGltf::Draw(const glm::mat4& top_matrix, DrawContext& ctx) {
@@ -29,14 +31,17 @@ void LoadedGltf::Draw(const glm::mat4& top_matrix, DrawContext& ctx) {
 }
 
 void LoadedGltf::clear_all() {
-	const VkDevice dv = creator->device;
+	const VkDevice dv = creator->gfx->device;
 
 	descriptor_pool.destroy_pools(dv);
-	creator->destroyBuffer(material_data_buffer);
+	creator->allocation_counter["material_data_buffer"]--;
+	creator->destroyBuffer(material_data_buffer, "materialDataBuffer");
 
 	for (auto& [k, v] : meshes) {
-		creator->destroyBuffer(v->mesh_buffers.indexBuffer);
-		creator->destroyBuffer(v->mesh_buffers.vertexBuffer);
+		creator->allocation_counter["index_buffer"]--;
+		creator->allocation_counter["vertex_buffer"]--;
+		creator->destroyBuffer(v->mesh_buffers.indexBuffer, "indexBuffer");
+		creator->destroyBuffer(v->mesh_buffers.vertexBuffer, "vertexBuffer");
 	}
 
 	for (auto& sampler : samplers) {
@@ -141,7 +146,7 @@ std::optional<std::shared_ptr<LoadedGltf>> loadGltf(VulkanEngine* engine,
 		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
 		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1} };
 	file.descriptor_pool.init(
-		engine->device, static_cast<uint32_t>(gltf.materials.size()), sizes);
+		engine->gfx->device, static_cast<uint32_t>(gltf.materials.size()), sizes);
 
 	//
 	// load samplers
@@ -161,7 +166,7 @@ std::optional<std::shared_ptr<LoadedGltf>> loadGltf(VulkanEngine* engine,
 			sampler.minFilter.value_or(fastgltf::Filter::Nearest));
 
 		VkSampler newSampler;
-		vkCreateSampler(engine->device, &sampl, nullptr, &newSampler);
+		vkCreateSampler(engine->gfx->device, &sampl, nullptr, &newSampler);
 
 		file.samplers.push_back(newSampler);
 	}
@@ -197,9 +202,10 @@ std::optional<std::shared_ptr<LoadedGltf>> loadGltf(VulkanEngine* engine,
 	}
 
 	// create buffer to hold all the material data
+	engine->allocation_counter["material_data_buffer"]++;
 	file.material_data_buffer = engine->createBuffer(
 		sizeof(GltfMetallicRoughness::MaterialConstants) * gltf.materials.size(),
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "materialDataBuffer");
 
 	int data_index = 0;
 	auto sceneMaterialConstants = (GltfMetallicRoughness::MaterialConstants*)
