@@ -12,16 +12,15 @@ struct ImmediateExecutor {
 	VkCommandBuffer command_buffer;
 	VkCommandPool pool;
 
-	enum class Error
-	{
-		
+	enum class Error {
+
 	};
 
 	template<typename T = void>
 	using Result = std::expected<T, Error>;
-	
-	Result<> init(GfxDevice* gfx);
-	Result<> execute(std::function<void(VkCommandBuffer)>&& func);
+
+	Result<> init( GfxDevice* gfx );
+	Result<> execute( std::function<void( VkCommandBuffer )>&& func );
 };
 
 class GfxDevice {
@@ -40,8 +39,8 @@ public:
 	template<typename T = void>
 	using Result = std::expected<T, GfxDeviceError>;
 
-	Result<> init(struct SDL_Window* window);
-	void cleanup();
+	Result<> init( struct SDL_Window* window );
+	void cleanup( );
 
 	VkInstance instance;
 	VkPhysicalDevice chosen_gpu;
@@ -62,8 +61,8 @@ public:
 	ImageCodex image_codex;
 
 private:
-	Result<> initDevice(struct SDL_Window* window);
-	Result<> initAllocator();
+	Result<> initDevice( struct SDL_Window* window );
+	Result<> initAllocator( );
 
 	DeletionQueue deletion_queue;
 };

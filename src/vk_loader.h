@@ -15,68 +15,68 @@
 #include "vk_descriptors.h"
 
 struct GltfMaterial {
-  std::string name;
+	std::string name;
 
-  // ids of textures into LoadedGltf::image_map images
-  struct {
-    VkDescriptorSet base_color_set = 0;
-    VkDescriptorSet metal_roughness_set = 0;
-    VkDescriptorSet normal_map_set = 0;
-  } debug_sets;
+	// ids of textures into LoadedGltf::image_map images
+	struct {
+		VkDescriptorSet base_color_set = 0;
+		VkDescriptorSet metal_roughness_set = 0;
+		VkDescriptorSet normal_map_set = 0;
+	} debug_sets;
 
-  MaterialInstance data;
+	MaterialInstance data;
 };
 
 struct bounds {
-  glm::vec3 origin;
-  float sphereRadius;
-  glm::vec3 extents;
+	glm::vec3 origin;
+	float sphereRadius;
+	glm::vec3 extents;
 };
 
 struct GeoSurface {
-  uint32_t start_index;
-  uint32_t count;
-  bounds bounds;
-  std::shared_ptr<GltfMaterial> material;
+	uint32_t start_index;
+	uint32_t count;
+	bounds bounds;
+	std::shared_ptr<GltfMaterial> material;
 };
 
 struct MeshAsset {
-  std::string name;
-  std::vector<GeoSurface> surfaces;
-  GPUMeshBuffers mesh_buffers;
+	std::string name;
+	std::vector<GeoSurface> surfaces;
+	GPUMeshBuffers mesh_buffers;
 };
 
 class VulkanEngine;
 
 struct LoadedGltf final : public IRenderable {
-  using mesh_map = std::unordered_map<std::string, std::shared_ptr<MeshAsset>>;
-  using node_map = std::unordered_map<std::string, std::shared_ptr<Node>>;
-  using material_map =
-      std::unordered_map<std::string, std::shared_ptr<GltfMaterial>>;
+	using mesh_map = std::unordered_map<std::string, std::shared_ptr<MeshAsset>>;
+	using node_map = std::unordered_map<std::string, std::shared_ptr<Node>>;
+	using material_map =
+		std::unordered_map<std::string, std::shared_ptr<GltfMaterial>>;
 
-  mesh_map meshes;
-  node_map nodes;
-  std::vector<ImageID> images;
-  material_map materials;
+	mesh_map meshes;
+	node_map nodes;
+	std::vector<ImageID> images;
+	material_map materials;
 
-  // root nodes with no parents
-  std::vector<std::shared_ptr<Node>> top_nodes;
-  std::vector<VkSampler> samplers;
+	// root nodes with no parents
+	std::vector<std::shared_ptr<Node>> top_nodes;
+	std::vector<VkSampler> samplers;
 
-  DescriptorAllocatorGrowable descriptor_pool;
-  AllocatedBuffer material_data_buffer;
+	DescriptorAllocatorGrowable descriptor_pool;
+	AllocatedBuffer material_data_buffer;
 
-  VulkanEngine* creator;
-  ~LoadedGltf() override { clear_all(); }
+	VulkanEngine* creator;
+	~LoadedGltf( ) override { clear_all( ); }
 
-  void Draw(const glm::mat4& top_matrix, DrawContext& ctx) override;
+	void Draw( const glm::mat4& top_matrix, DrawContext& ctx ) override;
 
- private:
-  void clear_all();
+private:
+	void clear_all( );
 };
 
 std::optional<std::shared_ptr<LoadedGltf>> loadGltf(
-    VulkanEngine* engine, std::string_view filePath);
+	VulkanEngine* engine, std::string_view filePath );
 
 std::optional<std::pair<ImageID, std::string>> loadImage(
-    VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image);
+	VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image );

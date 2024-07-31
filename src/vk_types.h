@@ -47,23 +47,23 @@ const glm::vec3 GlobalFront{ 0.0f, 0.0f, 1.0f };
 using ImageID = uint32_t;
 
 struct DeletionQueue {
-	std::deque<std::function<void()>> deletors;
+	std::deque<std::function<void( )>> deletors;
 
-	DeletionQueue() {
-		deletors.clear();
+	DeletionQueue( ) {
+		deletors.clear( );
 	}
 
-	void pushFunction(std::function<void()>&& deletor) {
-		deletors.push_back(std::move(deletor));
+	void pushFunction( std::function<void( )>&& deletor ) {
+		deletors.push_back( std::move( deletor ) );
 	}
 
-	void flush() {
+	void flush( ) {
 		// reverse iterate the deletion queue to execute all the functions
-		for (auto it = deletors.rbegin(); it != deletors.rend(); ++it) {
+		for ( auto it = deletors.rbegin( ); it != deletors.rend( ); ++it ) {
 			(*it)();  // call functors
 		}
 
-		deletors.clear();
+		deletors.clear( );
 	}
 };
 
@@ -124,10 +124,10 @@ struct DrawContext;
 
 class IRenderable {
 public:
-	virtual ~IRenderable() = default;
+	virtual ~IRenderable( ) = default;
 
 private:
-	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) = 0;
+	virtual void Draw( const glm::mat4& topMatrix, DrawContext& ctx ) = 0;
 };
 
 struct Node : public IRenderable {
@@ -140,16 +140,16 @@ struct Node : public IRenderable {
 	glm::mat4 localTransform;
 	glm::mat4 worldTransform;
 
-	void refreshTransform(const glm::mat4& parentMatrix) {
+	void refreshTransform( const glm::mat4& parentMatrix ) {
 		worldTransform = parentMatrix * localTransform;
-		for (auto c : children) {
-			c->refreshTransform(worldTransform);
+		for ( auto c : children ) {
+			c->refreshTransform( worldTransform );
 		}
 	}
 
-	void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override {
-		for (auto& c : children) {
-			c->Draw(topMatrix, ctx);
+	void Draw( const glm::mat4& topMatrix, DrawContext& ctx ) override {
+		for ( auto& c : children ) {
+			c->Draw( topMatrix, ctx );
 		}
 	}
 };

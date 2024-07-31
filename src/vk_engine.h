@@ -100,12 +100,12 @@ struct GltfMetallicRoughness {
 
 	DescriptorWriter writer;
 
-	void buildPipelines(VulkanEngine* engine);
-	void clearResources(VkDevice device);
+	void buildPipelines( VulkanEngine* engine );
+	void clearResources( VkDevice device );
 
 	MaterialInstance writeMaterial(
 		VulkanEngine* engine, MaterialPass pass, const MaterialResources& resources,
-		DescriptorAllocatorGrowable& descriptor_allocator);
+		DescriptorAllocatorGrowable& descriptor_allocator );
 };
 
 struct RenderObject {
@@ -127,7 +127,7 @@ struct DrawContext {
 struct MeshNode final : public Node {
 	std::shared_ptr<MeshAsset> mesh;
 
-	void Draw(const glm::mat4& top_matrix, DrawContext& ctx) override;
+	void Draw( const glm::mat4& top_matrix, DrawContext& ctx ) override;
 };
 
 struct EngineStats {
@@ -154,30 +154,30 @@ public:
 
 	struct SDL_Window* window{ nullptr };
 
-	static VulkanEngine& get();
+	static VulkanEngine& get( );
 
 	/// @brief Does most of the engine initialization
-	void init();
+	void init( );
 
 	// shuts down the engine
-	void cleanup();
+	void cleanup( );
 
 	// draw loop
-	void draw();
+	void draw( );
 
 	// run main loop
-	void run();
+	void run( );
 
-	void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
-	void drawImgui(VkCommandBuffer cmd, VkImageView target_image_view);
-	AllocatedBuffer createBuffer(size_t alloc_size, VkBufferUsageFlags usage,
-	                             VmaMemoryUsage memory_usage, const std::string& name);
-	void destroyBuffer(const AllocatedBuffer& buffer, const std::string& name);
-	AllocatedImage createImage(VkExtent3D size, VkFormat format,
-		VkImageUsageFlags usage, bool mipmapped = false);
-	AllocatedImage createImage(void* data, VkExtent3D size, VkFormat format,
-		VkImageUsageFlags usage, bool mipmapped = false);
-	void destroyImage(const GpuImage& img);
+	void immediateSubmit( std::function<void( VkCommandBuffer cmd )>&& function );
+	void drawImgui( VkCommandBuffer cmd, VkImageView target_image_view );
+	AllocatedBuffer createBuffer( size_t alloc_size, VkBufferUsageFlags usage,
+		VmaMemoryUsage memory_usage, const std::string& name );
+	void destroyBuffer( const AllocatedBuffer& buffer, const std::string& name );
+	AllocatedImage createImage( VkExtent3D size, VkFormat format,
+		VkImageUsageFlags usage, bool mipmapped = false );
+	AllocatedImage createImage( void* data, VkExtent3D size, VkFormat format,
+		VkImageUsageFlags usage, bool mipmapped = false );
+	void destroyImage( const GpuImage& img );
 
 	std::unordered_map<std::string, uint64_t> allocation_counter;
 
@@ -186,11 +186,11 @@ public:
 	/// @param vertices list of vertices
 	/// @return returns a struct containing the allocated index and vertex buffer
 	/// and its corresponding gpu address
-	GPUMeshBuffers uploadMesh(std::span<uint32_t> indices,
-		std::span<Vertex> vertices);
+	GPUMeshBuffers uploadMesh( std::span<uint32_t> indices,
+		std::span<Vertex> vertices );
 
-	GfxDevice* gfx;
-	
+	std::unique_ptr<GfxDevice> gfx;
+
 	// vulkan stuff
 	DeletionQueue main_deletion_queue;
 
@@ -254,73 +254,67 @@ public:
 
 	ImageCodex image_codex;
 
-	void resizeSwapchain(uint32_t width, uint32_t height);
+	void resizeSwapchain( uint32_t width, uint32_t height );
 
 private:
 	/// @brief Initializes SDL context and creates SDL window
-	void initSdl();
+	void initSdl( );
 
 	/// @brief Initializes core vulkan resources
-	void initVulkan();
-
-	/// @brief Initializes vulkan device and its queues
-	void initDevice();
-
-	/// @brief Initializes VMA
-	void initAllocator();
+	void initVulkan( );
 
 	/// @brief Initializes swapchain.
 	/// Creates an intermediate draw image where the actual frame rendering is
 	/// done onto. The contents are then blipped to the swap chain image at the
 	/// end of the frame. Also creates a depth image.
-	void initDrawImages();
+	void initDrawImages( );
 
 	/// @brief Initializes a command pool for each inflight frame of the
 	/// swapchain. Also creates an immediate command pool that is used to execute
 	/// immediate commands on the gpu. Useful for ImGui and other generic
 	/// purposes.
-	void initCommands();
+	void initCommands( );
 
 	/// @brief Creates a synchronization structures.
 	/// Creates a fence for the immediate command pool.
 	/// Creates a fence and two semaphores for each inflight frame of the
 	/// swapchain.
-	void initSyncStructures();
+	void initSyncStructures( );
 
 	/// @brief Creates pipeline descriptors and its allocators.
 	/// Creates a growable descriptor allocator for each inflight frame.
 	/// Creates a descriptor set for the background compute shader.
 	/// Creates a descriptor set for scene data.
-	void initDescriptors();
+	void initDescriptors( );
 
 	/// @brief Creates general pipelines.
 	/// Creates the background compute pipeline.
 	/// Creates the PBR Metalness pipeline.
-	void initPipelines();
+	void initPipelines( );
 
 	/// @brief Creates the background compute pipeline.
-	void initBackgroundPipelines();
+	void initBackgroundPipelines( );
 
 	/// @brief Initializes ImGui entire context
-	void initImgui();
+	void initImgui( );
 
 	/// @brief Dispatches compute shader to fill in main image
 	/// @param cmd VkCommandBuffer that will queue in the work
-	void drawBackground(VkCommandBuffer cmd);
+	void drawBackground( VkCommandBuffer cmd );
 
 	/// @brief Responsible for queueing commands to render all Renderables.
 	/// Sorts based on material and performs frustum culling.
 	/// @param cmd VkCommandBuffer that will queue in the work
-	void drawGeometry(VkCommandBuffer cmd);
+	void drawGeometry( VkCommandBuffer cmd );
 
 	/// @brief Initializes default white, black, error images and its samplers
-	void initDefaultData();
-	void initImages();
+	void initDefaultData( );
+	void initImages( );
 
-	void initScene();
+	void initScene( );
 
 	/// @brief Updates scene data and call Draw on each scene node.
-	void updateScene();
+	void updateScene( );
 
-	void drawSceneHierarchy();
+	void drawSceneHierarchy( );
 };
