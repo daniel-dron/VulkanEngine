@@ -175,8 +175,6 @@ public:
 		VkImageUsageFlags usage, bool mipmapped = false );
 	void destroyImage( const GpuImage& img );
 
-	std::unordered_map<std::string, uint64_t> allocation_counter;
-
 	/// @brief Uploads mesh data to gpu buffers
 	/// @param indices list of indices in uint32_t format
 	/// @param vertices list of vertices

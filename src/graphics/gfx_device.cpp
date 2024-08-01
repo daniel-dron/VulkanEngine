@@ -92,6 +92,8 @@ GfxDevice::Result<> GfxDevice::init( SDL_Window* window ) {
 	executor.init( this );
 
 	swapchain.init( this, 2560, 1440 );
+
+	return {};
 }
 
 void GfxDevice::execute( std::function<void( VkCommandBuffer )>&& func ) {
@@ -115,10 +117,13 @@ AllocatedBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaM
 	VK_CHECK( vmaCreateBuffer( allocator, &info, &vma_info, &buffer.buffer, &buffer.allocation, &buffer.info ) );
 	buffer.name = name;
 
+	allocation_counter[name]++;
+
 	return buffer;
 }
 
 void GfxDevice::free( const AllocatedBuffer& buffer ) {
+	allocation_counter[buffer.name]--;
 	vmaDestroyBuffer( allocator, buffer.buffer, buffer.allocation );
 }
 

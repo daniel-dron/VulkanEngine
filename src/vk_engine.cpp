@@ -123,7 +123,6 @@ void VulkanEngine::initDrawImages( ) {
 	rimg_allocinfo.requiredFlags =
 		static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-	allocation_counter["draw_image"]++;
 	vmaCreateImage( gfx->allocator, &rimg_info, &rimg_allocinfo, &draw_image.image,
 		&draw_image.allocation, nullptr );
 
@@ -141,7 +140,6 @@ void VulkanEngine::initDrawImages( ) {
 		depth_image.format, depth_image_usages, draw_image_extent );
 
 	// allocate and create the image
-	allocation_counter["depth_image"]++;
 	vmaCreateImage( gfx->allocator, &dimg_info, &rimg_allocinfo, &depth_image.image,
 		&depth_image.allocation, nullptr );
 
@@ -153,11 +151,9 @@ void VulkanEngine::initDrawImages( ) {
 
 	// add to deletion queues
 	main_deletion_queue.pushFunction( [&]( ) {
-		allocation_counter["draw_image"]--;
 		vkDestroyImageView( gfx->device, draw_image.view, nullptr );
 		vmaDestroyImage( gfx->allocator, draw_image.image, draw_image.allocation );
 
-		allocation_counter["depth_image"]--;
 		vkDestroyImageView( gfx->device, depth_image.view, nullptr );
 		vmaDestroyImage( gfx->allocator, depth_image.image, depth_image.allocation );
 	} );
@@ -399,7 +395,6 @@ AllocatedImage VulkanEngine::createImage( VkExtent3D size, VkFormat format,
 		VkMemoryPropertyFlags( VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
 
 	// allocate and create the image
-	allocation_counter["create_image_empty"]++;
 	VK_CHECK( vmaCreateImage( gfx->allocator, &img_info, &allocinfo, &newImage.image,
 		&newImage.allocation, nullptr ) );
 
@@ -425,7 +420,6 @@ AllocatedImage VulkanEngine::createImage( void* data, VkExtent3D size,
 	VkImageUsageFlags usage,
 	bool mipmapped ) {
 	size_t data_size = size.depth * size.width * size.height * 4;
-	allocation_counter["create_image"]++;
 	AllocatedBuffer uploadbuffer = gfx->allocate(
 		data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, __FUNCTION__ );
 
@@ -466,7 +460,6 @@ AllocatedImage VulkanEngine::createImage( void* data, VkExtent3D size,
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 		}
 	} );
-	allocation_counter["create_image"]--;
 	gfx->free( uploadbuffer );
 	return new_image;
 }
@@ -483,7 +476,6 @@ GPUMeshBuffers VulkanEngine::uploadMesh( std::span<uint32_t> indices,
 
 	GPUMeshBuffers newSurface;
 
-	allocation_counter["vertex_buffer"]++;
 	newSurface.vertexBuffer = gfx->allocate(
 		vertexBufferSize,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
@@ -497,7 +489,6 @@ GPUMeshBuffers VulkanEngine::uploadMesh( std::span<uint32_t> indices,
 	newSurface.vertexBufferAddress =
 		vkGetBufferDeviceAddress( gfx->device, &deviceAddressInfo );
 
-	allocation_counter["index_buffer"]++;
 	newSurface.indexBuffer = gfx->allocate(
 		indexBufferSize,
 		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -508,7 +499,6 @@ GPUMeshBuffers VulkanEngine::uploadMesh( std::span<uint32_t> indices,
 	// create a temp buffer used to write the data from the cpu
 	// then issue a gpu command to copy that data to the gpu only buffer
 	//
-	allocation_counter["staging_mesh"]++;
 	AllocatedBuffer staging =
 		gfx->allocate( vertexBufferSize + indexBufferSize,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, __FUNCTION__ );
@@ -535,7 +525,6 @@ GPUMeshBuffers VulkanEngine::uploadMesh( std::span<uint32_t> indices,
 			&index_copy );
 	} );
 
-	allocation_counter["staging_mesh"]--;
 	gfx->free( staging );
 
 	return newSurface;
@@ -820,13 +809,11 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 
 	// ----------
 	// scene buffers setup
-	allocation_counter["gpu_scene_data_frame"]++;
 	auto gpuSceneDataBuffer =
 		gfx->allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
 
 	gfx->swapchain.getCurrentFrame( ).deletion_queue.pushFunction( [=, this]( ) {
-		allocation_counter["gpu_scene_data_frame"]--;
 		gfx->free( gpuSceneDataBuffer );
 	} );
 

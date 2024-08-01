@@ -51,6 +51,7 @@ public:
 	VkDevice device;
 
 	VkDebugUtilsMessengerEXT debug_messenger;
+	std::unordered_map<std::string, uint64_t> allocation_counter;
 
 	VkQueue graphics_queue;
 	uint32_t graphics_queue_family;

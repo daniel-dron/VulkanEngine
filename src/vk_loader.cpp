@@ -34,12 +34,9 @@ void LoadedGltf::clear_all( ) {
 	const VkDevice dv = creator->gfx->device;
 
 	descriptor_pool.destroy_pools( dv );
-	creator->allocation_counter["material_data_buffer"]--;
 	creator->gfx->free( material_data_buffer );
 
 	for ( auto& [k, v] : meshes ) {
-		creator->allocation_counter["index_buffer"]--;
-		creator->allocation_counter["vertex_buffer"]--;
 		creator->gfx->free( v->mesh_buffers.indexBuffer );
 		creator->gfx->free( v->mesh_buffers.vertexBuffer );
 	}
@@ -196,7 +193,6 @@ loadGltf( VulkanEngine* engine, std::string_view filePath ) {
 	}
 
 	// create buffer to hold all the material data
-	engine->allocation_counter["material_data_buffer"]++;
 	file.material_data_buffer = engine->gfx->allocate(
 		sizeof( GltfMetallicRoughness::MaterialConstants ) * gltf.materials.size( ),
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,

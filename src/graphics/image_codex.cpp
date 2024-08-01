@@ -9,7 +9,6 @@ void ImageCodex::init( VulkanEngine* engine ) { this->engine = engine; }
 
 void ImageCodex::cleanup( ) {
 	for ( auto& img : images ) {
-		engine->allocation_counter[img.info.debug_name]--;
 		engine->destroyImage( img );
 	}
 }
@@ -64,7 +63,6 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 	size_t data_size =
 		image.extent.depth * image.extent.width * image.extent.height * 4;
 
-	engine->allocation_counter["load_image_from_data_staging"]++;
 	AllocatedBuffer staging_buffer = engine->gfx->allocate(
 		data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, __FUNCTION__ );
 
@@ -87,7 +85,6 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 		.usage = VMA_MEMORY_USAGE_GPU_ONLY,
 		.requiredFlags = VkMemoryPropertyFlags( VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT )
 	};
-	engine->allocation_counter[name]++;
 	VK_CHECK( vmaCreateImage( engine->gfx->allocator, &create_info, &alloc_info, &image.image, &image.allocation, nullptr ) );
 
 	// if the format is for depth, use the correct aspect
@@ -127,7 +124,6 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 	} );
 #pragma endregion copy
 
-	engine->allocation_counter["load_image_from_data_staging"]--;
 	engine->gfx->free( staging_buffer );
 
 	ImageID image_id = images.size( );
