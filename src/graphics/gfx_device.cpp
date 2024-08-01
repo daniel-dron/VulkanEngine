@@ -10,6 +10,7 @@ using namespace vkb;
 const bool B_USE_VALIDATION_LAYERS = true;
 
 ImmediateExecutor::Result<> ImmediateExecutor::init( GfxDevice* gfx ) {
+	this->gfx = gfx;
 
 	// ----------
 	// Fence creation
@@ -42,7 +43,7 @@ ImmediateExecutor::Result<> ImmediateExecutor::init( GfxDevice* gfx ) {
 	return {};
 }
 
-void ImmediateExecutor::execute( GfxDevice* gfx, std::function<void( VkCommandBuffer cmd )>&& func ) {
+void ImmediateExecutor::execute( std::function<void( VkCommandBuffer cmd )>&& func ) {
 	VK_CHECK( vkResetFences( gfx->device, 1, &fence ) );
 	VK_CHECK( vkResetCommandBuffer( command_buffer, 0 ) );
 
@@ -80,7 +81,7 @@ void ImmediateExecutor::execute( GfxDevice* gfx, std::function<void( VkCommandBu
 	VK_CHECK( vkWaitForFences( gfx->device, 1, &fence, true, 9999999999 ) );
 }
 
-void ImmediateExecutor::cleanup( GfxDevice* gfx ) {
+void ImmediateExecutor::cleanup( ) {
 	vkDestroyFence( gfx->device, fence, nullptr );
 	vkDestroyCommandPool( gfx->device, pool, nullptr );
 }
@@ -91,15 +92,15 @@ GfxDevice::Result<> GfxDevice::init( SDL_Window* window ) {
 
 	executor.init( this );
 
-	swapchain.init( this, 2560, 1440 );
-
 	image_codex.init( this );
+
+	swapchain.init( this, 1920, 1080 );
 
 	return {};
 }
 
 void GfxDevice::execute( std::function<void( VkCommandBuffer )>&& func ) {
-	executor.execute( this, std::move( func ) );
+	executor.execute( std::move( func ) );
 }
 
 AllocatedBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vma_usage, const std::string& name ) {
@@ -130,9 +131,9 @@ void GfxDevice::free( const AllocatedBuffer& buffer ) {
 }
 
 void GfxDevice::cleanup( ) {
-	swapchain.cleanup( this );
+	swapchain.cleanup( );
 	image_codex.cleanup( );
-	executor.cleanup( this );
+	executor.cleanup( );
 	vmaDestroyAllocator( allocator );
 	vkDestroySurfaceKHR( instance, surface, nullptr );
 	vkDestroyDevice( device, nullptr );

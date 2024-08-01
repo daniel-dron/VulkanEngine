@@ -401,27 +401,26 @@ GPUMeshBuffers VulkanEngine::uploadMesh( std::span<uint32_t> indices,
 }
 
 void VulkanEngine::resizeSwapchain( uint32_t width, uint32_t height ) {
-	// vkDeviceWaitIdle(gfx->device);
-	//
-	// window_extent.width = width;
-	// window_extent.height = height;
-	//
-	// // save to delete them after creating the swap chain
-	// auto old = swapchain;
-	// auto oldImagesViews = swapchain_image_views;
-	//
-	// createSwapchain(window_extent.width, window_extent.height, swapchain);
-	// // recreate the swapchain semaphore since it has already been signaled by the
-	// // vkAcquireNextImageKHR
-	// vkDestroySemaphore(gfx->device, getCurrentFrame().swapchain_semaphore, nullptr);
-	// auto semaphoreCreateInfo = vkinit::semaphore_create_info();
-	// VK_CHECK(vkCreateSemaphore(gfx->device, &semaphoreCreateInfo, nullptr,
-	// 	&getCurrentFrame().swapchain_semaphore));
-	//
-	// vkDestroySwapchainKHR(gfx->device, old, nullptr);
-	// for (unsigned int i = 0; i < oldImagesViews.size(); i++) {
-	// 	vkDestroyImageView(gfx->device, oldImagesViews.at(i), nullptr);
-	// }
+	vkDeviceWaitIdle( gfx->device );
+
+	window_extent.width = width;
+	window_extent.height = height;
+
+	gfx->swapchain.recreate( width, height );
+
+	initDrawImages( );
+
+	ImGui_ImplVulkan_RemoveTexture( viewport_set );
+	viewport_set =
+		ImGui_ImplVulkan_AddTexture( default_sampler_linear, gfx->image_codex.getImage( draw_image_id ).view,
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
+
+
+	initDescriptors( );
+
+	// TODO:
+	// Delete previous image
+	// Delete previous descriptors and such
 }
 
 void VulkanEngine::cleanup( ) {
@@ -504,7 +503,7 @@ void VulkanEngine::draw( ) {
 	vkutil::transition_image( cmd, gfx->image_codex.getImage( draw_image_id ).image, VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
 	vkutil::transition_image( cmd, gfx->image_codex.getImage( depth_image_id ).image, VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true);
+		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
 	drawGeometry( cmd );
 

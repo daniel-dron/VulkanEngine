@@ -149,7 +149,7 @@ public:
 	bool is_initialized{ false };
 	int frame_number{ 0 };
 	bool stop_rendering{ false };
-	VkExtent2D window_extent{ 2560, 1440 };
+	VkExtent2D window_extent{ 1920, 1080 };
 	EngineStats stats;
 
 	struct SDL_Window* window{ nullptr };
@@ -167,8 +167,6 @@ public:
 
 	// run main loop
 	void run( );
-
-	void drawImgui( VkCommandBuffer cmd, VkImageView target_image_view );
 
 	/// @brief Uploads mesh data to gpu buffers
 	/// @param indices list of indices in uint32_t format
@@ -201,7 +199,6 @@ public:
 	//
 	// Pipeline
 	//
-	// VkPipeline _gradientPipeline;
 	VkPipelineLayout gradient_pipeline_layout;
 
 	std::vector<ComputeEffect> background_effects;
@@ -274,6 +271,8 @@ private:
 	/// Sorts based on material and performs frustum culling.
 	/// @param cmd VkCommandBuffer that will queue in the work
 	void drawGeometry( VkCommandBuffer cmd );
+
+	void drawImgui( VkCommandBuffer cmd, VkImageView target_image_view );
 
 	/// @brief Initializes default white, black, error images and its samplers
 	void initDefaultData( );

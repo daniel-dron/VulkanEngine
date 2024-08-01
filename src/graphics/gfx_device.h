@@ -20,8 +20,11 @@ struct ImmediateExecutor {
 	using Result = std::expected<T, Error>;
 
 	Result<> init( GfxDevice* gfx );
-	void execute( GfxDevice* gfx, std::function<void( VkCommandBuffer )>&& func );
-	void cleanup( GfxDevice* gfx );
+	void execute( std::function<void( VkCommandBuffer )>&& func );
+	void cleanup( );
+
+private:
+	GfxDevice* gfx;
 };
 
 class GfxDevice {

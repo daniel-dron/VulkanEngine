@@ -28,6 +28,8 @@ public:
 		VkFence fence;
 		DeletionQueue deletion_queue;
 		DescriptorAllocatorGrowable frame_descriptors;
+		ImageID color;
+		ImageID depth;
 	};
 
 	VkSwapchainKHR swapchain;
@@ -41,9 +43,14 @@ public:
 	FrameData& getCurrentFrame( );
 
 	Result<> init( GfxDevice* gfx, uint32_t width, uint32_t height );
-	void cleanup( const GfxDevice* gfx );
+	void cleanup( );
 
-	Result<> recreate( GfxDevice* gfx, uint32_t width, uint32_t height );
+	void createImguiSet( VkSampler sampler );
+
+	Result<> recreate( uint32_t width, uint32_t height );
 private:
-	Result<> create( GfxDevice* gfx, uint32_t width, uint32_t height );
+	Result<> create( uint32_t width, uint32_t height );
+	void createFrameImages( );
+
+	GfxDevice* gfx;
 };
