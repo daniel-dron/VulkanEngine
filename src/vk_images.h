@@ -5,7 +5,7 @@
 
 namespace vkutil {
 	void transition_image( VkCommandBuffer cmd, VkImage image,
-		VkImageLayout currentLayout, VkImageLayout newLayout );
+		VkImageLayout currentLayout, VkImageLayout newLayout, bool depth = false);
 
 	void copy_image_to_image( VkCommandBuffer cmd, VkImage source,
 		VkImage destination, VkExtent2D srcSize,

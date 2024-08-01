@@ -3,11 +3,11 @@
 #include <graphics/gpu_image.h>
 #include <vk_types.h>
 
-class VulkanEngine;
+class GfxDevice;
 
 class ImageCodex {
 public:
-	void init( VulkanEngine* engine );
+	void init( GfxDevice* gfx);
 	void cleanup( );
 
 	const std::vector<GpuImage>& getImages( );
@@ -17,5 +17,5 @@ public:
 
 private:
 	std::vector<GpuImage> images;
-	VulkanEngine* engine;
+	GfxDevice* gfx;
 };

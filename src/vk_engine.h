@@ -185,8 +185,8 @@ public:
 
 	// Used as the color attachement for actual rendering
 	// will be copied into the final swapchain image
-	AllocatedImage draw_image;
-	AllocatedImage depth_image;
+	ImageID draw_image_id;
+	ImageID depth_image_id;
 	VkExtent2D draw_extent;
 	float render_scale = 1.f;
 
@@ -233,8 +233,6 @@ public:
 	CameraController* camera_controller;
 
 	RendererOptions renderer_options;
-
-	ImageCodex image_codex;
 
 	void resizeSwapchain( uint32_t width, uint32_t height );
 

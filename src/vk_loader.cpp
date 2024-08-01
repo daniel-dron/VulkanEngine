@@ -248,7 +248,7 @@ loadGltf( VulkanEngine* engine, std::string_view filePath ) {
 			materialResources.color_image = image_ids[img];
 			materialResources.color_sampler = file.samplers[sampler];
 
-			auto& timg = engine->image_codex.getImage( image_ids[img] );
+			auto& timg = engine->gfx->image_codex.getImage( image_ids[img] );
 			newMat->debug_sets.base_color_set = ImGui_ImplVulkan_AddTexture( file.samplers[sampler],
 				timg.view,
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
@@ -263,7 +263,7 @@ loadGltf( VulkanEngine* engine, std::string_view filePath ) {
 
 			materialResources.metal_rough_image = image_ids[img];
 			materialResources.metal_rough_sampler = file.samplers[sampler];
-			auto& timg = engine->image_codex.getImage( image_ids[img] );
+			auto& timg = engine->gfx->image_codex.getImage( image_ids[img] );
 			newMat->debug_sets.metal_roughness_set = ImGui_ImplVulkan_AddTexture( file.samplers[sampler],
 				timg.view,
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
@@ -277,7 +277,7 @@ loadGltf( VulkanEngine* engine, std::string_view filePath ) {
 
 			materialResources.normal_map = image_ids[img];
 			materialResources.normal_sampler = file.samplers[sampler];
-			auto& timg = engine->image_codex.getImage( image_ids[img] );
+			auto& timg = engine->gfx->image_codex.getImage( image_ids[img] );
 			newMat->debug_sets.normal_map_set = ImGui_ImplVulkan_AddTexture( file.samplers[sampler],
 				timg.view,
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
@@ -514,7 +514,7 @@ loadImage( VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image 
 					imagesize.height = height;
 					imagesize.depth = 1;
 
-					image_id = engine->image_codex.loadImageFromFile(
+					image_id = engine->gfx->image_codex.loadImageFromFile(
 						path, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true );
 
 					name = filePath.uri.path( );
@@ -535,7 +535,7 @@ loadImage( VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image 
 					imagesize.height = height;
 					imagesize.depth = 1;
 
-					image_id = engine->image_codex.loadImageFromData( "hello.test",
+					image_id = engine->gfx->image_codex.loadImageFromData( "hello.test",
 						data,
 						imagesize,
 						VK_FORMAT_R8G8B8A8_UNORM,
@@ -571,7 +571,7 @@ loadImage( VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image 
 							std::string debug_name = std::format( "{}.{}",
 								view.bufferViewIndex,
 								mime_to_str( view.mimeType ) );
-							image_id = engine->image_codex.loadImageFromData(
+							image_id = engine->gfx->image_codex.loadImageFromData(
 								debug_name.c_str( ),
 								data,
 								imagesize,

@@ -54,7 +54,6 @@ void VulkanEngine::init( ) {
 
 	initVulkan( );
 
-	image_codex.init( this );
 	initDefaultData( );
 
 	initImgui( );
@@ -101,11 +100,9 @@ void VulkanEngine::initVulkan( ) {
 }
 
 void VulkanEngine::initDrawImages( ) {
+
 	const VkExtent3D draw_image_extent = {
 		.width = window_extent.width, .height = window_extent.height, .depth = 1 };
-
-	draw_image.extent = draw_image_extent;
-	draw_image.format = VK_FORMAT_R16G16B16A16_SFLOAT;
 
 	VkImageUsageFlags draw_image_usages{};
 	draw_image_usages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -114,49 +111,17 @@ void VulkanEngine::initDrawImages( ) {
 	draw_image_usages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	draw_image_usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
-	const VkImageCreateInfo rimg_info = vkinit::image_create_info(
-		draw_image.format, draw_image_usages, draw_image_extent );
-
-	// for the draw image, we want to allocate it from gpu local memory
-	VmaAllocationCreateInfo rimg_allocinfo = {};
-	rimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-	rimg_allocinfo.requiredFlags =
-		static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-	vmaCreateImage( gfx->allocator, &rimg_info, &rimg_allocinfo, &draw_image.image,
-		&draw_image.allocation, nullptr );
-
-	const auto rview_info = vkinit::imageview_create_info(
-		draw_image.format, draw_image.image, VK_IMAGE_ASPECT_COLOR_BIT );
-
-	VK_CHECK( vkCreateImageView( gfx->device, &rview_info, nullptr, &draw_image.view ) );
-
-	depth_image.format = VK_FORMAT_D32_SFLOAT;
-	depth_image.extent = draw_image_extent;
 	VkImageUsageFlags depth_image_usages{};
 	depth_image_usages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-	const VkImageCreateInfo dimg_info = vkinit::image_create_info(
-		depth_image.format, depth_image_usages, draw_image_extent );
+	std::vector<unsigned char> empty_image_data;
+	empty_image_data.resize( window_extent.width * window_extent.height * 8, 0 );
+	draw_image_id = gfx->image_codex.loadImageFromData( "main draw image", empty_image_data.data( ), draw_image_extent,
+		VK_FORMAT_R16G16B16A16_SFLOAT, draw_image_usages, false );
 
-	// allocate and create the image
-	vmaCreateImage( gfx->allocator, &dimg_info, &rimg_allocinfo, &depth_image.image,
-		&depth_image.allocation, nullptr );
-
-	// build a image-view for the draw image to use for rendering
-	const VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(
-		depth_image.format, depth_image.image, VK_IMAGE_ASPECT_DEPTH_BIT );
-
-	VK_CHECK( vkCreateImageView( gfx->device, &dview_info, nullptr, &depth_image.view ) );
-
-	// add to deletion queues
-	main_deletion_queue.pushFunction( [&]( ) {
-		vkDestroyImageView( gfx->device, draw_image.view, nullptr );
-		vmaDestroyImage( gfx->allocator, draw_image.image, draw_image.allocation );
-
-		vkDestroyImageView( gfx->device, depth_image.view, nullptr );
-		vmaDestroyImage( gfx->allocator, depth_image.image, depth_image.allocation );
-	} );
+	empty_image_data.resize( window_extent.width * window_extent.height * 4, 0 );
+	depth_image_id = gfx->image_codex.loadImageFromData( "main depth image", empty_image_data.data( ), draw_image_extent,
+		VK_FORMAT_D32_SFLOAT, depth_image_usages, false );
 }
 
 void VulkanEngine::initDescriptors( ) {
@@ -176,7 +141,7 @@ void VulkanEngine::initDescriptors( ) {
 		gfx->device, draw_image_descriptor_layout );
 
 	DescriptorWriter writer;
-	writer.write_image( 0, draw_image.view, VK_NULL_HANDLE,
+	writer.write_image( 0, gfx->image_codex.getImage( draw_image_id ).view, VK_NULL_HANDLE,
 		VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 	writer.update_set( gfx->device, draw_image_descriptors );
 
@@ -364,7 +329,7 @@ void VulkanEngine::initImgui( ) {
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
 	viewport_set =
-		ImGui_ImplVulkan_AddTexture( default_sampler_linear, draw_image.view,
+		ImGui_ImplVulkan_AddTexture( default_sampler_linear, gfx->image_codex.getImage( draw_image_id ).view,
 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 
 	// add the destroy the imgui created structures
@@ -473,7 +438,6 @@ void VulkanEngine::cleanup( ) {
 
 		main_deletion_queue.flush( );
 
-		image_codex.cleanup( );
 		gfx->cleanup( );
 
 		SDL_DestroyWindow( window );
@@ -511,10 +475,10 @@ void VulkanEngine::draw( ) {
 	}
 
 	draw_extent.height = static_cast<uint32_t>(
-		std::min( gfx->swapchain.extent.height, draw_image.extent.height ) *
+		std::min( gfx->swapchain.extent.height, gfx->image_codex.getImage( draw_image_id ).extent.height ) *
 		render_scale);
 	draw_extent.width = static_cast<uint32_t>(
-		std::min( gfx->swapchain.extent.width, draw_image.extent.width ) * render_scale);
+		std::min( gfx->swapchain.extent.width, gfx->image_codex.getImage( draw_image_id ).extent.width ) * render_scale);
 
 	//
 	// commands
@@ -532,28 +496,28 @@ void VulkanEngine::draw( ) {
 
 	// transition our main draw image into general layout so it can
 	// be written into
-	vkutil::transition_image( cmd, draw_image.image, VK_IMAGE_LAYOUT_UNDEFINED,
+	vkutil::transition_image( cmd, gfx->image_codex.getImage( draw_image_id ).image, VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_GENERAL );
 
 	drawBackground( cmd );
 
-	vkutil::transition_image( cmd, draw_image.image, VK_IMAGE_LAYOUT_GENERAL,
+	vkutil::transition_image( cmd, gfx->image_codex.getImage( draw_image_id ).image, VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
-	vkutil::transition_image( cmd, depth_image.image, VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+	vkutil::transition_image( cmd, gfx->image_codex.getImage( depth_image_id ).image, VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true);
 
 	drawGeometry( cmd );
 
 	// transform drawImg into source layout
 	// transform swapchain img into dst layout
-	vkutil::transition_image( cmd, draw_image.image,
+	vkutil::transition_image( cmd, gfx->image_codex.getImage( draw_image_id ).image,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex],
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
 
-	vkutil::copy_image_to_image( cmd, draw_image.image,
+	vkutil::copy_image_to_image( cmd, gfx->image_codex.getImage( draw_image_id ).image,
 		gfx->swapchain.images[swapchainImageIndex],
 		draw_extent, gfx->swapchain.extent );
 
@@ -741,9 +705,9 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 	// begin render frame
 	{
 		VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(
-			draw_image.view, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
+			gfx->image_codex.getImage( draw_image_id ).view, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
 		VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(
-			depth_image.view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+			gfx->image_codex.getImage( depth_image_id ).view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
 
 		VkRenderingInfo render_info =
 			vkinit::rendering_info( draw_extent, &colorAttachment, &depthAttachment );
@@ -843,13 +807,13 @@ void VulkanEngine::initDefaultData( ) { initImages( ); }
 void VulkanEngine::initImages( ) {
 	// 3 default textures, white, grey, black. 1 pixel each
 	uint32_t white = glm::packUnorm4x8( glm::vec4( 1, 1, 1, 1 ) );
-	white_image = image_codex.loadImageFromData( "debug_white_img", (void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+	white_image = gfx->image_codex.loadImageFromData( "debug_white_img", (void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
 	uint32_t grey = glm::packUnorm4x8( glm::vec4( 0.66f, 0.66f, 0.66f, 1 ) );
-	grey_image = image_codex.loadImageFromData( "debug_grey_img", (void*)&grey, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+	grey_image = gfx->image_codex.loadImageFromData( "debug_grey_img", (void*)&grey, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
 	uint32_t black = glm::packUnorm4x8( glm::vec4( 0, 0, 0, 0 ) );
-	black_image = image_codex.loadImageFromData( "debug_black_img", (void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+	black_image = gfx->image_codex.loadImageFromData( "debug_black_img", (void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
 	// checkerboard image
 	uint32_t magenta = glm::packUnorm4x8( glm::vec4( 1, 0, 1, 1 ) );
@@ -859,7 +823,7 @@ void VulkanEngine::initImages( ) {
 			pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
 		}
 	}
-	error_checkerboard_image = image_codex.loadImageFromData( "debug_checkboard_img", (void*)&white, VkExtent3D{ 16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+	error_checkerboard_image = gfx->image_codex.loadImageFromData( "debug_checkboard_img", (void*)&white, VkExtent3D{ 16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
 	VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 
@@ -1315,8 +1279,8 @@ void GltfMetallicRoughness::buildPipelines( VulkanEngine* engine ) {
 	pipelineBuilder.enable_depthtest( true, VK_COMPARE_OP_GREATER_OR_EQUAL );
 
 	// format
-	pipelineBuilder.set_color_attachment_format( engine->draw_image.format );
-	pipelineBuilder.set_depth_format( engine->depth_image.format );
+	pipelineBuilder.set_color_attachment_format( engine->gfx->image_codex.getImage( engine->draw_image_id ).format );
+	pipelineBuilder.set_depth_format( engine->gfx->image_codex.getImage( engine->depth_image_id ).format );
 	pipelineBuilder._pipelineLayout = newLayout;
 
 	// create opaque pipeline
@@ -1359,9 +1323,9 @@ MaterialInstance GltfMetallicRoughness::writeMaterial(
 
 	matData.materialSet = descriptor_allocator.allocate( engine->gfx->device, material_layout );
 
-	auto& color = engine->image_codex.getImage( resources.color_image );
-	auto& metal_rough = engine->image_codex.getImage( resources.metal_rough_image );
-	auto& normal = engine->image_codex.getImage( resources.normal_map );
+	auto& color = engine->gfx->image_codex.getImage( resources.color_image );
+	auto& metal_rough = engine->gfx->image_codex.getImage( resources.metal_rough_image );
+	auto& normal = engine->gfx->image_codex.getImage( resources.normal_map );
 
 	writer.clear( );
 	writer.write_buffer( 0, resources.data_buffer, sizeof( MaterialConstants ),

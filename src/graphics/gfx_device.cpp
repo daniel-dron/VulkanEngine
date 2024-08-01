@@ -93,6 +93,8 @@ GfxDevice::Result<> GfxDevice::init( SDL_Window* window ) {
 
 	swapchain.init( this, 2560, 1440 );
 
+	image_codex.init( this );
+
 	return {};
 }
 
