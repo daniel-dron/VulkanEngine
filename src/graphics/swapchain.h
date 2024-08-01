@@ -30,6 +30,7 @@ public:
 		DescriptorAllocatorGrowable frame_descriptors;
 		ImageID color;
 		ImageID depth;
+		VkDescriptorSet set = nullptr;
 	};
 
 	VkSwapchainKHR swapchain;
@@ -38,6 +39,7 @@ public:
 	std::vector<VkImageView> views;
 	VkFormat format;
 	VkExtent2D extent;
+	VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
 
 	uint64_t frame_number = 0;
 	FrameData& getCurrentFrame( );
@@ -45,12 +47,13 @@ public:
 	Result<> init( GfxDevice* gfx, uint32_t width, uint32_t height );
 	void cleanup( );
 
-	void createImguiSet( VkSampler sampler );
+	void createImguiSet( );
 
 	Result<> recreate( uint32_t width, uint32_t height );
 private:
 	Result<> create( uint32_t width, uint32_t height );
 	void createFrameImages( );
 
-	GfxDevice* gfx;
+	VkSampler linear = nullptr;
+	GfxDevice* gfx = nullptr;
 };

@@ -20,17 +20,6 @@
 
 class VulkanEngine;
 
-struct FrameData {
-	VkCommandPool command_pool;
-	VkCommandBuffer main_command_buffer;
-	VkSemaphore swapchain_semaphore, render_semaphore;
-	VkFence render_fence;
-	DeletionQueue deletion_queue;
-	DescriptorAllocatorGrowable frame_descriptors;
-};
-
-constexpr unsigned int FRAME_OVERLAP = 3;
-
 struct ComputePushConstants {
 	glm::vec4 data1;
 	glm::vec4 data2;
@@ -141,6 +130,7 @@ struct EngineStats {
 struct RendererOptions {
 	bool wireframe = false;
 	bool frustum = false;
+	bool vsync = true;
 };
 
 /// @brief This is the main Vulkan Engine class
@@ -177,14 +167,13 @@ public:
 		std::span<Vertex> vertices );
 
 	std::unique_ptr<GfxDevice> gfx;
+	bool dirt_swapchain = false;
 
 	// vulkan stuff
 	DeletionQueue main_deletion_queue;
 
 	// Used as the color attachement for actual rendering
 	// will be copied into the final swapchain image
-	ImageID draw_image_id;
-	ImageID depth_image_id;
 	VkExtent2D draw_extent;
 	float render_scale = 1.f;
 
@@ -221,7 +210,6 @@ public:
 	MaterialInstance default_data;
 	GltfMetallicRoughness metal_rough_material;
 
-	VkDescriptorSet viewport_set;
 	DrawContext main_draw_context;
 
 	std::unordered_map<std::string, std::shared_ptr<LoadedGltf>> loaded_scenes;
@@ -244,7 +232,6 @@ private:
 	/// Creates an intermediate draw image where the actual frame rendering is
 	/// done onto. The contents are then blipped to the swap chain image at the
 	/// end of the frame. Also creates a depth image.
-	void initDrawImages( );
 
 	/// @brief Creates pipeline descriptors and its allocators.
 	/// Creates a growable descriptor allocator for each inflight frame.

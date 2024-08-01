@@ -41,7 +41,6 @@
 #include "tracy/tracy/Tracy.hpp"
 
 VulkanEngine* loaded_engine = nullptr;
-constexpr bool B_USE_VALIDATION_LAYERS = true;
 
 VulkanEngine& VulkanEngine::get( ) { return *loaded_engine; }
 
@@ -57,6 +56,8 @@ void VulkanEngine::init( ) {
 	initDefaultData( );
 
 	initImgui( );
+
+	gfx->swapchain.createImguiSet( );
 
 	EG_INPUT.init( );
 
@@ -90,38 +91,21 @@ void VulkanEngine::initSdl( ) {
 
 void VulkanEngine::initVulkan( ) {
 	gfx = std::make_unique<GfxDevice>( );
+
+	if ( renderer_options.vsync ) {
+		gfx->swapchain.present_mode = VK_PRESENT_MODE_FIFO_KHR;
+	} else {
+		gfx->swapchain.present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+	}
+
 	gfx->init( window );
+
+
 
 	main_deletion_queue.flush( );
 
-	initDrawImages( );
 	initDescriptors( );
 	initPipelines( );
-}
-
-void VulkanEngine::initDrawImages( ) {
-
-	const VkExtent3D draw_image_extent = {
-		.width = window_extent.width, .height = window_extent.height, .depth = 1 };
-
-	VkImageUsageFlags draw_image_usages{};
-	draw_image_usages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	draw_image_usages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-	draw_image_usages |= VK_IMAGE_USAGE_STORAGE_BIT;
-	draw_image_usages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	draw_image_usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
-
-	VkImageUsageFlags depth_image_usages{};
-	depth_image_usages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-
-	std::vector<unsigned char> empty_image_data;
-	empty_image_data.resize( window_extent.width * window_extent.height * 8, 0 );
-	draw_image_id = gfx->image_codex.loadImageFromData( "main draw image", empty_image_data.data( ), draw_image_extent,
-		VK_FORMAT_R16G16B16A16_SFLOAT, draw_image_usages, false );
-
-	empty_image_data.resize( window_extent.width * window_extent.height * 4, 0 );
-	depth_image_id = gfx->image_codex.loadImageFromData( "main depth image", empty_image_data.data( ), draw_image_extent,
-		VK_FORMAT_D32_SFLOAT, depth_image_usages, false );
 }
 
 void VulkanEngine::initDescriptors( ) {
@@ -140,12 +124,14 @@ void VulkanEngine::initDescriptors( ) {
 	draw_image_descriptors = global_descriptor_allocator.allocate(
 		gfx->device, draw_image_descriptor_layout );
 
+	auto& color_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
+
 	DescriptorWriter writer;
-	writer.write_image( 0, gfx->image_codex.getImage( draw_image_id ).view, VK_NULL_HANDLE,
+	writer.write_image( 0, color_image.view, VK_NULL_HANDLE,
 		VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 	writer.update_set( gfx->device, draw_image_descriptors );
 
-	for ( int i = 0; i < FRAME_OVERLAP; i++ ) {
+	for ( int i = 0; i < gfx->swapchain.FRAME_OVERLAP; i++ ) {
 		// create a descriptor pool
 		std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> frame_sizes = {
 			{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
@@ -328,10 +314,6 @@ void VulkanEngine::initImgui( ) {
 	io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-	viewport_set =
-		ImGui_ImplVulkan_AddTexture( default_sampler_linear, gfx->image_codex.getImage( draw_image_id ).view,
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
-
 	// add the destroy the imgui created structures
 	main_deletion_queue.pushFunction( [&, imguiPool]( ) {
 		ImGui_ImplVulkan_Shutdown( );
@@ -407,16 +389,8 @@ void VulkanEngine::resizeSwapchain( uint32_t width, uint32_t height ) {
 	window_extent.height = height;
 
 	gfx->swapchain.recreate( width, height );
+	gfx->swapchain.createImguiSet( );
 
-	initDrawImages( );
-
-	ImGui_ImplVulkan_RemoveTexture( viewport_set );
-	viewport_set =
-		ImGui_ImplVulkan_AddTexture( default_sampler_linear, gfx->image_codex.getImage( draw_image_id ).view,
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
-
-
-	initDescriptors( );
 
 	// TODO:
 	// Delete previous image
@@ -473,11 +447,14 @@ void VulkanEngine::draw( ) {
 		VK_CHECK( vkResetFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence ) );
 	}
 
+	auto& color = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
+	auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
+
 	draw_extent.height = static_cast<uint32_t>(
-		std::min( gfx->swapchain.extent.height, gfx->image_codex.getImage( draw_image_id ).extent.height ) *
+		std::min( gfx->swapchain.extent.height, color.extent.height ) *
 		render_scale);
 	draw_extent.width = static_cast<uint32_t>(
-		std::min( gfx->swapchain.extent.width, gfx->image_codex.getImage( draw_image_id ).extent.width ) * render_scale);
+		std::min( gfx->swapchain.extent.width, color.extent.width ) * render_scale);
 
 	//
 	// commands
@@ -495,28 +472,28 @@ void VulkanEngine::draw( ) {
 
 	// transition our main draw image into general layout so it can
 	// be written into
-	vkutil::transition_image( cmd, gfx->image_codex.getImage( draw_image_id ).image, VK_IMAGE_LAYOUT_UNDEFINED,
+	vkutil::transition_image( cmd, color.image, VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_GENERAL );
 
 	drawBackground( cmd );
 
-	vkutil::transition_image( cmd, gfx->image_codex.getImage( draw_image_id ).image, VK_IMAGE_LAYOUT_GENERAL,
+	vkutil::transition_image( cmd, color.image, VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
-	vkutil::transition_image( cmd, gfx->image_codex.getImage( depth_image_id ).image, VK_IMAGE_LAYOUT_UNDEFINED,
+	vkutil::transition_image( cmd, depth.image, VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
 	drawGeometry( cmd );
 
 	// transform drawImg into source layout
 	// transform swapchain img into dst layout
-	vkutil::transition_image( cmd, gfx->image_codex.getImage( draw_image_id ).image,
+	vkutil::transition_image( cmd, color.image,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex],
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
 
-	vkutil::copy_image_to_image( cmd, gfx->image_codex.getImage( draw_image_id ).image,
+	vkutil::copy_image_to_image( cmd, color.image,
 		gfx->swapchain.images[swapchainImageIndex],
 		draw_extent, gfx->swapchain.extent );
 
@@ -580,6 +557,13 @@ void VulkanEngine::draw( ) {
 
 void VulkanEngine::drawBackground( VkCommandBuffer cmd ) {
 	ZoneScopedN( "draw_background" );
+
+	auto& color_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
+	DescriptorWriter writer;
+	writer.write_image( 0, color_image.view, VK_NULL_HANDLE,
+		VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+	writer.update_set( gfx->device, draw_image_descriptors );
+
 	auto& [name, pipeline, layout, data] =
 		background_effects[current_background_effect];
 
@@ -703,10 +687,13 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 	// -----------
 	// begin render frame
 	{
+		auto& color = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
+		auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
+
 		VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(
-			gfx->image_codex.getImage( draw_image_id ).view, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
+			color.view, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
 		VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(
-			gfx->image_codex.getImage( depth_image_id ).view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+			depth.view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
 
 		VkRenderingInfo render_info =
 			vkinit::rendering_info( draw_extent, &colorAttachment, &depthAttachment );
@@ -941,6 +928,12 @@ void VulkanEngine::run( ) {
 			SDL_WarpMouseInWindow( window, savedMouseX, savedMouseY );
 		}
 
+		if ( dirt_swapchain ) {
+			gfx->swapchain.recreate( gfx->swapchain.extent.width, gfx->swapchain.extent.height );
+			gfx->swapchain.createImguiSet( );
+			dirt_swapchain = false;
+		}
+
 		camera_controller->update( 1.0f / 165.0f );
 
 		// do not draw if we are minimized
@@ -964,7 +957,7 @@ void VulkanEngine::run( ) {
 			ImGui::ShowDemoWindow( );
 
 			if ( ImGui::Begin( "Viewport", 0, ImGuiWindowFlags_NoScrollbar ) ) {
-				ImGui::Image( (ImTextureID)(viewport_set),
+				ImGui::Image( (ImTextureID)(gfx->swapchain.getCurrentFrame( ).set),
 					ImGui::GetWindowContentRegionMax( ) );
 
 				// ----------
@@ -999,6 +992,14 @@ void VulkanEngine::run( ) {
 			if ( ImGui::BeginPopup( "Viewport Context" ) ) {
 				ImGui::Checkbox( "Wireframe", &renderer_options.wireframe );
 				ImGui::Checkbox( "Frustum Culling", &renderer_options.frustum );
+				if ( ImGui::Checkbox( "VSync", &renderer_options.vsync ) ) {
+					if ( renderer_options.vsync ) {
+						gfx->swapchain.present_mode = VK_PRESENT_MODE_FIFO_KHR;
+					} else {
+						gfx->swapchain.present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+					}
+					dirt_swapchain = true;
+				}
 				ImGui::EndPopup( );
 			}
 
@@ -1278,8 +1279,10 @@ void GltfMetallicRoughness::buildPipelines( VulkanEngine* engine ) {
 	pipelineBuilder.enable_depthtest( true, VK_COMPARE_OP_GREATER_OR_EQUAL );
 
 	// format
-	pipelineBuilder.set_color_attachment_format( engine->gfx->image_codex.getImage( engine->draw_image_id ).format );
-	pipelineBuilder.set_depth_format( engine->gfx->image_codex.getImage( engine->depth_image_id ).format );
+	auto& color = engine->gfx->image_codex.getImage( engine->gfx->swapchain.getCurrentFrame( ).color );
+	auto& depth = engine->gfx->image_codex.getImage( engine->gfx->swapchain.getCurrentFrame( ).depth );
+	pipelineBuilder.set_color_attachment_format( color.format );
+	pipelineBuilder.set_depth_format( depth.format );
 	pipelineBuilder._pipelineLayout = newLayout;
 
 	// create opaque pipeline

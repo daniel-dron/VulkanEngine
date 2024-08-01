@@ -4,6 +4,7 @@
 #include "VkBootstrap.h"
 #include "vk_types.h"
 #include <vk_initializers.h>
+#include "imgui_impl_vulkan.h"
 
 Swapchain::FrameData& Swapchain::getCurrentFrame( ) {
 	return frames[frame_number % FRAME_OVERLAP];
@@ -65,6 +66,8 @@ void Swapchain::cleanup( ) {
 	for ( const auto& view : views ) {
 		vkDestroyImageView( gfx->device, view, nullptr );
 	}
+
+	vkDestroySampler( gfx->device, linear, nullptr );
 }
 
 Swapchain::Result<> Swapchain::recreate( uint32_t width, uint32_t height ) {
@@ -80,7 +83,7 @@ Swapchain::Result<> Swapchain::recreate( uint32_t width, uint32_t height ) {
 			.format = format,
 			.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
 			} )
-			.set_desired_present_mode( VK_PRESENT_MODE_FIFO_KHR )
+			.set_desired_present_mode( present_mode )
 		.add_image_usage_flags( VK_IMAGE_USAGE_TRANSFER_DST_BIT )
 		.set_old_swapchain( swapchain )
 		.build( );
@@ -125,7 +128,7 @@ Swapchain::Result<> Swapchain::create( uint32_t width, uint32_t height ) {
 			.format = format,
 			.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
 			} )
-			.set_desired_present_mode( VK_PRESENT_MODE_FIFO_KHR )
+			.set_desired_present_mode( present_mode )
 		.add_image_usage_flags( VK_IMAGE_USAGE_TRANSFER_DST_BIT )
 		.build( );
 
@@ -144,7 +147,6 @@ Swapchain::Result<> Swapchain::create( uint32_t width, uint32_t height ) {
 	return {};
 }
 
-	//auto& color_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
 void Swapchain::createFrameImages( ) {
 	const VkExtent3D draw_image_extent = {
 		.width = extent.width, .height = extent.height, .depth = 1 };
@@ -171,9 +173,22 @@ void Swapchain::createFrameImages( ) {
 	}
 }
 
-void Swapchain::createImguiSet( VkSampler sampler ) {
+void Swapchain::createImguiSet( ) {
 
 	for ( auto& frame : frames ) {
-		
+		// sampler for imgui
+		if ( linear == nullptr ) {
+			VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+			sampl.magFilter = VK_FILTER_LINEAR;
+			sampl.minFilter = VK_FILTER_LINEAR;
+			vkCreateSampler( gfx->device, &sampl, nullptr, &linear );
+		}
+
+		if ( frame.set != nullptr ) {
+			ImGui_ImplVulkan_RemoveTexture( frame.set );
+		}
+		auto& color = gfx->image_codex.getImage( frame.color );
+		frame.set =
+			ImGui_ImplVulkan_AddTexture( linear, color.view, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 	}
 }

@@ -64,7 +64,6 @@ public:
 
 	VkSurfaceKHR surface;
 	::Swapchain swapchain;
-	std::array<ImageID, ::Swapchain::FRAME_OVERLAP> images;
 
 	ImageCodex image_codex;
 
