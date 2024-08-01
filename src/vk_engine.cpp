@@ -1,5 +1,4 @@
-﻿//> includes
-#include "vk_engine.h"
+﻿#include "vk_engine.h"
 
 #include <SDL.h>
 #include <SDL_vulkan.h>
@@ -96,9 +95,7 @@ void VulkanEngine::initVulkan( ) {
 
 	main_deletion_queue.flush( );
 
-	initSyncStructures( );
 	initDrawImages( );
-	initCommands( );
 	initDescriptors( );
 	initPipelines( );
 }
@@ -164,35 +161,6 @@ void VulkanEngine::initDrawImages( ) {
 		vkDestroyImageView( gfx->device, depth_image.view, nullptr );
 		vmaDestroyImage( gfx->allocator, depth_image.image, depth_image.allocation );
 	} );
-}
-
-void VulkanEngine::initCommands( ) {
-	const VkCommandPoolCreateInfo command_pool_info =
-		vkinit::command_pool_create_info(
-			gfx->graphics_queue_family,
-			VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
-
-	//
-	// imgui commands
-	//
-	VK_CHECK( vkCreateCommandPool( gfx->device, &command_pool_info, nullptr,
-		&imm_command_pool ) );
-
-	const auto cmd_alloc_info =
-		vkinit::command_buffer_allocate_info( imm_command_pool, 1 );
-	VK_CHECK(
-		vkAllocateCommandBuffers( gfx->device, &cmd_alloc_info, &imm_command_buffer ) );
-
-	main_deletion_queue.pushFunction(
-		[&]( ) { vkDestroyCommandPool( gfx->device, imm_command_pool, nullptr ); } );
-}
-
-void VulkanEngine::initSyncStructures( ) {
-	auto fenceCreateInfo =
-		vkinit::fence_create_info( VK_FENCE_CREATE_SIGNALED_BIT );
-	VK_CHECK( vkCreateFence( gfx->device, &fenceCreateInfo, nullptr, &imm_fence ) );
-	main_deletion_queue.pushFunction(
-		[&]( ) { vkDestroyFence( gfx->device, imm_fence, nullptr ); } );
 }
 
 void VulkanEngine::initDescriptors( ) {
@@ -496,7 +464,7 @@ AllocatedImage VulkanEngine::createImage( void* data, VkExtent3D size,
 		usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		mipmapped );
 
-	immediateSubmit( [&]( VkCommandBuffer cmd ) {
+	gfx->execute( [&]( VkCommandBuffer cmd ) {
 		vkutil::transition_image( cmd, new_image.image, VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
 
@@ -579,7 +547,7 @@ GPUMeshBuffers VulkanEngine::uploadMesh( std::span<uint32_t> indices,
 	memcpy( static_cast<char*>(data) + vertexBufferSize, indices.data( ),
 		indexBufferSize );
 
-	immediateSubmit( [&]( const VkCommandBuffer cmd ) {
+	gfx->execute( [&]( const VkCommandBuffer cmd ) {
 		VkBufferCopy vertex_copy;
 		vertex_copy.dstOffset = 0;
 		vertex_copy.srcOffset = 0;
@@ -1355,29 +1323,6 @@ void VulkanEngine::drawImgui( VkCommandBuffer cmd,
 	ImGui_ImplVulkan_RenderDrawData( ImGui::GetDrawData( ), cmd );
 
 	vkCmdEndRendering( cmd );
-}
-
-void VulkanEngine::immediateSubmit(
-	std::function<void( VkCommandBuffer cmd )>&& function ) {
-	VK_CHECK( vkResetFences( gfx->device, 1, &imm_fence ) );
-	VK_CHECK( vkResetCommandBuffer( imm_command_buffer, 0 ) );
-
-	auto cmd = imm_command_buffer;
-	VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(
-		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
-	VK_CHECK( vkBeginCommandBuffer( cmd, &cmdBeginInfo ) );
-
-	function( cmd );
-
-	VK_CHECK( vkEndCommandBuffer( cmd ) );
-
-	VkCommandBufferSubmitInfo cmdinfo = vkinit::command_buffer_submit_info( cmd );
-	VkSubmitInfo2 submit = vkinit::submit_info( &cmdinfo, nullptr, nullptr );
-
-	// submit and wait for the completion fence
-	// OPTIMIZATION: use a different queue to overlap work with the graphics queue
-	VK_CHECK( vkQueueSubmit2( gfx->graphics_queue, 1, &submit, imm_fence ) );
-	VK_CHECK( vkWaitForFences( gfx->device, 1, &imm_fence, true, 9999999999 ) );
 }
 
 void VulkanEngine::updateScene( ) {

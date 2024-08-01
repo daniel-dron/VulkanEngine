@@ -20,7 +20,8 @@ struct ImmediateExecutor {
 	using Result = std::expected<T, Error>;
 
 	Result<> init( GfxDevice* gfx );
-	Result<> execute( std::function<void( VkCommandBuffer )>&& func );
+	void execute( GfxDevice* gfx, std::function<void( VkCommandBuffer )>&& func );
+	void cleanup( GfxDevice* gfx );
 };
 
 class GfxDevice {
@@ -40,6 +41,7 @@ public:
 	using Result = std::expected<T, GfxDeviceError>;
 
 	Result<> init( struct SDL_Window* window );
+	void execute( std::function<void( VkCommandBuffer )>&& func );
 	void cleanup( );
 
 	VkInstance instance;
@@ -51,7 +53,7 @@ public:
 	VkQueue graphics_queue;
 	uint32_t graphics_queue_family;
 
-	VkCommandBuffer executor;
+	ImmediateExecutor executor;
 	VmaAllocator allocator;
 
 	VkSurfaceKHR surface;

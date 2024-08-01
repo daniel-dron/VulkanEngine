@@ -3,29 +3,105 @@
 #include <VkBootstrap.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
+#include <vk_initializers.h>
 
 using namespace vkb;
 
 const bool B_USE_VALIDATION_LAYERS = true;
 
 ImmediateExecutor::Result<> ImmediateExecutor::init( GfxDevice* gfx ) {
+	
+	// ----------
+	// Fence creation
+	const VkFenceCreateInfo fence_info = {
+		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = VK_FENCE_CREATE_SIGNALED_BIT
+	};
+	VK_CHECK( vkCreateFence( gfx->device, &fence_info, nullptr, &fence ) );
+
+	// ----------
+	// Pool and buffer creation
+	const VkCommandPoolCreateInfo pool_info = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+		.queueFamilyIndex = gfx->graphics_queue_family
+	};
+	VK_CHECK( vkCreateCommandPool( gfx->device, &pool_info, nullptr, &pool ) );
+
+	const VkCommandBufferAllocateInfo buffer_info = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.pNext = nullptr,
+		.commandPool = pool,
+		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		.commandBufferCount = 1
+	};
+	VK_CHECK( vkAllocateCommandBuffers( gfx->device, &buffer_info, &command_buffer ) );
+
 	return {};
 }
 
-ImmediateExecutor::Result<> ImmediateExecutor::execute( std::function<void( VkCommandBuffer )>&& func ) {
-	return {};
+void ImmediateExecutor::execute( GfxDevice* gfx, std::function<void( VkCommandBuffer cmd )>&& func ) {
+	VK_CHECK( vkResetFences( gfx->device, 1, &fence ) );
+	VK_CHECK( vkResetCommandBuffer( command_buffer, 0 ) );
+
+	auto cmd = command_buffer;
+	const VkCommandBufferBeginInfo info = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.pNext = nullptr,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		.pInheritanceInfo = nullptr
+	};
+	VK_CHECK( vkBeginCommandBuffer( cmd, &info ) );
+
+	func( cmd );
+
+	VK_CHECK( vkEndCommandBuffer( cmd ) );
+
+	const VkCommandBufferSubmitInfo submit_info = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+		.pNext = nullptr,
+		.commandBuffer = cmd,
+		.deviceMask = 0
+	};
+	const VkSubmitInfo2 submit = {
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+		.pNext = nullptr,
+		.waitSemaphoreInfoCount = 0,
+		.pWaitSemaphoreInfos = nullptr,
+		.commandBufferInfoCount = 1,
+		.pCommandBufferInfos = &submit_info,
+		.signalSemaphoreInfoCount = 0,
+		.pSignalSemaphoreInfos = nullptr,
+	};
+
+	VK_CHECK( vkQueueSubmit2( gfx->graphics_queue, 1, &submit, fence ) );
+	VK_CHECK( vkWaitForFences( gfx->device, 1, &fence, true, 9999999999 ) );
+}
+
+void ImmediateExecutor::cleanup(GfxDevice* gfx ) {
+	vkDestroyFence( gfx->device, fence, nullptr );
+	vkDestroyCommandPool( gfx->device, pool, nullptr );
 }
 
 GfxDevice::Result<> GfxDevice::init( SDL_Window* window ) {
 	RETURN_IF_ERROR( initDevice( window ) );
 	RETURN_IF_ERROR( initAllocator( ) );
 
+	executor.init( this );
+
 	swapchain.init( this, 2560, 1440 );
+}
+
+void GfxDevice::execute( std::function<void( VkCommandBuffer )>&& func ) {
+	executor.execute( this, std::move(func) );
 }
 
 void GfxDevice::cleanup( ) {
 	swapchain.cleanup( this );
 	image_codex.cleanup( );
+	executor.cleanup( this );
 	vmaDestroyAllocator( allocator );
 	vkDestroySurfaceKHR( instance, surface, nullptr );
 	vkDestroyDevice( device, nullptr );

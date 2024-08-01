@@ -168,7 +168,6 @@ public:
 	// run main loop
 	void run( );
 
-	void immediateSubmit( std::function<void( VkCommandBuffer cmd )>&& function );
 	void drawImgui( VkCommandBuffer cmd, VkImageView target_image_view );
 	AllocatedBuffer createBuffer( size_t alloc_size, VkBufferUsageFlags usage,
 		VmaMemoryUsage memory_usage, const std::string& name );
@@ -214,13 +213,6 @@ public:
 	//
 	// VkPipeline _gradientPipeline;
 	VkPipelineLayout gradient_pipeline_layout;
-
-	//
-	// immediate commands
-	//
-	VkFence imm_fence;
-	VkCommandBuffer imm_command_buffer;
-	VkCommandPool imm_command_pool;
 
 	std::vector<ComputeEffect> background_effects;
 	int current_background_effect{ 0 };
@@ -268,18 +260,6 @@ private:
 	/// done onto. The contents are then blipped to the swap chain image at the
 	/// end of the frame. Also creates a depth image.
 	void initDrawImages( );
-
-	/// @brief Initializes a command pool for each inflight frame of the
-	/// swapchain. Also creates an immediate command pool that is used to execute
-	/// immediate commands on the gpu. Useful for ImGui and other generic
-	/// purposes.
-	void initCommands( );
-
-	/// @brief Creates a synchronization structures.
-	/// Creates a fence for the immediate command pool.
-	/// Creates a fence and two semaphores for each inflight frame of the
-	/// swapchain.
-	void initSyncStructures( );
 
 	/// @brief Creates pipeline descriptors and its allocators.
 	/// Creates a growable descriptor allocator for each inflight frame.

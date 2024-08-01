@@ -101,7 +101,7 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 	// ----------
 	// copy image contents to the allocation
 #pragma region copy
-	engine->immediateSubmit( [&]( VkCommandBuffer cmd ) {
+	engine->gfx->execute( [&]( VkCommandBuffer cmd ) {
 		vkutil::transition_image( cmd, image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
 
 		VkBufferImageCopy copy_region = {
