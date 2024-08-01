@@ -994,7 +994,7 @@ void VulkanEngine::run( ) {
 				ImGui::Checkbox( "Frustum Culling", &renderer_options.frustum );
 				if ( ImGui::Checkbox( "VSync", &renderer_options.vsync ) ) {
 					if ( renderer_options.vsync ) {
-						gfx->swapchain.present_mode = VK_PRESENT_MODE_FIFO_KHR;
+						gfx->swapchain.present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
 					} else {
 						gfx->swapchain.present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 					}
