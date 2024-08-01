@@ -65,7 +65,7 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 		image.extent.depth * image.extent.width * image.extent.height * 4;
 
 	engine->allocation_counter["load_image_from_data_staging"]++;
-	AllocatedBuffer staging_buffer = engine->createBuffer(
+	AllocatedBuffer staging_buffer = engine->gfx->allocate(
 		data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, __FUNCTION__ );
 
 	void* mapped_buffer = nullptr;
@@ -128,7 +128,7 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 #pragma endregion copy
 
 	engine->allocation_counter["load_image_from_data_staging"]--;
-	engine->destroyBuffer( staging_buffer, __FUNCTION__ );
+	engine->gfx->free( staging_buffer );
 
 	ImageID image_id = images.size( );
 	image.id = image_id;

@@ -79,6 +79,7 @@ struct AllocatedBuffer {
 	VkBuffer buffer;
 	VmaAllocation allocation;
 	VmaAllocationInfo info;
+	std::string name;
 };
 
 struct Vertex {

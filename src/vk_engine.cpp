@@ -378,34 +378,6 @@ void VulkanEngine::initImgui( ) {
 	} );
 }
 
-AllocatedBuffer VulkanEngine::createBuffer( size_t alloc_size,
-	VkBufferUsageFlags usage,
-	VmaMemoryUsage memory_usage, const std::string& name ) {
-	VkBufferCreateInfo bufferInfo = { .sType =
-										 VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-	bufferInfo.pNext = nullptr;
-	bufferInfo.size = alloc_size;
-
-	bufferInfo.usage = usage;
-
-	VmaAllocationCreateInfo vmaallocInfo = {};
-	vmaallocInfo.usage = memory_usage;
-	vmaallocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-	AllocatedBuffer newBuffer;
-	allocation_counter[name]++;
-	VK_CHECK( vmaCreateBuffer( gfx->allocator, &bufferInfo, &vmaallocInfo,
-		&newBuffer.buffer, &newBuffer.allocation,
-		&newBuffer.info ) );
-
-	return newBuffer;
-}
-
-void VulkanEngine::destroyBuffer( const AllocatedBuffer& buffer, const std::string& name ) {
-	allocation_counter[name]--;
-	vmaDestroyBuffer( gfx->allocator, buffer.buffer, buffer.allocation );
-}
-
 AllocatedImage VulkanEngine::createImage( VkExtent3D size, VkFormat format,
 	VkImageUsageFlags usage,
 	bool mipmapped ) {
@@ -454,7 +426,7 @@ AllocatedImage VulkanEngine::createImage( void* data, VkExtent3D size,
 	bool mipmapped ) {
 	size_t data_size = size.depth * size.width * size.height * 4;
 	allocation_counter["create_image"]++;
-	AllocatedBuffer uploadbuffer = createBuffer(
+	AllocatedBuffer uploadbuffer = gfx->allocate(
 		data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, __FUNCTION__ );
 
 	memcpy( uploadbuffer.info.pMappedData, data, data_size );
@@ -495,7 +467,7 @@ AllocatedImage VulkanEngine::createImage( void* data, VkExtent3D size,
 		}
 	} );
 	allocation_counter["create_image"]--;
-	destroyBuffer( uploadbuffer, __FUNCTION__ );
+	gfx->free( uploadbuffer );
 	return new_image;
 }
 
@@ -512,7 +484,7 @@ GPUMeshBuffers VulkanEngine::uploadMesh( std::span<uint32_t> indices,
 	GPUMeshBuffers newSurface;
 
 	allocation_counter["vertex_buffer"]++;
-	newSurface.vertexBuffer = createBuffer(
+	newSurface.vertexBuffer = gfx->allocate(
 		vertexBufferSize,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
@@ -526,7 +498,7 @@ GPUMeshBuffers VulkanEngine::uploadMesh( std::span<uint32_t> indices,
 		vkGetBufferDeviceAddress( gfx->device, &deviceAddressInfo );
 
 	allocation_counter["index_buffer"]++;
-	newSurface.indexBuffer = createBuffer(
+	newSurface.indexBuffer = gfx->allocate(
 		indexBufferSize,
 		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY, "indexBuffer" );
@@ -538,7 +510,7 @@ GPUMeshBuffers VulkanEngine::uploadMesh( std::span<uint32_t> indices,
 	//
 	allocation_counter["staging_mesh"]++;
 	AllocatedBuffer staging =
-		createBuffer( vertexBufferSize + indexBufferSize,
+		gfx->allocate( vertexBufferSize + indexBufferSize,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, __FUNCTION__ );
 
 	// copy memory to gpu
@@ -564,7 +536,7 @@ GPUMeshBuffers VulkanEngine::uploadMesh( std::span<uint32_t> indices,
 	} );
 
 	allocation_counter["staging_mesh"]--;
-	destroyBuffer( staging, __FUNCTION__ );
+	gfx->free( staging );
 
 	return newSurface;
 }
@@ -850,12 +822,12 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 	// scene buffers setup
 	allocation_counter["gpu_scene_data_frame"]++;
 	auto gpuSceneDataBuffer =
-		createBuffer( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		gfx->allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
 
 	gfx->swapchain.getCurrentFrame( ).deletion_queue.pushFunction( [=, this]( ) {
 		allocation_counter["gpu_scene_data_frame"]--;
-		destroyBuffer( gpuSceneDataBuffer, "drawGeometry" );
+		gfx->free( gpuSceneDataBuffer );
 	} );
 
 	// write to the buffer

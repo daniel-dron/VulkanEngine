@@ -10,7 +10,7 @@ using namespace vkb;
 const bool B_USE_VALIDATION_LAYERS = true;
 
 ImmediateExecutor::Result<> ImmediateExecutor::init( GfxDevice* gfx ) {
-	
+
 	// ----------
 	// Fence creation
 	const VkFenceCreateInfo fence_info = {
@@ -80,7 +80,7 @@ void ImmediateExecutor::execute( GfxDevice* gfx, std::function<void( VkCommandBu
 	VK_CHECK( vkWaitForFences( gfx->device, 1, &fence, true, 9999999999 ) );
 }
 
-void ImmediateExecutor::cleanup(GfxDevice* gfx ) {
+void ImmediateExecutor::cleanup( GfxDevice* gfx ) {
 	vkDestroyFence( gfx->device, fence, nullptr );
 	vkDestroyCommandPool( gfx->device, pool, nullptr );
 }
@@ -95,7 +95,31 @@ GfxDevice::Result<> GfxDevice::init( SDL_Window* window ) {
 }
 
 void GfxDevice::execute( std::function<void( VkCommandBuffer )>&& func ) {
-	executor.execute( this, std::move(func) );
+	executor.execute( this, std::move( func ) );
+}
+
+AllocatedBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vma_usage, const std::string& name ) {
+	const VkBufferCreateInfo info = {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+		.pNext = nullptr,
+		.size = size,
+		.usage = usage
+	};
+
+	const VmaAllocationCreateInfo vma_info = {
+		.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
+		.usage = vma_usage
+	};
+
+	AllocatedBuffer buffer{};
+	VK_CHECK( vmaCreateBuffer( allocator, &info, &vma_info, &buffer.buffer, &buffer.allocation, &buffer.info ) );
+	buffer.name = name;
+
+	return buffer;
+}
+
+void GfxDevice::free( const AllocatedBuffer& buffer ) {
+	vmaDestroyBuffer( allocator, buffer.buffer, buffer.allocation );
 }
 
 void GfxDevice::cleanup( ) {

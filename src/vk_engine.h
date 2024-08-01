@@ -169,9 +169,6 @@ public:
 	void run( );
 
 	void drawImgui( VkCommandBuffer cmd, VkImageView target_image_view );
-	AllocatedBuffer createBuffer( size_t alloc_size, VkBufferUsageFlags usage,
-		VmaMemoryUsage memory_usage, const std::string& name );
-	void destroyBuffer( const AllocatedBuffer& buffer, const std::string& name );
 	AllocatedImage createImage( VkExtent3D size, VkFormat format,
 		VkImageUsageFlags usage, bool mipmapped = false );
 	AllocatedImage createImage( void* data, VkExtent3D size, VkFormat format,
