@@ -169,11 +169,6 @@ public:
 	void run( );
 
 	void drawImgui( VkCommandBuffer cmd, VkImageView target_image_view );
-	AllocatedImage createImage( VkExtent3D size, VkFormat format,
-		VkImageUsageFlags usage, bool mipmapped = false );
-	AllocatedImage createImage( void* data, VkExtent3D size, VkFormat format,
-		VkImageUsageFlags usage, bool mipmapped = false );
-	void destroyImage( const GpuImage& img );
 
 	/// @brief Uploads mesh data to gpu buffers
 	/// @param indices list of indices in uint32_t format

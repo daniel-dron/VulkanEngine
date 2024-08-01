@@ -9,7 +9,8 @@ void ImageCodex::init( VulkanEngine* engine ) { this->engine = engine; }
 
 void ImageCodex::cleanup( ) {
 	for ( auto& img : images ) {
-		engine->destroyImage( img );
+		vkDestroyImageView( engine->gfx->device, img.view, nullptr );
+		vmaDestroyImage( engine->gfx->allocator, img.image, img.allocation );
 	}
 }
 
