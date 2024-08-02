@@ -25,11 +25,8 @@
 
 #include "glm/ext/vector_float4.hpp"
 
-// Helper macro for early return
-#define RETURN_IF_ERROR(expression) \
-        if (auto result = (expression); !result) \
-            return std::unexpected(result.error())
-
+#ifdef _DEBUG
+#define ENABLE_DEBUG_UTILS
 #define VK_CHECK(x)                                                       \
   do {                                                                    \
     VkResult err = x;                                                     \
@@ -39,6 +36,16 @@
       abort();                                                            \
     }                                                                     \
   } while (0)
+#else
+#undef ENABLE_DEBUG_UTILS
+#define VK_CHECK(x) x
+#endif
+
+// Helper macro for early return
+#define RETURN_IF_ERROR(expression) \
+        if (auto result = (expression); !result) \
+            return std::unexpected(result.error())
+
 
 const glm::vec3 GlobalUp{ 0.0f, -1.0f, 0.0f };
 const glm::vec3 GlobalRight{ 1.0f, 0.0f, 0.0f };

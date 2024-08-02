@@ -131,6 +131,7 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 
 	gfx->free( staging_buffer );
 
+#ifdef ENABLE_DEBUG_UTILS
 	const VkDebugUtilsObjectNameInfoEXT obj = {
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
 		.pNext = nullptr,
@@ -139,6 +140,7 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 		.pObjectName = name.c_str()
 	};
 	vkSetDebugUtilsObjectNameEXT( gfx->device, &obj );
+#endif
 
 	ImageID image_id = images.size( );
 	image.id = image_id;

@@ -2,11 +2,6 @@
 
 #include <vk_types.h>
 
-using vec3 = glm::vec3;
-using vec4 = glm::vec4;
-using mat4 = glm::mat4;
-using quat = glm::quat;
-
 class Transform3D {
 public:
 	const vec3& get_position( ) const;

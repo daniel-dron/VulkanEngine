@@ -617,7 +617,7 @@ static bool is_visible( const RenderObject& obj, const glm::mat4& viewproj ) {
 
 void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 	ZoneScopedN( "draw_geometry" );
-	Debug::StartLabel( cmd, "Draw Geometry", { 1.0f, 0.0f, 0.0f, 1.0 } );
+	START_LABEL( cmd, "Draw Geometry", vec4(1.0f, 0.0f, 0.0f, 1.0) );
 
 	// reset counters
 	stats.drawcall_count = 0;
@@ -706,7 +706,6 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 
 			if ( r.material->pipeline != lastPipeline ) {
 				lastPipeline = r.material->pipeline;
-
 				if ( renderer_options.wireframe ) {
 					vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
 						metal_rough_material.wireframe_pipeline.pipeline );
@@ -783,7 +782,7 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 		std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	stats.mesh_draw_time = elapsed.count( ) / 1000.f;
 
-	Debug::EndLabel( cmd );
+	END_LABEL( cmd );
 }
 
 void VulkanEngine::initDefaultData( ) { initImages( ); }
@@ -1296,6 +1295,17 @@ void GltfMetallicRoughness::buildPipelines( VulkanEngine* engine ) {
 	pipelineBuilder.disable_blending( );
 	pipelineBuilder.set_polygon_mode( VK_POLYGON_MODE_LINE );
 	wireframe_pipeline.pipeline = pipelineBuilder.build_pipeline( engine->gfx->device );
+
+#ifdef ENABLE_DEBUG_UTILS
+	const VkDebugUtilsObjectNameInfoEXT obj = {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+		.pNext = nullptr,
+		.objectType = VkObjectType::VK_OBJECT_TYPE_PIPELINE,
+		.objectHandle = (uint64_t)opaque_pipeline.pipeline,
+		.pObjectName = "Mesh Pipeline"
+	};
+	vkSetDebugUtilsObjectNameEXT( engine->gfx->device, &obj );
+#endif
 
 	vkDestroyShaderModule( engine->gfx->device, meshFragShader, nullptr );
 	vkDestroyShaderModule( engine->gfx->device, meshVertShader, nullptr );

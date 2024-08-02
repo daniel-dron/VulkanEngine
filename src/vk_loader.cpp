@@ -285,6 +285,16 @@ loadGltf( VulkanEngine* engine, std::string_view filePath ) {
 
 		newMat->data = engine->metal_rough_material.writeMaterial(
 			engine, passType, materialResources, file.descriptor_pool );
+	#ifdef ENABLE_DEBUG_UTILS
+		const VkDebugUtilsObjectNameInfoEXT obj = {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+			.pNext = nullptr,
+			.objectType = VkObjectType::VK_OBJECT_TYPE_DESCRIPTOR_SET,
+			.objectHandle = (uint64_t)newMat->data.materialSet,
+			.pObjectName = mat.name.c_str( )
+		};
+		vkSetDebugUtilsObjectNameEXT( engine->gfx->device, &obj );
+	#endif
 
 		data_index++;
 	}

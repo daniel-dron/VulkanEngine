@@ -7,6 +7,14 @@
 
 class GfxDevice;
 
+#ifdef ENABLE_DEBUG_UTILS
+#define START_LABEL(cmd, name, color) Debug::StartLabel(cmd, name, color)
+#define END_LABEL(cmd) Debug::EndLabel(cmd)
+#else
+#define START_LABEL(cmd, name, color)
+#define END_LABEL
+#endif
+
 namespace Debug {
 	extern PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabelEXT_ptr;
 	extern PFN_vkCmdEndDebugUtilsLabelEXT vkCmdEndDebugUtilsLabelEXT_ptr;
@@ -20,8 +28,8 @@ namespace Debug {
 	extern PFN_vkSetDebugUtilsObjectTagEXT vkSetDebugUtilsObjectTagEXT_ptr;
 	extern PFN_vkSubmitDebugUtilsMessageEXT vkSubmitDebugUtilsMessageEXT_ptr;
 
-	void startLabel( VkCommandBuffer cmd, const std::string& name, vec4 color);
-	void endLabel( VkCommandBuffer cmd );
+	void StartLabel( VkCommandBuffer cmd, const std::string& name, vec4 color);
+	void EndLabel( VkCommandBuffer cmd );
 }
 
 struct ImmediateExecutor {

@@ -122,8 +122,8 @@ AllocatedBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaM
 	VK_CHECK( vmaCreateBuffer( allocator, &info, &vma_info, &buffer.buffer, &buffer.allocation, &buffer.info ) );
 	buffer.name = name;
 
+#ifdef ENABLE_DEBUG_UTILS
 	allocation_counter[name]++;
-
 	const VkDebugUtilsObjectNameInfoEXT obj = {
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
 		.pNext = nullptr,
@@ -131,14 +131,18 @@ AllocatedBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaM
 		.objectHandle = (uint64_t)buffer.buffer,
 		.pObjectName = name.c_str( )
 	};
-
-	((PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr( instance, "vkSetDebugUtilsObjectNameEXT" ))(device, &obj);
+	vkSetDebugUtilsObjectNameEXT( device, &obj );
+#endif
 
 	return buffer;
 }
 
 void GfxDevice::free( const AllocatedBuffer& buffer ) {
+
+#ifdef ENABLE_DEBUG_UTILS
 	allocation_counter[buffer.name]--;
+#endif
+
 	vmaDestroyBuffer( allocator, buffer.buffer, buffer.allocation );
 }
 
@@ -270,7 +274,7 @@ namespace Debug {
 	PFN_vkSetDebugUtilsObjectTagEXT vkSetDebugUtilsObjectTagEXT_ptr = nullptr;
 	PFN_vkSubmitDebugUtilsMessageEXT vkSubmitDebugUtilsMessageEXT_ptr = nullptr;
 
-	void startLabel( VkCommandBuffer cmd, const std::string& name, vec4 color ) {
+	void StartLabel( VkCommandBuffer cmd, const std::string& name, vec4 color ) {
 		const VkDebugUtilsLabelEXT label = {
 			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
 			.pNext = nullptr,
@@ -279,7 +283,7 @@ namespace Debug {
 		};
 		vkCmdBeginDebugUtilsLabelEXT( cmd, &label );
 	}
-	void endLabel( VkCommandBuffer cmd ) {
+	void EndLabel( VkCommandBuffer cmd ) {
 		vkCmdEndDebugUtilsLabelEXT( cmd );
 	}
 }
