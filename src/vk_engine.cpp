@@ -390,11 +390,6 @@ void VulkanEngine::resizeSwapchain( uint32_t width, uint32_t height ) {
 
 	gfx->swapchain.recreate( width, height );
 	gfx->swapchain.createImguiSet( );
-
-
-	// TODO:
-	// Delete previous image
-	// Delete previous descriptors and such
 }
 
 void VulkanEngine::cleanup( ) {
@@ -622,6 +617,7 @@ static bool is_visible( const RenderObject& obj, const glm::mat4& viewproj ) {
 
 void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 	ZoneScopedN( "draw_geometry" );
+	Debug::StartLabel( cmd, "Draw Geometry", { 1.0f, 0.0f, 0.0f, 1.0 } );
 
 	// reset counters
 	stats.drawcall_count = 0;
@@ -786,6 +782,8 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 	auto elapsed =
 		std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	stats.mesh_draw_time = elapsed.count( ) / 1000.f;
+
+	Debug::EndLabel( cmd );
 }
 
 void VulkanEngine::initDefaultData( ) { initImages( ); }

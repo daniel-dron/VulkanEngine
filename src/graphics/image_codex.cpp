@@ -131,6 +131,15 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 
 	gfx->free( staging_buffer );
 
+	const VkDebugUtilsObjectNameInfoEXT obj = {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+		.pNext = nullptr,
+		.objectType = VkObjectType::VK_OBJECT_TYPE_IMAGE,
+		.objectHandle = (uint64_t)image.image,
+		.pObjectName = name.c_str()
+	};
+	vkSetDebugUtilsObjectNameEXT( gfx->device, &obj );
+
 	ImageID image_id = images.size( );
 	image.id = image_id;
 	images.push_back( std::move( image ) );

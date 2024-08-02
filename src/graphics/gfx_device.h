@@ -7,6 +7,23 @@
 
 class GfxDevice;
 
+namespace Debug {
+	extern PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabelEXT_ptr;
+	extern PFN_vkCmdEndDebugUtilsLabelEXT vkCmdEndDebugUtilsLabelEXT_ptr;
+	extern PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabelEXT_ptr;
+	extern PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT_ptr;
+	extern PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT_ptr;
+	extern PFN_vkQueueBeginDebugUtilsLabelEXT vkQueueBeginDebugUtilsLabelEXT_ptr;
+	extern PFN_vkQueueEndDebugUtilsLabelEXT vkQueueEndDebugUtilsLabelEXT_ptr;
+	extern PFN_vkQueueInsertDebugUtilsLabelEXT vkQueueInsertDebugUtilsLabelEXT_ptr;
+	extern PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT_ptr;
+	extern PFN_vkSetDebugUtilsObjectTagEXT vkSetDebugUtilsObjectTagEXT_ptr;
+	extern PFN_vkSubmitDebugUtilsMessageEXT vkSubmitDebugUtilsMessageEXT_ptr;
+
+	void startLabel( VkCommandBuffer cmd, const std::string& name, vec4 color);
+	void endLabel( VkCommandBuffer cmd );
+}
+
 struct ImmediateExecutor {
 	VkFence fence;
 	VkCommandBuffer command_buffer;
@@ -70,6 +87,7 @@ public:
 private:
 	Result<> initDevice( struct SDL_Window* window );
 	Result<> initAllocator( );
+	void initDebugFunctions( ) const;
 
 	DeletionQueue deletion_queue;
 };

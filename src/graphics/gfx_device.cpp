@@ -7,7 +7,7 @@
 
 using namespace vkb;
 
-const bool B_USE_VALIDATION_LAYERS = false;
+const bool B_USE_VALIDATION_LAYERS = true;
 
 ImmediateExecutor::Result<> ImmediateExecutor::init( GfxDevice* gfx ) {
 	this->gfx = gfx;
@@ -90,6 +90,8 @@ GfxDevice::Result<> GfxDevice::init( SDL_Window* window ) {
 	RETURN_IF_ERROR( initDevice( window ) );
 	RETURN_IF_ERROR( initAllocator( ) );
 
+	initDebugFunctions( );
+
 	executor.init( this );
 
 	image_codex.init( this );
@@ -122,6 +124,16 @@ AllocatedBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaM
 
 	allocation_counter[name]++;
 
+	const VkDebugUtilsObjectNameInfoEXT obj = {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+		.pNext = nullptr,
+		.objectType = VkObjectType::VK_OBJECT_TYPE_BUFFER,
+		.objectHandle = (uint64_t)buffer.buffer,
+		.pObjectName = name.c_str( )
+	};
+
+	((PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr( instance, "vkSetDebugUtilsObjectNameEXT" ))(device, &obj);
+
 	return buffer;
 }
 
@@ -147,6 +159,7 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 	InstanceBuilder builder;
 	auto instance_prototype = builder.set_app_name( "Vulkan Engine" )
 		.request_validation_layers( B_USE_VALIDATION_LAYERS )
+		.enable_extension( "VK_EXT_debug_utils" )
 		.use_default_debug_messenger( )
 		.require_api_version( 1, 3, 0 )
 		.build( );
@@ -227,3 +240,92 @@ GfxDevice::Result<> GfxDevice::initAllocator( ) {
 
 	return {};
 }
+
+void GfxDevice::initDebugFunctions( ) const {
+	// ----------
+	// debug utils functions
+	Debug::vkCmdBeginDebugUtilsLabelEXT_ptr = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr( instance, "vkCmdBeginDebugUtilsLabelEXT" );
+	Debug::vkCmdEndDebugUtilsLabelEXT_ptr = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr( instance, "vkCmdEndDebugUtilsLabelEXT" );
+	Debug::vkCmdInsertDebugUtilsLabelEXT_ptr = (PFN_vkCmdInsertDebugUtilsLabelEXT)vkGetInstanceProcAddr( instance, "vkCmdInsertDebugUtilsLabelEXT" );
+	Debug::vkCreateDebugUtilsMessengerEXT_ptr = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr( instance, "vkCreateDebugUtilsMessengerEXT" );
+	Debug::vkDestroyDebugUtilsMessengerEXT_ptr = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr( instance, "vkDestroyDebugUtilsMessengerEXT" );
+	Debug::vkQueueBeginDebugUtilsLabelEXT_ptr = (PFN_vkQueueBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr( instance, "vkQueueBeginDebugUtilsLabelEXT" );
+	Debug::vkQueueEndDebugUtilsLabelEXT_ptr = (PFN_vkQueueEndDebugUtilsLabelEXT)vkGetInstanceProcAddr( instance, "vkQueueEndDebugUtilsLabelEXT" );
+	Debug::vkQueueInsertDebugUtilsLabelEXT_ptr = (PFN_vkQueueInsertDebugUtilsLabelEXT)vkGetInstanceProcAddr( instance, "vkQueueInsertDebugUtilsLabelEXT" );
+	Debug::vkSetDebugUtilsObjectNameEXT_ptr = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr( instance, "vkSetDebugUtilsObjectNameEXT" );
+	Debug::vkSetDebugUtilsObjectTagEXT_ptr = (PFN_vkSetDebugUtilsObjectTagEXT)vkGetInstanceProcAddr( instance, "vkSetDebugUtilsObjectTagEXT" );
+	Debug::vkSubmitDebugUtilsMessageEXT_ptr = (PFN_vkSubmitDebugUtilsMessageEXT)vkGetInstanceProcAddr( instance, "vkSubmitDebugUtilsMessageEXT" );
+}
+
+namespace Debug {
+	PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabelEXT_ptr = nullptr;
+	PFN_vkCmdEndDebugUtilsLabelEXT vkCmdEndDebugUtilsLabelEXT_ptr = nullptr;
+	PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabelEXT_ptr = nullptr;
+	PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT_ptr = nullptr;
+	PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT_ptr = nullptr;
+	PFN_vkQueueBeginDebugUtilsLabelEXT vkQueueBeginDebugUtilsLabelEXT_ptr = nullptr;
+	PFN_vkQueueEndDebugUtilsLabelEXT vkQueueEndDebugUtilsLabelEXT_ptr = nullptr;
+	PFN_vkQueueInsertDebugUtilsLabelEXT vkQueueInsertDebugUtilsLabelEXT_ptr = nullptr;
+	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT_ptr = nullptr;
+	PFN_vkSetDebugUtilsObjectTagEXT vkSetDebugUtilsObjectTagEXT_ptr = nullptr;
+	PFN_vkSubmitDebugUtilsMessageEXT vkSubmitDebugUtilsMessageEXT_ptr = nullptr;
+
+	void startLabel( VkCommandBuffer cmd, const std::string& name, vec4 color ) {
+		const VkDebugUtilsLabelEXT label = {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+			.pNext = nullptr,
+			.pLabelName = name.c_str( ),
+			.color = { color[0], color[1], color[2], color[3] }
+		};
+		vkCmdBeginDebugUtilsLabelEXT( cmd, &label );
+	}
+	void endLabel( VkCommandBuffer cmd ) {
+		vkCmdEndDebugUtilsLabelEXT( cmd );
+	}
+}
+
+// definitions for linkage to the vulkan library
+void vkCmdBeginDebugUtilsLabelEXT( VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT* pLabelInfo ) {
+	return Debug::vkCmdBeginDebugUtilsLabelEXT_ptr( commandBuffer, pLabelInfo );
+}
+
+void vkCmdEndDebugUtilsLabelEXT( VkCommandBuffer commandBuffer ) {
+	return Debug::vkCmdEndDebugUtilsLabelEXT_ptr( commandBuffer );
+}
+
+void vkCmdInsertDebugUtilsLabelEXT( VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT* pLabelInfo ) {
+	return Debug::vkCmdInsertDebugUtilsLabelEXT_ptr( commandBuffer, pLabelInfo );
+}
+
+VkResult vkCreateDebugUtilsMessengerEXT( VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pMessenger ) {
+	return Debug::vkCreateDebugUtilsMessengerEXT_ptr( instance, pCreateInfo, pAllocator, pMessenger );
+}
+
+void vkDestroyDebugUtilsMessengerEXT( VkInstance instance, VkDebugUtilsMessengerEXT messenger, const VkAllocationCallbacks* pAllocator ) {
+	return Debug::vkDestroyDebugUtilsMessengerEXT_ptr( instance, messenger, pAllocator );
+}
+
+void vkQueueBeginDebugUtilsLabelEXT( VkQueue queue, const VkDebugUtilsLabelEXT* pLabelInfo ) {
+	return Debug::vkQueueBeginDebugUtilsLabelEXT_ptr( queue, pLabelInfo );
+}
+
+void vkQueueEndDebugUtilsLabelEXT( VkQueue queue ) {
+	return Debug::vkQueueEndDebugUtilsLabelEXT_ptr( queue );
+}
+
+void vkQueueInsertDebugUtilsLabelEXT( VkQueue queue, const VkDebugUtilsLabelEXT* pLabelInfo ) {
+	return Debug::vkQueueInsertDebugUtilsLabelEXT_ptr( queue, pLabelInfo );
+}
+
+VkResult vkSetDebugUtilsObjectNameEXT( VkDevice device, const VkDebugUtilsObjectNameInfoEXT* pNameInfo ) {
+	return Debug::vkSetDebugUtilsObjectNameEXT_ptr( device, pNameInfo );
+}
+
+VkResult vkSetDebugUtilsObjectTagEXT( VkDevice device, const VkDebugUtilsObjectTagInfoEXT* pTagInfo ) {
+	return Debug::vkSetDebugUtilsObjectTagEXT_ptr( device, pTagInfo );
+}
+
+void vkSubmitDebugUtilsMessageEXT( VkInstance instance, VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData ) {
+	return Debug::vkSubmitDebugUtilsMessageEXT_ptr( instance, messageSeverity, messageTypes, pCallbackData );
+}
+
