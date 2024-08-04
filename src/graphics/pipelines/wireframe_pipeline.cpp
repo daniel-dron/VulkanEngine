@@ -1,4 +1,4 @@
-#include "mesh_pipeline.h"
+#include "wireframe_pipeline.h"
 
 #include <vk_pipelines.h>
 #include <vk_initializers.h>
@@ -6,8 +6,7 @@
 using namespace vkinit;
 using namespace vkutil;
 
-MeshPipeline::Result<> MeshPipeline::init( GfxDevice& gfx ) {
-
+WireframePipeline::Result<> WireframePipeline::init( GfxDevice& gfx ) {
 	VkShaderModule frag_shader;
 	if ( !load_shader_module( "../../shaders/mesh.frag.spv", gfx.device, &frag_shader ) ) {
 		return std::unexpected( PipelineError{
@@ -61,7 +60,7 @@ MeshPipeline::Result<> MeshPipeline::init( GfxDevice& gfx ) {
 	PipelineBuilder builder;
 	builder.set_shaders( vert_shader, frag_shader );
 	builder.set_input_topology( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
-	builder.set_polygon_mode( VK_POLYGON_MODE_FILL );
+	builder.set_polygon_mode( VK_POLYGON_MODE_LINE );
 	builder.set_cull_mode( VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE );
 	builder.set_multisampling_none( );
 	builder.disable_blending( );
@@ -80,7 +79,7 @@ MeshPipeline::Result<> MeshPipeline::init( GfxDevice& gfx ) {
 		.pNext = nullptr,
 		.objectType = VkObjectType::VK_OBJECT_TYPE_PIPELINE,
 		.objectHandle = (uint64_t)pipeline,
-		.pObjectName = "Mesh Pipeline"
+		.pObjectName = "Wireframe Pipeline"
 	};
 	vkSetDebugUtilsObjectNameEXT( gfx.device, &obj );
 #endif
@@ -92,7 +91,7 @@ MeshPipeline::Result<> MeshPipeline::init( GfxDevice& gfx ) {
 	return {};
 }
 
-void MeshPipeline::cleanup( GfxDevice& gfx ) {
+void WireframePipeline::cleanup( GfxDevice& gfx ) {
 	vkDestroyPipelineLayout( gfx.device, layout, nullptr );
 	vkDestroyDescriptorSetLayout( gfx.device, material_layout, nullptr );
 	vkDestroyDescriptorSetLayout( gfx.device, scene_data_layout, nullptr );
@@ -100,7 +99,7 @@ void MeshPipeline::cleanup( GfxDevice& gfx ) {
 	gfx.free( gpu_scene_data );
 }
 
-DrawStats MeshPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const {
+DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const {
 	DrawStats stats = {};
 
 	GpuSceneData* gpu_scene_addr = nullptr;

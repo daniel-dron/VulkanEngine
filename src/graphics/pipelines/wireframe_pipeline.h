@@ -5,7 +5,7 @@
 #include <graphics/draw_command.h>
 #include <expected>
 
-class MeshPipeline {
+class WireframePipeline {
 public:
 	enum class Error {
 		ShaderLoadingFailed

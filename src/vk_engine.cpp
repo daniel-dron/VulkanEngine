@@ -100,8 +100,6 @@ void VulkanEngine::initVulkan( ) {
 
 	gfx->init( window );
 
-
-
 	main_deletion_queue.flush( );
 
 	initDescriptors( );
@@ -405,6 +403,7 @@ void VulkanEngine::cleanup( ) {
 		metal_rough_material.clearResources( gfx->device );
 
 		mesh_pipeline.cleanup( *gfx );
+		wireframe_pipeline.cleanup( *gfx );
 
 		main_deletion_queue.flush( );
 
@@ -690,8 +689,13 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 			};
 			mesh_draw_commands.push_back( mdc );
 		}
-		auto s = mesh_pipeline.draw( *gfx, cmd, mesh_draw_commands, scene_data );
 
+		DrawStats s = {};
+		if ( renderer_options.wireframe ) {
+			s = wireframe_pipeline.draw( *gfx, cmd, mesh_draw_commands, scene_data );
+		} else {
+			s = mesh_pipeline.draw( *gfx, cmd, mesh_draw_commands, scene_data );
+		}
 		stats.drawcall_count += s.drawcall_count;
 		stats.triangle_count += s.triangle_count;
 
@@ -722,6 +726,7 @@ void VulkanEngine::initDefaultData( ) {
 	} );
 
 	mesh_pipeline.init( *gfx );
+	wireframe_pipeline.init( *gfx );
 }
 
 void VulkanEngine::initImages( ) {
@@ -1155,27 +1160,6 @@ void VulkanEngine::drawSceneHierarchy( ) {
 }
 
 void GltfMetallicRoughness::buildPipelines( VulkanEngine* engine ) {
-	VkShaderModule meshFragShader;
-	if ( !vkutil::load_shader_module( "../../shaders/mesh.frag.spv", engine->gfx->device,
-		&meshFragShader ) ) {
-		fmt::println(
-			"Error when building GLTFMetallic_Roughness fragment shader "
-			"[mesh.frag.spv]" );
-	}
-
-	VkShaderModule meshVertShader;
-	if ( !vkutil::load_shader_module( "../../shaders/mesh.vert.spv", engine->gfx->device,
-		&meshVertShader ) ) {
-		fmt::println(
-			"Error when building GLTFMetallic_Roughness vert shader "
-			"[mesh.vert.spv]" );
-	}
-
-	VkPushConstantRange matrixRange{};
-	matrixRange.offset = 0;
-	matrixRange.size = sizeof( GPUDrawPushConstants );
-	matrixRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
 	// descriptor for set 1 (factors and textures for PBR)
 	DescriptorLayoutBuilder layoutBuilder;
 	layoutBuilder.add_binding( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
@@ -1185,76 +1169,10 @@ void GltfMetallicRoughness::buildPipelines( VulkanEngine* engine ) {
 	material_layout = layoutBuilder.build(
 		engine->gfx->device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 		nullptr );
-
-	VkDescriptorSetLayout layouts[] = { engine->gpu_scene_data_descriptor_layout,
-									   material_layout };
-
-	VkPipelineLayoutCreateInfo meshLayoutInfo =
-		vkinit::pipeline_layout_create_info( );
-	meshLayoutInfo.pSetLayouts = layouts;
-	meshLayoutInfo.setLayoutCount = 2;
-	meshLayoutInfo.pPushConstantRanges = &matrixRange;
-	meshLayoutInfo.pushConstantRangeCount = 1;
-	VkPipelineLayout newLayout;
-	VK_CHECK( vkCreatePipelineLayout( engine->gfx->device, &meshLayoutInfo, nullptr,
-		&newLayout ) );
-
-	opaque_pipeline.layout = newLayout;
-	transparent_pipeline.layout = newLayout;
-	wireframe_pipeline.layout = newLayout;
-
-	vkutil::PipelineBuilder pipelineBuilder;
-	pipelineBuilder.set_shaders( meshVertShader, meshFragShader );
-	pipelineBuilder.set_input_topology( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
-	pipelineBuilder.set_polygon_mode( VK_POLYGON_MODE_FILL );
-	pipelineBuilder.set_cull_mode( VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE );
-	pipelineBuilder.set_multisampling_none( );
-	pipelineBuilder.disable_blending( );
-	pipelineBuilder.enable_depthtest( true, VK_COMPARE_OP_GREATER_OR_EQUAL );
-
-	// format
-	auto& color = engine->gfx->image_codex.getImage( engine->gfx->swapchain.getCurrentFrame( ).color );
-	auto& depth = engine->gfx->image_codex.getImage( engine->gfx->swapchain.getCurrentFrame( ).depth );
-	pipelineBuilder.set_color_attachment_format( color.format );
-	pipelineBuilder.set_depth_format( depth.format );
-	pipelineBuilder._pipelineLayout = newLayout;
-
-	// create opaque pipeline
-	opaque_pipeline.pipeline = pipelineBuilder.build_pipeline( engine->gfx->device );
-
-	// create transparent pipeline
-	pipelineBuilder.enable_blending_additive( );
-	// do depthtest but dont write to depth texture
-	pipelineBuilder.enable_depthtest( false, VK_COMPARE_OP_GREATER_OR_EQUAL );
-	transparent_pipeline.pipeline =
-		pipelineBuilder.build_pipeline( engine->gfx->device );
-
-	pipelineBuilder.disable_blending( );
-	pipelineBuilder.set_polygon_mode( VK_POLYGON_MODE_LINE );
-	wireframe_pipeline.pipeline = pipelineBuilder.build_pipeline( engine->gfx->device );
-
-#ifdef ENABLE_DEBUG_UTILS
-	const VkDebugUtilsObjectNameInfoEXT obj = {
-		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-		.pNext = nullptr,
-		.objectType = VkObjectType::VK_OBJECT_TYPE_PIPELINE,
-		.objectHandle = (uint64_t)opaque_pipeline.pipeline,
-		.pObjectName = "Mesh Pipeline"
-	};
-	vkSetDebugUtilsObjectNameEXT( engine->gfx->device, &obj );
-#endif
-
-	vkDestroyShaderModule( engine->gfx->device, meshFragShader, nullptr );
-	vkDestroyShaderModule( engine->gfx->device, meshVertShader, nullptr );
 }
 
 void GltfMetallicRoughness::clearResources( VkDevice device ) {
-	vkDestroyPipelineLayout( device, opaque_pipeline.layout, nullptr );
 	vkDestroyDescriptorSetLayout( device, material_layout, nullptr );
-
-	vkDestroyPipeline( device, opaque_pipeline.pipeline, nullptr );
-	vkDestroyPipeline( device, transparent_pipeline.pipeline, nullptr );
-	vkDestroyPipeline( device, wireframe_pipeline.pipeline, nullptr );
 }
 
 MaterialInstance GltfMetallicRoughness::writeMaterial(

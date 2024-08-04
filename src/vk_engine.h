@@ -16,6 +16,7 @@
 #include "graphics/light.h"
 #include <graphics/image_codex.h>
 #include <graphics/pipelines/mesh_pipeline.h>
+#include <graphics/pipelines/wireframe_pipeline.h>
 
 #include "graphics/gfx_device.h"
 
@@ -159,6 +160,7 @@ public:
 	//
 	VkPipelineLayout gradient_pipeline_layout;
 	MeshPipeline mesh_pipeline;
+	WireframePipeline wireframe_pipeline;
 
 	std::vector<ComputeEffect> background_effects;
 	int current_background_effect{ 0 };

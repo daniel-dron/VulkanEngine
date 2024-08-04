@@ -34,6 +34,8 @@ file(GLOB SRC_GRAPHICS
 file (GLOB SRC_PIPELINES
   graphics/pipelines/mesh_pipeline.h
   graphics/pipelines/mesh_pipeline.cpp
+  graphics/pipelines/wireframe_pipeline.h
+  graphics/pipelines/wireframe_pipeline.cpp
 )
 
 file(GLOB SRC_CAMERA
