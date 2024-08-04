@@ -15,6 +15,7 @@
 #include "vk_loader.h"
 #include "graphics/light.h"
 #include <graphics/image_codex.h>
+#include <graphics/pipelines/mesh_pipeline.h>
 
 #include "graphics/gfx_device.h"
 
@@ -34,30 +35,6 @@ struct ComputeEffect {
 	VkPipelineLayout layout;
 
 	ComputePushConstants data;
-};
-
-struct GpuPointLightData {
-	vec3 position;
-	float radius;
-	vec4 color;
-	float diffuse;
-	float specular;
-};
-
-struct GpuSceneData {
-	mat4 view;
-	mat4 proj;
-	mat4 viewproj;
-	vec4 fog_color;
-	float fog_end;
-	float fog_start;
-	float _pad1;
-	float _pad2;
-	vec3 camera_position;
-	float ambient_light_factor;
-	vec3 ambient_light_color;
-	int number_of_lights;
-	GpuPointLightData point_lights[10];
 };
 
 class VulkanEngine;
@@ -103,7 +80,7 @@ struct RenderObject {
 	VkBuffer index_buffer;
 
 	MaterialInstance* material;
-	bounds bounds;
+	Bounds bounds;
 	glm::mat4 transform;
 	VkDeviceAddress vertex_buffer_address;
 };
@@ -117,14 +94,6 @@ struct MeshNode final : public Node {
 	std::shared_ptr<MeshAsset> mesh;
 
 	void Draw( const glm::mat4& top_matrix, DrawContext& ctx ) override;
-};
-
-struct EngineStats {
-	float frametime;
-	int triangle_count;
-	int drawcall_count;
-	float scene_update_time;
-	float mesh_draw_time;
 };
 
 struct RendererOptions {
@@ -189,6 +158,7 @@ public:
 	// Pipeline
 	//
 	VkPipelineLayout gradient_pipeline_layout;
+	MeshPipeline mesh_pipeline;
 
 	std::vector<ComputeEffect> background_effects;
 	int current_background_effect{ 0 };
@@ -197,6 +167,7 @@ public:
 	// scene
 	std::vector<PointLight> point_lights;
 	GpuSceneData scene_data;
+	AllocatedBuffer gpu_scene_data;
 	VkDescriptorSetLayout gpu_scene_data_descriptor_layout;
 
 	ImageID white_image;

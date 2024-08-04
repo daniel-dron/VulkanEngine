@@ -27,6 +27,13 @@ file(GLOB SRC_GRAPHICS
   graphics/image_codex.cpp
   graphics/swapchain.h
   graphics/swapchain.cpp
+  graphics/draw_command.h
+  graphics/draw_command.cpp
+)
+
+file (GLOB SRC_PIPELINES
+  graphics/pipelines/mesh_pipeline.h
+  graphics/pipelines/mesh_pipeline.cpp
 )
 
 file(GLOB SRC_CAMERA
@@ -61,6 +68,7 @@ file(GLOB SRC_IMGUIZMO
 # Add source to this project's executable.
 add_executable (engine 
 	${SRC_SRC}
+	${SRC_PIPELINES}
 	${SRC_GRAPHICS}
 	${SRC_CAMERA}
 	${SRC_MATH}
@@ -72,6 +80,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(TARGET engine PROPERTY CXX_STANDARD 23)
 
 source_group("graphics" FILES ${SRC_GRAPHICS})
+source_group("graphics/pipelines" FILES ${SRC_PIPELINES})
 source_group("src" FILES ${SRC_SRC})
 source_group("camera" FILES ${SRC_CAMERA})
 source_group("math" FILES ${SRC_MATH})

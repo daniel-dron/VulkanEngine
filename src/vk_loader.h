@@ -27,16 +27,10 @@ struct GltfMaterial {
 	MaterialInstance data;
 };
 
-struct bounds {
-	glm::vec3 origin;
-	float sphereRadius;
-	glm::vec3 extents;
-};
-
 struct GeoSurface {
 	uint32_t start_index;
 	uint32_t count;
-	bounds bounds;
+	Bounds bounds;
 	std::shared_ptr<GltfMaterial> material;
 };
 

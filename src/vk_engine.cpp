@@ -404,6 +404,8 @@ void VulkanEngine::cleanup( ) {
 
 		metal_rough_material.clearResources( gfx->device );
 
+		mesh_pipeline.cleanup( *gfx );
+
 		main_deletion_queue.flush( );
 
 		gfx->cleanup( );
@@ -617,11 +619,12 @@ static bool is_visible( const RenderObject& obj, const glm::mat4& viewproj ) {
 
 void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 	ZoneScopedN( "draw_geometry" );
-	START_LABEL( cmd, "Draw Geometry", vec4(1.0f, 0.0f, 0.0f, 1.0) );
+	START_LABEL( cmd, "Draw Geometry", vec4( 1.0f, 0.0f, 0.0f, 1.0 ) );
 
 	// reset counters
 	stats.drawcall_count = 0;
 	stats.triangle_count = 0;
+
 	// begin clock
 	auto start = std::chrono::system_clock::now( );
 
@@ -655,31 +658,6 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 		} );
 	}
 
-	// ----------
-	// scene buffers setup
-	auto gpuSceneDataBuffer =
-		gfx->allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
-
-	gfx->swapchain.getCurrentFrame( ).deletion_queue.pushFunction( [=, this]( ) {
-		gfx->free( gpuSceneDataBuffer );
-	} );
-
-	// write to the buffer
-	auto scene_uniform_data = static_cast<GpuSceneData*>(
-		gpuSceneDataBuffer.allocation->GetMappedData( ));
-	*scene_uniform_data = scene_data;
-
-	// create a descriptor set that binds that buffer and update it
-	VkDescriptorSet global_descriptor =
-		gfx->swapchain.getCurrentFrame( ).frame_descriptors.allocate(
-			gfx->device, gpu_scene_data_descriptor_layout );
-
-	DescriptorWriter writer;
-	writer.write_buffer( 0, gpuSceneDataBuffer.buffer, sizeof( GpuSceneData ), 0,
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-	writer.update_set( gfx->device, global_descriptor );
-
 	// -----------
 	// begin render frame
 	{
@@ -696,81 +674,30 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	MaterialPipeline* lastPipeline = nullptr;
-	MaterialInstance* lastMaterial = nullptr;
-	VkBuffer lastIndexBuffer = VK_NULL_HANDLE;
-
-	auto draw = [&]( const RenderObject& r ) {
-		if ( r.material != lastMaterial ) {
-			lastMaterial = r.material;
-
-			if ( r.material->pipeline != lastPipeline ) {
-				lastPipeline = r.material->pipeline;
-				if ( renderer_options.wireframe ) {
-					vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-						metal_rough_material.wireframe_pipeline.pipeline );
-				} else {
-					vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-						r.material->pipeline->pipeline );
-				}
-				vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-					r.material->pipeline->layout, 0, 1,
-					&global_descriptor, 0, nullptr );
-
-				VkViewport viewport;
-				viewport.x = 0;
-				viewport.y = 0;
-				viewport.width = static_cast<float>(draw_extent.width);
-				viewport.height = static_cast<float>(draw_extent.height);
-				viewport.minDepth = 0.0f;
-				viewport.maxDepth = 1.0f;
-
-				vkCmdSetViewport( cmd, 0, 1, &viewport );
-
-				VkRect2D scissor;
-				scissor.offset.x = 0;
-				scissor.offset.y = 0;
-				scissor.extent.width = draw_extent.width;
-				scissor.extent.height = draw_extent.height;
-
-				vkCmdSetScissor( cmd, 0, 1, &scissor );
-			}
-
-			vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-				r.material->pipeline->layout, 1, 1,
-				&r.material->materialSet, 0, nullptr );
-		}
-
-		if ( r.index_buffer != lastIndexBuffer ) {
-			lastIndexBuffer = r.index_buffer;
-			vkCmdBindIndexBuffer( cmd, r.index_buffer, 0, VK_INDEX_TYPE_UINT32 );
-		}
-
-		// calculate final mesh matrix
-		GPUDrawPushConstants push_constants;
-		push_constants.worldMatrix = r.transform;
-		push_constants.vertexBuffer = r.vertex_buffer_address;
-
-		vkCmdPushConstants( cmd, r.material->pipeline->layout,
-			VK_SHADER_STAGE_VERTEX_BIT, 0,
-			sizeof( GPUDrawPushConstants ), &push_constants );
-
-		vkCmdDrawIndexed( cmd, r.index_count, 1, r.first_index, 0, 0 );
-
-		// stats
-		stats.drawcall_count++;
-		stats.triangle_count += r.index_count / 3;
-	};
-
 	{
+		std::vector<MeshDrawCommand> mesh_draw_commands;
 		ZoneScopedN( "render" );
 		for ( auto& r : opaque_draws ) {
-			draw( main_draw_context.opaque_surfaces[r] );
+			const auto dc = main_draw_context.opaque_surfaces[r];
+			MeshDrawCommand mdc = {
+				.index_count = dc.index_count,
+				.first_index = dc.first_index,
+				.index_buffer = dc.index_buffer,
+				.material = dc.material,
+				.bounds = dc.bounds,
+				.transform = dc.transform,
+				.vertex_buffer_address = dc.vertex_buffer_address
+			};
+			mesh_draw_commands.push_back( mdc );
 		}
+		auto s = mesh_pipeline.draw( *gfx, cmd, mesh_draw_commands, scene_data );
 
-		for ( auto& r : main_draw_context.transparent_surfaces ) {
-			draw( r );
-		}
+		stats.drawcall_count += s.drawcall_count;
+		stats.triangle_count += s.triangle_count;
+
+		//for ( auto& r : main_draw_context.transparent_surfaces ) {
+		//	draw( r );
+		//}
 	}
 
 	vkCmdEndRendering( cmd );
@@ -785,7 +712,17 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 	END_LABEL( cmd );
 }
 
-void VulkanEngine::initDefaultData( ) { initImages( ); }
+void VulkanEngine::initDefaultData( ) {
+	initImages( );
+
+	gpu_scene_data = gfx->allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
+
+	main_deletion_queue.pushFunction( [=, this]( ) {
+		gfx->free( gpu_scene_data );
+	} );
+
+	mesh_pipeline.init( *gfx );
+}
 
 void VulkanEngine::initImages( ) {
 	// 3 default textures, white, grey, black. 1 pixel each

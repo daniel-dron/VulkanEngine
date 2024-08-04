@@ -128,6 +128,20 @@ struct MaterialInstance {
 	VkDescriptorSet materialSet;
 };
 
+struct EngineStats {
+	float frametime;
+	int triangle_count;
+	int drawcall_count;
+	float scene_update_time;
+	float mesh_draw_time;
+};
+
+struct Bounds {
+	glm::vec3 origin;
+	float sphereRadius;
+	glm::vec3 extents;
+};
+
 struct DrawContext;
 
 class IRenderable {
@@ -166,3 +180,32 @@ using vec3 = glm::vec3;
 using vec4 = glm::vec4;
 using mat4 = glm::mat4;
 using quat = glm::quat;
+
+struct GpuPointLightData {
+	vec3 position;
+	float radius;
+	vec4 color;
+	float diffuse;
+	float specular;
+};
+
+struct GpuSceneData {
+	mat4 view;
+	mat4 proj;
+	mat4 viewproj;
+	vec4 fog_color;
+	float fog_end;
+	float fog_start;
+	float _pad1;
+	float _pad2;
+	vec3 camera_position;
+	float ambient_light_factor;
+	vec3 ambient_light_color;
+	int number_of_lights;
+	GpuPointLightData point_lights[10];
+};
+
+struct DrawStats {
+	int triangle_count;
+	int drawcall_count;
+};
