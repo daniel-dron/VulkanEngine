@@ -8,7 +8,7 @@ using namespace vkutil;
 
 WireframePipeline::Result<> WireframePipeline::init( GfxDevice& gfx ) {
 	VkShaderModule frag_shader;
-	if ( !load_shader_module( "../../shaders/mesh.frag.spv", gfx.device, &frag_shader ) ) {
+	if ( !load_shader_module( "../../shaders/wireframe.frag.spv", gfx.device, &frag_shader ) ) {
 		return std::unexpected( PipelineError{
 			.error = Error::ShaderLoadingFailed,
 			.message = "Failed to load mesh fragment shader!"

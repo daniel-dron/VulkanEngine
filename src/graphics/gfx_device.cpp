@@ -7,7 +7,7 @@
 
 using namespace vkb;
 
-const bool B_USE_VALIDATION_LAYERS = false;
+const bool B_USE_VALIDATION_LAYERS = true;
 
 ImmediateExecutor::Result<> ImmediateExecutor::init( GfxDevice* gfx ) {
 	this->gfx = gfx;
