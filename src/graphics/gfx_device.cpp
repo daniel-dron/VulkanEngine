@@ -105,7 +105,7 @@ void GfxDevice::execute( std::function<void( VkCommandBuffer )>&& func ) {
 	executor.execute( std::move( func ) );
 }
 
-AllocatedBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vma_usage, const std::string& name ) {
+GpuBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vma_usage, const std::string& name ) {
 	const VkBufferCreateInfo info = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.pNext = nullptr,
@@ -118,7 +118,7 @@ AllocatedBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaM
 		.usage = vma_usage
 	};
 
-	AllocatedBuffer buffer{};
+	GpuBuffer buffer{};
 	VK_CHECK( vmaCreateBuffer( allocator, &info, &vma_info, &buffer.buffer, &buffer.allocation, &buffer.info ) );
 	buffer.name = name;
 
@@ -137,7 +137,7 @@ AllocatedBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaM
 	return buffer;
 }
 
-void GfxDevice::free( const AllocatedBuffer& buffer ) {
+void GfxDevice::free( const GpuBuffer& buffer ) {
 
 #ifdef ENABLE_DEBUG_UTILS
 	allocation_counter[buffer.name]--;
@@ -155,6 +155,14 @@ void GfxDevice::cleanup( ) {
 	vkDestroyDevice( device, nullptr );
 	vkb::destroy_debug_utils_messenger( instance, debug_messenger );
 	vkDestroyInstance( instance, nullptr );
+}
+
+VkDescriptorSetLayout GfxDevice::getBindlessLayout( ) const {
+	return image_codex.getBindlessLayout( );
+}
+
+VkDescriptorSet GfxDevice::getBindlessSet( ) const {
+	return image_codex.getBindlessSet( );
 }
 
 GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
@@ -190,6 +198,7 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 	VkPhysicalDeviceVulkan12Features features_12{
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
 		.descriptorIndexing = true,
+		.runtimeDescriptorArray = true,
 		.bufferDeviceAddress = true
 	};
 	VkPhysicalDeviceFeatures features{
@@ -202,6 +211,7 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 		.set_required_features_13( features_13 )
 		.set_required_features_12( features_12 )
 		.set_required_features( features )
+		.add_required_extension( "VK_EXT_descriptor_indexing" )
 		.set_surface( surface )
 		.select( );
 	if ( !physical_device_res ) {
@@ -210,6 +220,14 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 
 	auto& physical_device = physical_device_res.value( );
 	chosen_gpu = physical_device;
+
+	for ( const auto& name : physical_device.get_available_extensions( ) ) {
+		fmt::println( "{}", name.c_str( ) );
+	}
+
+	for ( const auto& name : physical_device.get_extensions( ) ) {
+		fmt::println( "x- {}", name.c_str( ) );
+	}
 
 	// ----------
 	// Logical Device
@@ -221,6 +239,13 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 
 	auto& bs_device = device_res.value( );
 	device = bs_device;
+
+	VkPhysicalDeviceProperties properties;
+	vkGetPhysicalDeviceProperties( physical_device.physical_device, &properties );
+
+	// Access maxDescriptorSetCount
+	uint32_t maxDescriptorSetCount = properties.limits.maxDescriptorSetSampledImages;
+	fmt::println( "Max sampled images: {}", maxDescriptorSetCount );
 
 	// ---------
 	// Queue

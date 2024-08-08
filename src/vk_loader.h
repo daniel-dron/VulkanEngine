@@ -58,7 +58,7 @@ struct LoadedGltf final : public IRenderable {
 	std::vector<VkSampler> samplers;
 
 	DescriptorAllocatorGrowable descriptor_pool;
-	AllocatedBuffer material_data_buffer;
+	GpuBuffer material_data_buffer;
 
 	VulkanEngine* creator;
 	~LoadedGltf( ) override { clear_all( ); }

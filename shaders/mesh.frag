@@ -1,6 +1,8 @@
 #version 450
 
 #extension GL_GOOGLE_include_directive : require
+
+#include "bindless.glsl"
 #include "input_structures.glsl"
 
 layout (location = 0) in vec3 inNormal;
@@ -51,7 +53,9 @@ void main()
 	float fog_factor = dist / range;
 	fog_factor = clamp(fog_factor, 0.0f, 1.0f);
 
-	vec3 result = (ambient + diffuse + specular) * texture(colorTex, inUV).rgb;
+	vec4 color = sampleTexture2DLinear(30, inUV);
+
+	vec3 result = (ambient + diffuse + specular) * color.rgb;
 	result = mix(scene_data.fog_color, vec4(result, 1.0f), fog_factor).rgb;
 
 	outFragColor = vec4(result, 1.0f);

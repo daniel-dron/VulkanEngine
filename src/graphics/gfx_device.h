@@ -70,9 +70,12 @@ public:
 
 	Result<> init( struct SDL_Window* window );
 	void execute( std::function<void( VkCommandBuffer )>&& func );
-	AllocatedBuffer allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vma_usage, const std::string& name );
-	void free( const AllocatedBuffer& buffer );
+	GpuBuffer allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vma_usage, const std::string& name );
+	void free( const GpuBuffer& buffer );
 	void cleanup( );
+
+	VkDescriptorSetLayout getBindlessLayout( ) const;
+	VkDescriptorSet getBindlessSet( ) const;
 
 	VkInstance instance;
 	VkPhysicalDevice chosen_gpu;

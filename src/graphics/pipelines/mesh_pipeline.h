@@ -27,6 +27,7 @@ public:
 private:
 	struct PushConstants {
 		mat4 world_from_local;
+		VkDeviceAddress scene_data_address;
 		VkDeviceAddress vertex_buffer_address;
 	};
 
@@ -35,5 +36,5 @@ private:
 	VkDescriptorSetLayout material_layout;
 	VkDescriptorSetLayout scene_data_layout;
 
-	AllocatedBuffer gpu_scene_data;
+	GpuBuffer gpu_scene_data;
 };

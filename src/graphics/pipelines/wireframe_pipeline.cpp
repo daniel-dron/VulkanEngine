@@ -44,15 +44,16 @@ WireframePipeline::Result<> WireframePipeline::init( GfxDevice& gfx ) {
 	layout_builder.add_binding( 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
 	material_layout = layout_builder.build( gfx.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
+	auto bindless_layout = gfx.getBindlessLayout( );
 	VkDescriptorSetLayout layouts[] = {
-		scene_data_layout, material_layout
+		bindless_layout, scene_data_layout, material_layout
 	};
 
 	// ----------
 	// pipeline
 	VkPipelineLayoutCreateInfo layout_info = pipeline_layout_create_info( );
 	layout_info.pSetLayouts = layouts;
-	layout_info.setLayoutCount = 2;
+	layout_info.setLayoutCount = 3;
 	layout_info.pPushConstantRanges = &range;
 	layout_info.pushConstantRangeCount = 1;
 	VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &layout ) );
@@ -115,7 +116,11 @@ DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const st
 	writer.update_set( gfx.device, scene_data_descriptor_set );
 
 	vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
-	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &scene_data_descriptor_set, 0, nullptr );
+
+	auto bindless_set = gfx.getBindlessSet( );
+
+	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &bindless_set, 0, nullptr );
+	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1, &scene_data_descriptor_set, 0, nullptr );
 
 	auto& target_image = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).color );
 
@@ -143,7 +148,7 @@ DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const st
 
 	for ( const auto& draw_command : draw_commands ) {
 
-		vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1,
+		vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, 1,
 			&draw_command.material->materialSet, 0, nullptr );
 
 		vkCmdBindIndexBuffer( cmd, draw_command.index_buffer, 0, VK_INDEX_TYPE_UINT32 );

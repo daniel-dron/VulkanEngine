@@ -25,10 +25,16 @@ file(GLOB SRC_GRAPHICS
   graphics/gpu_image.cpp
   graphics/image_codex.h
   graphics/image_codex.cpp
+  graphics/mesh_codex.h
+  graphics/mesh_codex.cpp
+  graphics/material_codex.h
+  graphics/material_codex.cpp
   graphics/swapchain.h
   graphics/swapchain.cpp
   graphics/draw_command.h
   graphics/draw_command.cpp
+  graphics/bindless.h
+  graphics/bindless.cpp
 )
 
 file (GLOB SRC_PIPELINES

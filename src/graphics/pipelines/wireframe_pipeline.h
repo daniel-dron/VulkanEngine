@@ -35,5 +35,5 @@ private:
 	VkDescriptorSetLayout material_layout;
 	VkDescriptorSetLayout scene_data_layout;
 
-	AllocatedBuffer gpu_scene_data;
+	GpuBuffer gpu_scene_data;
 };

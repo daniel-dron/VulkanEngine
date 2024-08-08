@@ -5,13 +5,18 @@
 #include <vk_initializers.h>
 #include <vk_images.h>
 
-void ImageCodex::init( GfxDevice* gfx ) { this->gfx = gfx; }
+void ImageCodex::init( GfxDevice* gfx ) {
+	this->gfx = gfx;
+	bindless_registry.init( *this->gfx );
+}
 
 void ImageCodex::cleanup( ) {
 	for ( auto& img : images ) {
 		vkDestroyImageView( gfx->device, img.view, nullptr );
 		vmaDestroyImage( gfx->allocator, img.image, img.allocation );
 	}
+
+	bindless_registry.cleanup( *gfx );
 }
 
 const std::vector<GpuImage>& ImageCodex::getImages( ) { return images; }
@@ -67,7 +72,7 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 		data_size = data_size * 2;
 	}
 
-	AllocatedBuffer staging_buffer = gfx->allocate(
+	GpuBuffer staging_buffer = gfx->allocate(
 		data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, __FUNCTION__ );
 
 	void* mapped_buffer = nullptr;
@@ -144,6 +149,17 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 
 	ImageID image_id = images.size( );
 	image.id = image_id;
+
+	bindless_registry.addImage( *gfx, image_id, image.view );
 	images.push_back( std::move( image ) );
+
 	return image_id;
+}
+
+VkDescriptorSetLayout ImageCodex::getBindlessLayout( ) const {
+	return bindless_registry.layout;
+}
+
+VkDescriptorSet ImageCodex::getBindlessSet( ) const {
+	return bindless_registry.set;
 }

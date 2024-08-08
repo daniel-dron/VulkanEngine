@@ -52,6 +52,7 @@ const glm::vec3 GlobalRight{ 1.0f, 0.0f, 0.0f };
 const glm::vec3 GlobalFront{ 0.0f, 0.0f, 1.0f };
 
 using ImageID = uint32_t;
+using MaterialID = uint32_t;
 
 struct DeletionQueue {
 	std::deque<std::function<void( )>> deletors;
@@ -82,7 +83,7 @@ struct AllocatedImage {
 	VkFormat format;
 };
 
-struct AllocatedBuffer {
+struct GpuBuffer {
 	VkBuffer buffer;
 	VmaAllocation allocation;
 	VmaAllocationInfo info;
@@ -100,8 +101,8 @@ struct Vertex {
 
 // resources needed for a single mesh
 struct GPUMeshBuffers {
-	AllocatedBuffer indexBuffer;
-	AllocatedBuffer vertexBuffer;
+	GpuBuffer indexBuffer;
+	GpuBuffer vertexBuffer;
 	VkDeviceAddress vertexBufferAddress;
 };
 

@@ -349,7 +349,7 @@ GPUMeshBuffers VulkanEngine::uploadMesh( std::span<uint32_t> indices,
 	// create a temp buffer used to write the data from the cpu
 	// then issue a gpu command to copy that data to the gpu only buffer
 	//
-	AllocatedBuffer staging =
+	GpuBuffer staging =
 		gfx->allocate( vertexBufferSize + indexBufferSize,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, __FUNCTION__ );
 

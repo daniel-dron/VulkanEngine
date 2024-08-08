@@ -45,15 +45,17 @@ MeshPipeline::Result<> MeshPipeline::init( GfxDevice& gfx ) {
 	layout_builder.add_binding( 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
 	material_layout = layout_builder.build( gfx.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
+	auto bindless_layout = gfx.getBindlessLayout( );
+
 	VkDescriptorSetLayout layouts[] = {
-		scene_data_layout, material_layout
+		bindless_layout, scene_data_layout, material_layout
 	};
 
 	// ----------
 	// pipeline
 	VkPipelineLayoutCreateInfo layout_info = pipeline_layout_create_info( );
 	layout_info.pSetLayouts = layouts;
-	layout_info.setLayoutCount = 2;
+	layout_info.setLayoutCount = 3;
 	layout_info.pPushConstantRanges = &range;
 	layout_info.pushConstantRangeCount = 1;
 	VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &layout ) );
@@ -87,7 +89,8 @@ MeshPipeline::Result<> MeshPipeline::init( GfxDevice& gfx ) {
 
 	vkDestroyShaderModule( gfx.device, frag_shader, nullptr );
 	vkDestroyShaderModule( gfx.device, vert_shader, nullptr );
-	gpu_scene_data = gfx.allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data Mesh Pipeline" );
+	gpu_scene_data = gfx.allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+		VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data Mesh Pipeline" );
 
 	return {};
 }
@@ -109,14 +112,18 @@ DrawStats MeshPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::ve
 	vmaUnmapMemory( gfx.allocator, gpu_scene_data.allocation );
 
 	VkDescriptorSet scene_data_descriptor_set = gfx.swapchain.getCurrentFrame( ).frame_descriptors.allocate( gfx.device, scene_data_layout );
-
+	
 	DescriptorWriter writer;
 	writer.write_buffer( 0, gpu_scene_data.buffer, sizeof( GpuSceneData ), 0,
 		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 	writer.update_set( gfx.device, scene_data_descriptor_set );
 
 	vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
-	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &scene_data_descriptor_set, 0, nullptr );
+
+	auto bindless_set = gfx.getBindlessSet( );
+
+	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &bindless_set, 0, nullptr );
+	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1, &scene_data_descriptor_set, 0, nullptr );
 
 	auto& target_image = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).color );
 
@@ -144,13 +151,21 @@ DrawStats MeshPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::ve
 
 	for ( const auto& draw_command : draw_commands ) {
 
-		vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1,
+		vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, 1,
 			&draw_command.material->materialSet, 0, nullptr );
 
 		vkCmdBindIndexBuffer( cmd, draw_command.index_buffer, 0, VK_INDEX_TYPE_UINT32 );
 
+		VkBufferDeviceAddressInfo address_info = {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+			.pNext = nullptr,
+			.buffer = gpu_scene_data.buffer
+		};
+		auto gpu_scene_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
+
 		PushConstants push_constants = {
 			.world_from_local = draw_command.transform,
+			.scene_data_address = gpu_scene_address,
 			.vertex_buffer_address = draw_command.vertex_buffer_address
 		};
 		vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( PushConstants ), &push_constants );

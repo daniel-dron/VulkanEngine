@@ -19,6 +19,7 @@
 #include <graphics/pipelines/wireframe_pipeline.h>
 
 #include "graphics/gfx_device.h"
+#include <graphics/material_codex.h>
 
 class VulkanEngine;
 
@@ -159,6 +160,8 @@ public:
 	// Pipeline
 	//
 	VkPipelineLayout gradient_pipeline_layout;
+
+	MaterialCodex material_codex;
 	MeshPipeline mesh_pipeline;
 	WireframePipeline wireframe_pipeline;
 
@@ -169,7 +172,7 @@ public:
 	// scene
 	std::vector<PointLight> point_lights;
 	GpuSceneData scene_data;
-	AllocatedBuffer gpu_scene_data;
+	GpuBuffer gpu_scene_data;
 	VkDescriptorSetLayout gpu_scene_data_descriptor_layout;
 
 	ImageID white_image;
