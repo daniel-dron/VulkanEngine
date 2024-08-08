@@ -19,7 +19,7 @@ void main()
 	
 	vec4 position = vec4(v.position, 1.0f);
 
-	gl_Position = scene_data.viewproj * pc.model *position;
+	gl_Position = pc.scene.viewproj * pc.model *position;
 
 	outColor = v.color.xyz * materialData.colorFactors.xyz;	
 	outUV.x = v.uv_x;

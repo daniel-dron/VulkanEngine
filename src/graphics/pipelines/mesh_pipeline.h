@@ -34,7 +34,6 @@ private:
 	VkPipeline pipeline;
 	VkPipelineLayout layout;
 	VkDescriptorSetLayout material_layout;
-	VkDescriptorSetLayout scene_data_layout;
 
 	GpuBuffer gpu_scene_data;
 };

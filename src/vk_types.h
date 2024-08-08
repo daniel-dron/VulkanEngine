@@ -188,6 +188,8 @@ struct GpuPointLightData {
 	vec4 color;
 	float diffuse;
 	float specular;
+	int pad;
+	int pad2;
 };
 
 struct GpuSceneData {
@@ -195,14 +197,13 @@ struct GpuSceneData {
 	mat4 proj;
 	mat4 viewproj;
 	vec4 fog_color;
-	float fog_end;
-	float fog_start;
-	float _pad1;
-	float _pad2;
 	vec3 camera_position;
 	float ambient_light_factor;
 	vec3 ambient_light_color;
+	float fog_end;
+	float fog_start;
 	int number_of_lights;
+	int pad;
 	GpuPointLightData point_lights[10];
 };
 
