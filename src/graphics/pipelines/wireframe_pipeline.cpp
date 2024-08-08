@@ -29,23 +29,14 @@ WireframePipeline::Result<> WireframePipeline::init( GfxDevice& gfx ) {
 		.size = sizeof( PushConstants )
 	};
 
-	DescriptorLayoutBuilder layout_builder;
-	layout_builder.add_binding( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-	layout_builder.add_binding( 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-	layout_builder.add_binding( 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-	layout_builder.add_binding( 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-	material_layout = layout_builder.build( gfx.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
-
 	auto bindless_layout = gfx.getBindlessLayout( );
-	VkDescriptorSetLayout layouts[] = {
-		bindless_layout, material_layout
-	};
+	VkDescriptorSetLayout layouts[] = { bindless_layout	};
 
 	// ----------
 	// pipeline
 	VkPipelineLayoutCreateInfo layout_info = pipeline_layout_create_info( );
 	layout_info.pSetLayouts = layouts;
-	layout_info.setLayoutCount = 2;
+	layout_info.setLayoutCount = 1;
 	layout_info.pPushConstantRanges = &range;
 	layout_info.pushConstantRangeCount = 1;
 	VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &layout ) );
@@ -86,7 +77,6 @@ WireframePipeline::Result<> WireframePipeline::init( GfxDevice& gfx ) {
 
 void WireframePipeline::cleanup( GfxDevice& gfx ) {
 	vkDestroyPipelineLayout( gfx.device, layout, nullptr );
-	vkDestroyDescriptorSetLayout( gfx.device, material_layout, nullptr );
 	vkDestroyPipeline( gfx.device, pipeline, nullptr );
 	gfx.free( gpu_scene_data );
 }
@@ -130,10 +120,6 @@ DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const st
 	vkCmdSetScissor( cmd, 0, 1, &scissor );
 
 	for ( const auto& draw_command : draw_commands ) {
-
-		vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1,
-			&draw_command.material->materialSet, 0, nullptr );
-
 		vkCmdBindIndexBuffer( cmd, draw_command.index_buffer, 0, VK_INDEX_TYPE_UINT32 );
 
 		VkBufferDeviceAddressInfo address_info = {

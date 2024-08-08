@@ -16,12 +16,13 @@ layout (location = 4) out mat3 out_tbn;
 void main() 
 {
 	Vertex v = pc.vertexBuffer.vertices[gl_VertexIndex];
+	Material material = pc.scene.materials.mat[pc.material_id];
 	
 	vec4 position = vec4(v.position, 1.0f);
 
 	gl_Position = pc.scene.viewproj * pc.model *position;
 
-	outColor = v.color.xyz * materialData.colorFactors.xyz;	
+	outColor = v.color.xyz * material.base_color.rgb;	
 	outUV.x = v.uv_x;
 	outUV.y = v.uv_y;
 	out_frag_pos = vec4(pc.model * position).xyz;

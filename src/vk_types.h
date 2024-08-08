@@ -202,8 +202,8 @@ struct GpuSceneData {
 	vec3 ambient_light_color;
 	float fog_end;
 	float fog_start;
+	VkDeviceAddress materials;
 	int number_of_lights;
-	int pad;
 	GpuPointLightData point_lights[10];
 };
 

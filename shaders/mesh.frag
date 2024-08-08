@@ -16,8 +16,10 @@ layout (location = 0) out vec4 outFragColor;
 
 void main() 
 {
+	Material material = pc.scene.materials.mat[pc.material_id];
+
 	// vec3 norm = normalize(inNormal);
-	vec3 norm = texture(normalTex, inUV).rgb;
+	vec3 norm = sampleTexture2DNearest(material.normal_tex, inUV).rgb;
 	norm = normalize(norm * 2.0f - 1.0f);
 	norm = normalize(in_tbn * norm);
 
@@ -54,7 +56,7 @@ void main()
 	float fog_factor = dist / range;
 	fog_factor = clamp(fog_factor, 0.0f, 1.0f);
 
-	vec4 color = sampleTexture2DNearest(55, inUV);
+	vec4 color = sampleTexture2DNearest(material.color_tex, inUV);
 
 	vec3 result = (ambient + diffuse + specular) * color.rgb;
 	result = mix(pc.scene.fog_color, vec4(result, 1.0f), fog_factor).rgb;

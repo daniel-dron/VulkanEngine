@@ -95,6 +95,22 @@ GfxDevice::Result<> GfxDevice::init( SDL_Window* window ) {
 	executor.init( this );
 
 	image_codex.init( this );
+	material_codex.init( *this );
+
+	Material material = {};
+	material.base_color = { 1.0f, 0.0f, 0.0f, 1.0f };
+	material.metalness_factor = 1.0f;
+	material.roughness_factor = 1.0f;
+	material.color_id = 50;
+	material.metal_roughness_id = 50;
+	material.normal_id = 50;
+	material_codex.addMaterial( *this, material );
+	material_codex.addMaterial( *this, material );
+	material_codex.addMaterial( *this, material );
+	material.color_id = 10;
+	material_codex.addMaterial( *this, material );
+	material_codex.addMaterial( *this, material );
+	material_codex.addMaterial( *this, material );
 
 	swapchain.init( this, 1920, 1080 );
 
@@ -114,7 +130,7 @@ GpuBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryU
 	};
 
 	const VmaAllocationCreateInfo vma_info = {
-		.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
+		.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
 		.usage = vma_usage
 	};
 
@@ -148,6 +164,7 @@ void GfxDevice::free( const GpuBuffer& buffer ) {
 
 void GfxDevice::cleanup( ) {
 	swapchain.cleanup( );
+	material_codex.cleanup( *this );
 	image_codex.cleanup( );
 	executor.cleanup( );
 	vmaDestroyAllocator( allocator );

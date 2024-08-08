@@ -9,4 +9,5 @@ layout( push_constant ) uniform constants
 	mat4 model;
 	SceneBuffer scene;
 	VertexBuffer vertexBuffer;
+    uint material_id;
 } pc;

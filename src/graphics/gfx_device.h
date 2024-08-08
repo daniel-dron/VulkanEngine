@@ -3,6 +3,7 @@
 #include <expected>
 #include <vk_types.h>
 #include "image_codex.h"
+#include "material_codex.h"
 #include "swapchain.h"
 
 class GfxDevice;
@@ -94,6 +95,7 @@ public:
 	::Swapchain swapchain;
 
 	ImageCodex image_codex;
+	MaterialCodex material_codex;
 
 private:
 	Result<> initDevice( struct SDL_Window* window );

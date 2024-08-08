@@ -30,24 +30,15 @@ MeshPipeline::Result<> MeshPipeline::init( GfxDevice& gfx ) {
 		.size = sizeof( PushConstants )
 	};
 
-	DescriptorLayoutBuilder layout_builder;
-	layout_builder.add_binding( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-	layout_builder.add_binding( 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-	layout_builder.add_binding( 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-	layout_builder.add_binding( 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-	material_layout = layout_builder.build( gfx.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
-
 	auto bindless_layout = gfx.getBindlessLayout( );
 
-	VkDescriptorSetLayout layouts[] = {
-		bindless_layout, material_layout
-	};
+	VkDescriptorSetLayout layouts[] = { bindless_layout	};
 
 	// ----------
 	// pipeline
 	VkPipelineLayoutCreateInfo layout_info = pipeline_layout_create_info( );
 	layout_info.pSetLayouts = layouts;
-	layout_info.setLayoutCount = 2;
+	layout_info.setLayoutCount = 1;
 	layout_info.pPushConstantRanges = &range;
 	layout_info.pushConstantRangeCount = 1;
 	VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &layout ) );
@@ -89,7 +80,6 @@ MeshPipeline::Result<> MeshPipeline::init( GfxDevice& gfx ) {
 
 void MeshPipeline::cleanup( GfxDevice& gfx ) {
 	vkDestroyPipelineLayout( gfx.device, layout, nullptr );
-	vkDestroyDescriptorSetLayout( gfx.device, material_layout, nullptr );
 	vkDestroyPipeline( gfx.device, pipeline, nullptr );
 	gfx.free( gpu_scene_data );
 }
@@ -100,6 +90,7 @@ DrawStats MeshPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::ve
 	GpuSceneData* gpu_scene_addr = nullptr;
 	vmaMapMemory( gfx.allocator, gpu_scene_data.allocation, (void**)&gpu_scene_addr );
 	*gpu_scene_addr = scene_data;
+	gpu_scene_addr->materials = gfx.material_codex.getDeviceAddress( );
 	vmaUnmapMemory( gfx.allocator, gpu_scene_data.allocation );
 
 	vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
@@ -133,10 +124,6 @@ DrawStats MeshPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::ve
 	vkCmdSetScissor( cmd, 0, 1, &scissor );
 
 	for ( const auto& draw_command : draw_commands ) {
-
-		vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1,
-			&draw_command.material->materialSet, 0, nullptr );
-
 		vkCmdBindIndexBuffer( cmd, draw_command.index_buffer, 0, VK_INDEX_TYPE_UINT32 );
 
 		VkBufferDeviceAddressInfo address_info = {
@@ -149,7 +136,8 @@ DrawStats MeshPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::ve
 		PushConstants push_constants = {
 			.world_from_local = draw_command.transform,
 			.scene_data_address = gpu_scene_address,
-			.vertex_buffer_address = draw_command.vertex_buffer_address
+			.vertex_buffer_address = draw_command.vertex_buffer_address,
+			.material_id = 2
 		};
 		vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( PushConstants ), &push_constants );
 

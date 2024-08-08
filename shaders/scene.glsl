@@ -1,3 +1,5 @@
+#include "materials.glsl"
+
 struct PointLight {
 	vec3 position;
 	float radius;
@@ -18,7 +20,7 @@ layout (buffer_reference, scalar) readonly buffer SceneBuffer {
 	vec3 ambient_light_color;
   	float fog_end;
   	float fog_start;
+    MaterialsBuffer materials;
 	int number_of_lights;
-    int pad;
 	PointLight pointLights[10];
 } sceneBuffer;
