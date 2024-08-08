@@ -33,7 +33,7 @@ MeshPipeline::Result<> MeshPipeline::init( GfxDevice& gfx ) {
 	}
 
 	VkPushConstantRange range = {
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 		.offset = 0,
 		.size = sizeof( PushConstants )
 	};
@@ -168,7 +168,7 @@ DrawStats MeshPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::ve
 			.scene_data_address = gpu_scene_address,
 			.vertex_buffer_address = draw_command.vertex_buffer_address
 		};
-		vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( PushConstants ), &push_constants );
+		vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( PushConstants ), &push_constants );
 
 		vkCmdDrawIndexed( cmd, draw_command.index_count, 1, draw_command.first_index, 0, 0 );
 

@@ -27,6 +27,7 @@ public:
 private:
 	struct PushConstants {
 		mat4 world_from_local;
+		VkDeviceAddress scene_data_address;
 		VkDeviceAddress vertex_buffer_address;
 	};
 

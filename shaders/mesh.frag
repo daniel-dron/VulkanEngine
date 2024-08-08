@@ -4,6 +4,7 @@
 
 #include "bindless.glsl"
 #include "input_structures.glsl"
+#include "push_constants.glsl"
 
 layout (location = 0) in vec3 inNormal;
 layout (location = 1) in vec3 inColor;
@@ -15,13 +16,15 @@ layout (location = 0) out vec4 outFragColor;
 
 void main() 
 {
+	vec3 camera_position = pc.scene.camera_position;
+
 	// vec3 norm = normalize(inNormal);
 	vec3 norm = texture(normalTex, inUV).rgb;
 	norm = normalize(norm * 2.0f - 1.0f);
 	norm = normalize(in_tbn * norm);
 
 	vec3 light_dir = normalize(scene_data.pointLights[0].position.xyz - in_frag_pos);
-	vec3 view_dir = normalize(scene_data.camera_position - in_frag_pos);
+	vec3 view_dir = normalize(camera_position - in_frag_pos);
 	vec3 reflect_dir = reflect(-light_dir, norm);
 
 	// ----------
@@ -47,13 +50,13 @@ void main()
 	// fog
 	float fog_end = scene_data.fog_end;
 	float fog_start = scene_data.fog_start;
-	float cam_to_frag_dist = length(in_frag_pos - scene_data.camera_position);
+	float cam_to_frag_dist = length(in_frag_pos - camera_position);
 	float range = fog_end - fog_start;
 	float dist = fog_end - cam_to_frag_dist;
 	float fog_factor = dist / range;
 	fog_factor = clamp(fog_factor, 0.0f, 1.0f);
 
-	vec4 color = sampleTexture2DLinear(30, inUV);
+	vec4 color = sampleTexture2DNearest(55, inUV);
 
 	vec3 result = (ambient + diffuse + specular) * color.rgb;
 	result = mix(scene_data.fog_color, vec4(result, 1.0f), fog_factor).rgb;

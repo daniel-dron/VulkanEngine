@@ -32,7 +32,7 @@ WireframePipeline::Result<> WireframePipeline::init( GfxDevice& gfx ) {
 	}
 
 	VkPushConstantRange range = {
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 		.offset = 0,
 		.size = sizeof( PushConstants )
 	};
@@ -87,7 +87,7 @@ WireframePipeline::Result<> WireframePipeline::init( GfxDevice& gfx ) {
 
 	vkDestroyShaderModule( gfx.device, frag_shader, nullptr );
 	vkDestroyShaderModule( gfx.device, vert_shader, nullptr );
-	gpu_scene_data = gfx.allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data Mesh Pipeline" );
+	gpu_scene_data = gfx.allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data Mesh Pipeline" );
 
 	return {};
 }
@@ -153,11 +153,19 @@ DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const st
 
 		vkCmdBindIndexBuffer( cmd, draw_command.index_buffer, 0, VK_INDEX_TYPE_UINT32 );
 
+		VkBufferDeviceAddressInfo address_info = {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+			.pNext = nullptr,
+			.buffer = gpu_scene_data.buffer
+		};
+		auto gpu_scene_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
+
 		PushConstants push_constants = {
 			.world_from_local = draw_command.transform,
+			.scene_data_address	= gpu_scene_address,
 			.vertex_buffer_address = draw_command.vertex_buffer_address
 		};
-		vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( PushConstants ), &push_constants );
+		vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( PushConstants ), &push_constants );
 
 		vkCmdDrawIndexed( cmd, draw_command.index_count, 1, draw_command.first_index, 0, 0 );
 

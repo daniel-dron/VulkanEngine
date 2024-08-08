@@ -7,7 +7,6 @@
 #include "input_structures.glsl"
 #include "push_constants.glsl"
 
-
 layout (location = 0) out vec3 out_normal;
 layout (location = 1) out vec3 outColor;
 layout (location = 2) out vec2 outUV;
