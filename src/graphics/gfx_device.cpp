@@ -238,14 +238,6 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 	auto& physical_device = physical_device_res.value( );
 	chosen_gpu = physical_device;
 
-	for ( const auto& name : physical_device.get_available_extensions( ) ) {
-		fmt::println( "{}", name.c_str( ) );
-	}
-
-	for ( const auto& name : physical_device.get_extensions( ) ) {
-		fmt::println( "x- {}", name.c_str( ) );
-	}
-
 	// ----------
 	// Logical Device
 	DeviceBuilder device_builder{ physical_device };

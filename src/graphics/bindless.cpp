@@ -25,14 +25,14 @@ void BindlessRegistry::init( GfxDevice& gfx ) {
 	// ----------
 	// Descriptor Set Layout
 	{
-		VkDescriptorSetLayoutBinding bindings[] = {
-			{
+		std::array<VkDescriptorSetLayoutBinding, 2> bindings = {
+			VkDescriptorSetLayoutBinding {
 				.binding = TEXTURE_BINDING,
 				.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
 				.descriptorCount = MAX_BINDLESS_IMAGES,
 				.stageFlags = VK_SHADER_STAGE_ALL
 			},
-			{
+			VkDescriptorSetLayoutBinding {
 				.binding = SAMPLERS_BINDING,
 				.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
 				.descriptorCount = MAX_SAMPLERS,
@@ -40,7 +40,7 @@ void BindlessRegistry::init( GfxDevice& gfx ) {
 			},
 		};
 
-		VkDescriptorBindingFlags binding_flags[2] = {
+		std::array<VkDescriptorBindingFlags, 2> binding_flags = {
 			VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
 			VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
 		};
@@ -48,15 +48,16 @@ void BindlessRegistry::init( GfxDevice& gfx ) {
 		VkDescriptorSetLayoutBindingFlagsCreateInfo flag_info = {
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
 			.pNext = nullptr,
-			.pBindingFlags = binding_flags
+			.bindingCount = binding_flags.size( ),
+			.pBindingFlags = binding_flags.data( ),
 		};
 
 		VkDescriptorSetLayoutCreateInfo info = {
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 			.pNext = &flag_info,
-			.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT,
-			.bindingCount = 2u,
-			.pBindings = bindings
+			.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
+			.bindingCount = bindings.size( ),
+			.pBindings = bindings.data( )
 		};
 
 		VK_CHECK( vkCreateDescriptorSetLayout( gfx.device, &info, nullptr, &layout ) );
@@ -72,14 +73,17 @@ void BindlessRegistry::init( GfxDevice& gfx ) {
 		   .pSetLayouts = &layout,
 		};
 
-		std::uint32_t max_binding = MAX_BINDLESS_IMAGES - 1;
-		const auto countInfo = VkDescriptorSetVariableDescriptorCountAllocateInfo{
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO,
-			.descriptorSetCount = 1,
-			.pDescriptorCounts = &max_binding,
-		};
-
 		VK_CHECK( vkAllocateDescriptorSets( gfx.device, &alloc_info, &set ) );
+
+
+		const VkDebugUtilsObjectNameInfoEXT obj = {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+			.pNext = nullptr,
+			.objectType = VkObjectType::VK_OBJECT_TYPE_DESCRIPTOR_SET,
+			.objectHandle = (uint64_t)set,
+			.pObjectName = "Bindless Descriptor Set"
+		};
+		vkSetDebugUtilsObjectNameEXT( gfx.device, &obj );
 	}
 
 	initSamplers( gfx );
