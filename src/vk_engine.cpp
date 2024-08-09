@@ -121,6 +121,14 @@ void VulkanEngine::initDescriptors( ) {
 
 	draw_image_descriptors = global_descriptor_allocator.allocate(
 		gfx->device, draw_image_descriptor_layout );
+	const VkDebugUtilsObjectNameInfoEXT obj = {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+		.pNext = nullptr,
+		.objectType = VkObjectType::VK_OBJECT_TYPE_DESCRIPTOR_SET,
+		.objectHandle = (uint64_t)draw_image_descriptors,
+		.pObjectName = "Compute Draw Image"
+	};
+	vkSetDebugUtilsObjectNameEXT( gfx->device, &obj );
 
 	auto& color_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
 
