@@ -34,7 +34,6 @@ GpuMesh MeshCodex::uploadMesh( GfxDevice& gfx, const Mesh& mesh ) {
 	std::string name_vertex = std::format( "{}.(vtx)", meshes.size( ) );
 	std::string name_index = std::format( "{}.(idx)", meshes.size( ) );
 
-
 	auto vertex_buffer = gfx.allocate( vertex_buffer_size,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY, name_vertex.c_str( ) );
@@ -72,6 +71,9 @@ GpuMesh MeshCodex::uploadMesh( GfxDevice& gfx, const Mesh& mesh ) {
 	} );
 
 	gfx.free( staging );
+
+	gpu_mesh.index_buffer = index_buffer;
+	gpu_mesh.vertex_buffer = vertex_buffer;
 
 	return gpu_mesh;
 }

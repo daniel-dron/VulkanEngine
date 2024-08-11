@@ -170,6 +170,7 @@ void GfxDevice::cleanup( ) {
 	swapchain.cleanup( );
 	material_codex.cleanup( *this );
 	image_codex.cleanup( );
+	mesh_codex.cleanup( *this );
 	executor.cleanup( );
 	vmaDestroyAllocator( allocator );
 	vkDestroySurfaceKHR( instance, surface, nullptr );
