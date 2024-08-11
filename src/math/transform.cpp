@@ -16,28 +16,28 @@ Transform3D::Transform3D( const mat4& matrix ) {
 	this->is_dirty = true;
 }
 
-void Transform3D::set_position( const vec3& pos ) {
+void Transform3D::setPosition( const vec3& pos ) {
 	position = pos;
 	is_dirty = true;
 }
-void Transform3D::set_heading( const quat& h ) {
+void Transform3D::setHeading( const quat& h ) {
 	heading = h;
 	is_dirty = true;
 }
-void Transform3D::set_scale( const vec3& s ) {
+void Transform3D::setScale( const vec3& s ) {
 	scale = s;
 	is_dirty = true;
 }
 
-const vec3& Transform3D::get_position( ) { return position; }
-const quat& Transform3D::get_heading( ) { return heading; }
-const vec3& Transform3D::get_scale( ) { return scale; }
+const vec3& Transform3D::getPosition( ) const { return position; }
+const quat& Transform3D::getHeading( ) const { return heading; }
+const vec3& Transform3D::getScale( ) const { return scale; }
 
-vec3 Transform3D::get_local_up( ) { return heading * GlobalUp; }
-vec3 Transform3D::get_local_right( ) { return heading * GlobalRight; }
-vec3 Transform3D::get_local_front( ) { return heading * GlobalFront; }
+vec3 Transform3D::getLocalUp( ) const { return heading * GlobalUp; }
+vec3 Transform3D::getLocalRight( ) const { return heading * GlobalRight; }
+vec3 Transform3D::getLocalFront( ) const { return heading * GlobalFront; }
 
-const glm::mat4& Transform3D::as_matrix( ) const {
+const glm::mat4& Transform3D::asMatrix( ) const {
 	if ( !is_dirty ) {
 		return matrix;
 	}
@@ -52,5 +52,5 @@ const glm::mat4& Transform3D::as_matrix( ) const {
 }
 
 Transform3D Transform3D::operator*( const Transform3D& rhs ) const {
-	return Transform3D( this->as_matrix( ) * rhs.as_matrix( ) );
+	return Transform3D( this->asMatrix( ) * rhs.asMatrix( ) );
 }

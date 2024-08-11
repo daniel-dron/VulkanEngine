@@ -8,13 +8,13 @@
 #include "engine/input.h"
 
 glm::mat4 Camera3D::get_view_matrix( ) {
-	auto up = transform.get_local_up( );
-	auto front = transform.get_position( ) + transform.get_local_front( );
-	return glm::lookAtRH( transform.get_position( ), front, up );
+	auto up = transform.getLocalUp( );
+	auto front = transform.getPosition( ) + transform.getLocalFront( );
+	return glm::lookAtRH( transform.getPosition( ), front, up );
 }
 
 void Camera3D::look_at( const glm::vec3& target ) {
-	glm::vec3 direction = glm::normalize( target - transform.get_position( ) );
+	glm::vec3 direction = glm::normalize( target - transform.getPosition( ) );
 
 	// Calculate pitch and yaw from the direction vector
 	float pitch = glm::asin( -direction.y );
@@ -29,7 +29,7 @@ void Camera3D::look_at( const glm::vec3& target ) {
 	glm::quat q_yaw = glm::angleAxis( yaw, glm::vec3( 0.0f, 1.0f, 0.0f ) );
 
 	// Set the new heading
-	transform.set_heading( q_yaw * q_pitch );
+	transform.setHeading( q_yaw * q_pitch );
 }
 
 void Camera3D::rotate_by( const glm::vec3& rot ) {
@@ -38,25 +38,25 @@ void Camera3D::rotate_by( const glm::vec3& rot ) {
 	auto q_yaw = glm::angleAxis( glm::radians( euler.y ), GlobalUp );
 	auto q_pitch = glm::angleAxis( glm::radians( euler.x ), GlobalRight );
 	auto q_roll = glm::angleAxis( glm::radians( euler.z ), GlobalFront );
-	transform.set_heading( q_yaw * q_pitch * q_roll );
+	transform.setHeading( q_yaw * q_pitch * q_roll );
 }
 
 void Camera3D::draw_debug( ) {
-	auto pos = transform.get_position( );
+	auto pos = transform.getPosition( );
 	if ( ImGui::DragFloat3( "Position", &pos.x, 0.01f, -1000.0f, 1000.0f ) ) {
-		transform.set_position( pos );
+		transform.setPosition( pos );
 	}
 
 	if ( ImGui::DragFloat3( "Rotation", &euler.x, 0.01f ) ) {
 		auto q_yaw = glm::angleAxis( glm::radians( euler.y ), GlobalUp );
 		auto q_pitch = glm::angleAxis( glm::radians( euler.x ), GlobalRight );
 		auto q_roll = glm::angleAxis( glm::radians( euler.z ), GlobalFront );
-		transform.set_heading( q_yaw * q_pitch * q_roll );
+		transform.setHeading( q_yaw * q_pitch * q_roll );
 	}
 
-	auto q = transform.get_heading( );
+	auto q = transform.getHeading( );
 	if ( ImGui::DragFloat4( "Quat", &q.x, 0.1f ) ) {
-		transform.set_heading( q );
+		transform.setHeading( q );
 		euler = glm::degrees( glm::eulerAngles( q ) );
 	}
 }
@@ -74,16 +74,16 @@ void FirstPersonFlyingController::update( float deltaTime ) {
 	glm::vec3 movement( 0.0f );
 
 	if ( EG_INPUT.is_key_down( EG_KEY::W ) ) {
-		movement += camera->transform.get_local_front( );
+		movement += camera->transform.getLocalFront( );
 	}
 	if ( EG_INPUT.is_key_down( EG_KEY::S ) ) {
-		movement -= camera->transform.get_local_front( );
+		movement -= camera->transform.getLocalFront( );
 	}
 	if ( EG_INPUT.is_key_down( EG_KEY::A ) ) {
-		movement -= camera->transform.get_local_right( );
+		movement -= camera->transform.getLocalRight( );
 	}
 	if ( EG_INPUT.is_key_down( EG_KEY::D ) ) {
-		movement += camera->transform.get_local_right( );
+		movement += camera->transform.getLocalRight( );
 	}
 
 	// Normalize movement vector if it's not zero
@@ -93,8 +93,8 @@ void FirstPersonFlyingController::update( float deltaTime ) {
 
 	// Apply movement
 	glm::vec3 newPosition =
-		camera->transform.get_position( ) + movement * move_speed * deltaTime;
-	camera->transform.set_position( newPosition );
+		camera->transform.getPosition( ) + movement * move_speed * deltaTime;
+	camera->transform.setPosition( newPosition );
 
 	auto rel = EG_INPUT.get_mouse_rel( );
 	float delta_yaw = -static_cast<float>(rel.first) * sensitivity;

@@ -309,9 +309,9 @@ static void loadHierarchy( GfxDevice& gfx, fastgltf::Asset& asset, Scene& scene 
 					new_node->transform = Transform3D( transform );
 				},
 				[&]( fastgltf::Node::TRS transform ) {
-					new_node->transform.set_position( vec3{transform.translation[0], transform.translation[1], transform.translation[2]} );
-					new_node->transform.set_heading( quat{ transform.rotation[1], transform.rotation[1], transform.rotation[2], transform.rotation[3] } );
-					new_node->transform.set_scale( vec3{ transform.scale[0], transform.scale[1], transform.scale[2] } );
+					new_node->transform.setPosition( vec3{transform.translation[0], transform.translation[1], transform.translation[2]} );
+					new_node->transform.setHeading( quat{ transform.rotation[1], transform.rotation[1], transform.rotation[2], transform.rotation[3] } );
+					new_node->transform.setScale( vec3{ transform.scale[0], transform.scale[1], transform.scale[2] } );
 				},
 				}, node.transform );
 		}

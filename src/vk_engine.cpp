@@ -789,7 +789,7 @@ void VulkanEngine::initScene( ) {
 	scene_data.fog_start = 1.0f;
 
 	PointLight light = {};
-	light.transform.set_position( vec3( 0.0f, 2.0f, 0.0f ) );
+	light.transform.setPosition( vec3( 0.0f, 2.0f, 0.0f ) );
 	light.color = vec4( 1.0f, 0.0f, 1.0f, 1000.0f );
 	light.diffuse = 0.1f;
 	light.specular = 1.0f;
@@ -1035,9 +1035,9 @@ void VulkanEngine::run( ) {
 						ImGui::PushID( i );
 						ImGui::ColorEdit3( "Color", &point_lights.at( i ).color.x );
 
-						auto pos = point_lights.at( i ).transform.get_position( );
+						auto pos = point_lights.at( i ).transform.getPosition( );
 						ImGui::DragFloat3( "Pos", &pos.x, 0.1f );
-						point_lights.at( i ).transform.set_position( pos );
+						point_lights.at( i ).transform.setPosition( pos );
 
 						ImGui::DragFloat( "Diffuse", &point_lights.at( i ).diffuse, 0.01f,
 							0.0f, 1.0f );
@@ -1117,7 +1117,7 @@ static void createDrawCommands( GfxDevice& gfx, const Scene& scene, const Scene:
 				.index_buffer = mesh.index_buffer.buffer,
 				.index_count = mesh.index_count,
 				.vertex_buffer_address = mesh.vertex_buffer_address,
-				.world_from_local = node.transform.as_matrix( ),
+				.world_from_local = node.transform.asMatrix( ),
 				.material_id = scene.materials[mesh_asset.materials[i]]
 			};
 			draw_commands.push_back( mdc );
@@ -1151,13 +1151,13 @@ void VulkanEngine::updateScene( ) {
 
 	scene_data.viewproj = scene_data.proj * scene_data.view;
 
-	scene_data.camera_position = camera.transform.get_position( );
+	scene_data.camera_position = camera.transform.getPosition( );
 
 	// point lights
 	scene_data.number_of_lights = static_cast<int>(point_lights.size( ));
 	for ( size_t i = 0; i < point_lights.size( ); i++ ) {
 		auto& light = scene_data.point_lights[i];
-		light.position = point_lights[i].transform.get_position( );
+		light.position = point_lights[i].transform.getPosition( );
 		light.radius = point_lights[i].radius;
 		light.color = point_lights[i].color;
 		light.diffuse = point_lights[i].diffuse;
