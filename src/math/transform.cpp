@@ -11,7 +11,7 @@ Transform3D::Transform3D( const mat4& matrix ) {
 	glm::decompose( matrix, scale, rotation, translation, skew, perspective );
 
 	this->position = translation;
-	this->heading = rotation;
+	this->heading = glm::conjugate( rotation );
 	this->scale = scale;
 	this->is_dirty = true;
 }
