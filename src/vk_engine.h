@@ -12,7 +12,6 @@
 
 #include "camera/camera.h"
 #include "vk_descriptors.h"
-#include "vk_loader.h"
 #include "graphics/light.h"
 #include <graphics/image_codex.h>
 #include <graphics/pipelines/mesh_pipeline.h>
@@ -39,65 +38,6 @@ struct ComputeEffect {
 	VkPipelineLayout layout;
 
 	ComputePushConstants data;
-};
-
-class VulkanEngine;
-
-struct GltfMetallicRoughness {
-	MaterialPipeline opaque_pipeline;
-	MaterialPipeline transparent_pipeline;
-	MaterialPipeline wireframe_pipeline;
-
-	VkDescriptorSetLayout material_layout;
-
-	struct MaterialConstants {
-		glm::vec4 color_factors;
-		glm::vec4 metal_rough_factors;
-		// padding?
-		glm::vec4 extra[14];
-	};
-
-	struct MaterialResources {
-		ImageID color_image;
-		VkSampler color_sampler;
-		ImageID metal_rough_image;
-		VkSampler metal_rough_sampler;
-		ImageID normal_map;
-		VkSampler normal_sampler;
-		VkBuffer data_buffer;  // material constants
-		uint32_t data_buffer_offset;
-	};
-
-	DescriptorWriter writer;
-
-	void buildPipelines( VulkanEngine* engine );
-	void clearResources( VkDevice device );
-
-	MaterialInstance writeMaterial(
-		VulkanEngine* engine, MaterialPass pass, const MaterialResources& resources,
-		DescriptorAllocatorGrowable& descriptor_allocator );
-};
-
-struct RenderObject {
-	uint32_t index_count;
-	uint32_t first_index;
-	VkBuffer index_buffer;
-
-	MaterialInstance* material;
-	Bounds bounds;
-	glm::mat4 transform;
-	VkDeviceAddress vertex_buffer_address;
-};
-
-struct DrawContext {
-	std::vector<RenderObject> opaque_surfaces;
-	std::vector<RenderObject> transparent_surfaces;
-};
-
-struct MeshNode final : public Node {
-	std::shared_ptr<MeshAsset> mesh;
-
-	void Draw( const glm::mat4& top_matrix, DrawContext& ctx ) override;
 };
 
 struct RendererOptions {
@@ -130,14 +70,6 @@ public:
 
 	// run main loop
 	void run( );
-
-	/// @brief Uploads mesh data to gpu buffers
-	/// @param indices list of indices in uint32_t format
-	/// @param vertices list of vertices
-	/// @return returns a struct containing the allocated index and vertex buffer
-	/// and its corresponding gpu address
-	GPUMeshBuffers uploadMesh( std::span<uint32_t> indices,
-		std::span<Vertex> vertices );
 
 	std::unique_ptr<GfxDevice> gfx;
 	bool dirt_swapchain = false;
@@ -185,13 +117,8 @@ public:
 	VkSampler default_sampler_linear;
 	VkSampler default_sampler_nearest;
 
-	MaterialInstance default_data;
-	GltfMetallicRoughness metal_rough_material;
-
-	DrawContext main_draw_context;
 	std::vector<MeshDrawCommand> draw_commands;
 
-	std::unordered_map<std::string, std::shared_ptr<LoadedGltf>> loaded_scenes;
 	std::unordered_map<std::string, std::unique_ptr<Scene>> scenes;
 	Camera3D camera;
 	std::unique_ptr<FirstPersonFlyingController> fps_controller;
@@ -249,6 +176,4 @@ private:
 
 	/// @brief Updates scene data and call Draw on each scene node.
 	void updateScene( );
-
-	void drawSceneHierarchy( );
 };

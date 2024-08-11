@@ -81,7 +81,7 @@ void WireframePipeline::cleanup( GfxDevice& gfx ) {
 	gfx.free( gpu_scene_data );
 }
 
-DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<OldMeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const {
+DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const {
 	DrawStats stats = {};
 
 	GpuSceneData* gpu_scene_addr = nullptr;
@@ -130,13 +130,13 @@ DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const st
 		auto gpu_scene_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
 
 		PushConstants push_constants = {
-			.world_from_local = draw_command.transform,
+			.world_from_local = draw_command.world_from_local,
 			.scene_data_address	= gpu_scene_address,
 			.vertex_buffer_address = draw_command.vertex_buffer_address
 		};
 		vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( PushConstants ), &push_constants );
 
-		vkCmdDrawIndexed( cmd, draw_command.index_count, 1, draw_command.first_index, 0, 0 );
+		vkCmdDrawIndexed( cmd, draw_command.index_count, 1, 0, 0, 0 );
 
 		stats.drawcall_count++;
 		stats.triangle_count += draw_command.index_count / 3;

@@ -1,5 +1,6 @@
 #include "image_codex.h"
 
+#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include "gfx_device.h"
 #include <vk_initializers.h>

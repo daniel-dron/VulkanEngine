@@ -12,8 +12,6 @@ file(GLOB SRC_SRC
   vk_pipelines.cpp
   vk_engine.h
   vk_engine.cpp
-  vk_loader.h
-  vk_loader.cpp
 )
 
 file(GLOB SRC_GRAPHICS

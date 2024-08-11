@@ -181,8 +181,6 @@ void VulkanEngine::initDescriptors( ) {
 void VulkanEngine::initPipelines( ) {
 	// compute
 	initBackgroundPipelines( );
-
-	metal_rough_material.buildPipelines( this );
 }
 
 void VulkanEngine::initBackgroundPipelines( ) {
@@ -332,67 +330,6 @@ void VulkanEngine::initImgui( ) {
 	} );
 }
 
-GPUMeshBuffers VulkanEngine::uploadMesh( std::span<uint32_t> indices,
-	std::span<Vertex> vertices ) {
-	const size_t vertexBufferSize = vertices.size( ) * sizeof( Vertex );
-	const size_t indexBufferSize = indices.size( ) * sizeof( uint32_t );
-
-	GPUMeshBuffers newSurface;
-
-	newSurface.vertexBuffer = gfx->allocate(
-		vertexBufferSize,
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY, "vertexBuffer" );
-
-	// find the adress of the vertex buffer
-	VkBufferDeviceAddressInfo deviceAddressInfo{
-		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-		.buffer = newSurface.vertexBuffer.buffer };
-	newSurface.vertexBufferAddress =
-		vkGetBufferDeviceAddress( gfx->device, &deviceAddressInfo );
-
-	newSurface.indexBuffer = gfx->allocate(
-		indexBufferSize,
-		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY, "indexBuffer" );
-
-	//
-	// staging phase.
-	// create a temp buffer used to write the data from the cpu
-	// then issue a gpu command to copy that data to the gpu only buffer
-	//
-	GpuBuffer staging =
-		gfx->allocate( vertexBufferSize + indexBufferSize,
-			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, __FUNCTION__ );
-
-	// copy memory to gpu
-	void* data = staging.allocation->GetMappedData( );
-	memcpy( data, vertices.data( ), vertexBufferSize );
-	memcpy( static_cast<char*>(data) + vertexBufferSize, indices.data( ),
-		indexBufferSize );
-
-	gfx->execute( [&]( const VkCommandBuffer cmd ) {
-		VkBufferCopy vertex_copy;
-		vertex_copy.dstOffset = 0;
-		vertex_copy.srcOffset = 0;
-		vertex_copy.size = vertexBufferSize;
-		vkCmdCopyBuffer( cmd, staging.buffer, newSurface.vertexBuffer.buffer, 1,
-			&vertex_copy );
-
-		VkBufferCopy index_copy;
-		index_copy.dstOffset = 0;
-		index_copy.srcOffset = vertexBufferSize;
-		index_copy.size = indexBufferSize;
-		vkCmdCopyBuffer( cmd, staging.buffer, newSurface.indexBuffer.buffer, 1,
-			&index_copy );
-	} );
-
-	gfx->free( staging );
-
-	return newSurface;
-}
-
 void VulkanEngine::resizeSwapchain( uint32_t width, uint32_t height ) {
 	vkDeviceWaitIdle( gfx->device );
 
@@ -408,12 +345,8 @@ void VulkanEngine::cleanup( ) {
 		// wait for gpu work to finish
 		vkDeviceWaitIdle( gfx->device );
 
-		loaded_scenes.clear( );
-
 		vkDestroyDescriptorSetLayout( gfx->device, gpu_scene_data_descriptor_layout,
 			nullptr );
-
-		metal_rough_material.clearResources( gfx->device );
 
 		mesh_pipeline.cleanup( *gfx );
 		wireframe_pipeline.cleanup( *gfx );
@@ -592,42 +525,42 @@ void VulkanEngine::drawBackground( VkCommandBuffer cmd ) {
 		static_cast<uint32_t>(std::ceil( draw_extent.height / 16.0 )), 1 );
 }
 
-// TODO: breaking at certain angles
-static bool is_visible( const RenderObject& obj, const glm::mat4& viewproj ) {
-	constexpr std::array<glm::vec3, 8> corners{
-		glm::vec3{1, 1, 1},   glm::vec3{1, 1, -1},   glm::vec3{1, -1, 1},
-		glm::vec3{1, -1, -1}, glm::vec3{-1, 1, 1},   glm::vec3{-1, 1, -1},
-		glm::vec3{-1, -1, 1}, glm::vec3{-1, -1, -1},
-	};
-
-	const glm::mat4 matrix = viewproj * obj.transform;
-
-	glm::vec3 min = { 1.5, 1.5, 1.5 };
-	glm::vec3 max = { -1.5, -1.5, -1.5 };
-
-	for ( int c = 0; c < 8; c++ ) {
-		// project each corner into clip space
-		glm::vec4 v =
-			matrix *
-			glm::vec4( obj.bounds.origin + (corners[c] * obj.bounds.extents), 1.f );
-
-		// perspective correction
-		v.x = v.x / v.w;
-		v.y = v.y / v.w;
-		v.z = v.z / v.w;
-
-		min = glm::min( glm::vec3{ v.x, v.y, v.z }, min );
-		max = glm::max( glm::vec3{ v.x, v.y, v.z }, max );
-	}
-
-	// check the clip space box is within the view
-	if ( min.z > 1.f || max.z < 0.f || min.x > 1.f || max.x < -1.f ||
-		min.y > 1.f || max.y < -1.f ) {
-		return false;
-	} else {
-		return true;
-	}
-}
+//// TODO: breaking at certain angles
+//static bool is_visible( const RenderObject& obj, const glm::mat4& viewproj ) {
+//	constexpr std::array<glm::vec3, 8> corners{
+//		glm::vec3{1, 1, 1},   glm::vec3{1, 1, -1},   glm::vec3{1, -1, 1},
+//		glm::vec3{1, -1, -1}, glm::vec3{-1, 1, 1},   glm::vec3{-1, 1, -1},
+//		glm::vec3{-1, -1, 1}, glm::vec3{-1, -1, -1},
+//	};
+//
+//	const glm::mat4 matrix = viewproj * obj.transform;
+//
+//	glm::vec3 min = { 1.5, 1.5, 1.5 };
+//	glm::vec3 max = { -1.5, -1.5, -1.5 };
+//
+//	for ( int c = 0; c < 8; c++ ) {
+//		// project each corner into clip space
+//		glm::vec4 v =
+//			matrix *
+//			glm::vec4( obj.bounds.origin + (corners[c] * obj.bounds.extents), 1.f );
+//
+//		// perspective correction
+//		v.x = v.x / v.w;
+//		v.y = v.y / v.w;
+//		v.z = v.z / v.w;
+//
+//		min = glm::min( glm::vec3{ v.x, v.y, v.z }, min );
+//		max = glm::max( glm::vec3{ v.x, v.y, v.z }, max );
+//	}
+//
+//	// check the clip space box is within the view
+//	if ( min.z > 1.f || max.z < 0.f || min.x > 1.f || max.x < -1.f ||
+//		min.y > 1.f || max.y < -1.f ) {
+//		return false;
+//	} else {
+//		return true;
+//	}
+//}
 
 void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 	ZoneScopedN( "draw_geometry" );
@@ -842,8 +775,6 @@ void draw_fps_graph( bool useGraph = false ) {
 	ImGui::End( );
 }
 
-Node* selected_node = nullptr;
-
 void VulkanEngine::run( ) {
 	bool bQuit = false;
 
@@ -914,7 +845,7 @@ void VulkanEngine::run( ) {
 
 				// ----------
 				// guizmos
-				if ( selected_node != nullptr ) {
+			/*	if ( selected_node != nullptr ) {
 					ImGuizmo::SetOrthographic( false );
 					ImGuizmo::SetDrawlist( );
 					ImGuizmo::SetRect( ImGui::GetWindowPos( ).x, ImGui::GetWindowPos( ).y,
@@ -929,12 +860,12 @@ void VulkanEngine::run( ) {
 						glm::value_ptr( camera_proj ),
 						ImGuizmo::OPERATION::UNIVERSAL,
 						ImGuizmo::MODE::LOCAL, glm::value_ptr( tc ) );
-				}
+				}*/
 			}
 			ImGui::End( );
 
 			if ( ImGui::Begin( "Scene" ) ) {
-				drawSceneHierarchy( );
+				//drawSceneHierarchy( );
 			}
 			ImGui::End( );
 
@@ -956,67 +887,67 @@ void VulkanEngine::run( ) {
 			}
 
 			if ( ImGui::Begin( "Settings" ) ) {
-				if ( selected_node != nullptr ) {
-					ImGui::SeparatorText( selected_node->name.c_str( ) );
-					MeshNode* node = dynamic_cast<MeshNode*>(selected_node);
-					if ( node ) {
-						ImGui::TextColored( ImVec4( 0.7f, 0.2f, 0.5f, 1.0f ), "Mesh: %s",
-							node->mesh->name.c_str( ) );
-						static ImGuiTableFlags flags =
-							ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg |
-							ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable |
-							ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
+				//if ( selected_node != nullptr ) {
+					//ImGui::SeparatorText( selected_node->name.c_str( ) );
+					//MeshNode* node = dynamic_cast<MeshNode*>(selected_node);
+					//if ( node ) {
+					//	ImGui::TextColored( ImVec4( 0.7f, 0.2f, 0.5f, 1.0f ), "Mesh: %s",
+					//		node->mesh->name.c_str( ) );
+					//	static ImGuiTableFlags flags =
+					//		ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg |
+					//		ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable |
+					//		ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
 
-						// material data
-						auto idx = 0;
-						for ( auto& surface : node->mesh->surfaces ) {
-							if ( ImGui::CollapsingHeader(
-								std::format( "Surface {}", idx ).c_str( ) ) ) {
-								ImGui::InputText( "Name", (char*)surface.material->name.c_str( ),
-									surface.material->name.size( ),
-									ImGuiInputTextFlags_ReadOnly );
+					//	// material data
+					//	auto idx = 0;
+					//	for ( auto& surface : node->mesh->surfaces ) {
+					//		if ( ImGui::CollapsingHeader(
+					//			std::format( "Surface {}", idx ).c_str( ) ) ) {
+					//			ImGui::InputText( "Name", (char*)surface.material->name.c_str( ),
+					//				surface.material->name.size( ),
+					//				ImGuiInputTextFlags_ReadOnly );
 
-								std::string pipeline_name;
-								switch ( surface.material->data.passType ) {
-								case MaterialPass::MainColor:
-									pipeline_name = "Opaque Material";
-									break;
-								case MaterialPass::Transparent:
-									pipeline_name = "Transparent Material";
-									break;
-								default:
-									pipeline_name = "Other";
-								}
+					//			std::string pipeline_name;
+					//			switch ( surface.material->data.passType ) {
+					//			case MaterialPass::MainColor:
+					//				pipeline_name = "Opaque Material";
+					//				break;
+					//			case MaterialPass::Transparent:
+					//				pipeline_name = "Transparent Material";
+					//				break;
+					//			default:
+					//				pipeline_name = "Other";
+					//			}
 
-								ImGui::InputText( "Pipeline", (char*)pipeline_name.c_str( ),
-									pipeline_name.size( ),
-									ImGuiInputTextFlags_ReadOnly );
+					//			ImGui::InputText( "Pipeline", (char*)pipeline_name.c_str( ),
+					//				pipeline_name.size( ),
+					//				ImGuiInputTextFlags_ReadOnly );
 
-								// albedo
-								if ( ImGui::CollapsingHeader( "Albedo" ) ) {
-									ImGui::Image( (ImTextureID)(
-										surface.material->debug_sets.base_color_set),
-										ImVec2( 200, 200 ) );
-								}
+					//			// albedo
+					//			if ( ImGui::CollapsingHeader( "Albedo" ) ) {
+					//				ImGui::Image( (ImTextureID)(
+					//					surface.material->debug_sets.base_color_set),
+					//					ImVec2( 200, 200 ) );
+					//			}
 
-								// metal roughness
-								if ( ImGui::CollapsingHeader( "Metal Roughness" ) ) {
-									ImGui::Image(
-										(ImTextureID)(
-											surface.material->debug_sets.metal_roughness_set),
-										ImVec2( 200, 200 ) );
-								}
+					//			// metal roughness
+					//			if ( ImGui::CollapsingHeader( "Metal Roughness" ) ) {
+					//				ImGui::Image(
+					//					(ImTextureID)(
+					//						surface.material->debug_sets.metal_roughness_set),
+					//					ImVec2( 200, 200 ) );
+					//			}
 
-								// normal map
-								if ( ImGui::CollapsingHeader( "Normal" ) ) {
-									ImGui::Image( (ImTextureID)(
-										surface.material->debug_sets.normal_map_set),
-										ImVec2( 200, 200 ) );
-								}
-							}
-						}
-					}
-				}
+					//			// normal map
+					//			if ( ImGui::CollapsingHeader( "Normal" ) ) {
+					//				ImGui::Image( (ImTextureID)(
+					//					surface.material->debug_sets.normal_map_set),
+					//					ImVec2( 200, 200 ) );
+					//			}
+					//		}
+					//	}
+					//}
+				//}
 				ImGui::SeparatorText( "Camera 3D" );
 				camera.draw_debug( );
 
@@ -1169,110 +1100,4 @@ void VulkanEngine::updateScene( ) {
 	auto elapsed =
 		std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	stats.scene_update_time = elapsed.count( ) / 1000.f;
-}
-
-void drawSceneNode( Node* node ) {
-	MeshNode* mesh_node = dynamic_cast<MeshNode*>(node);
-
-	if ( mesh_node ) {
-		if ( ImGui::Selectable( node->name.c_str( ), selected_node == node ) ) {
-			selected_node = node;
-		}
-	} else {
-		ImGui::SetNextItemOpen( true, ImGuiCond_Once );
-		if ( ImGui::TreeNode( node, node->name.c_str( ) ) ) {
-			for ( auto& n : node->children ) {
-				drawSceneNode( n.get( ) );
-			}
-			ImGui::TreePop( );
-		}
-	}
-}
-
-void VulkanEngine::drawSceneHierarchy( ) {
-	for ( auto& [k, v] : loaded_scenes ) {
-		ImGui::SetNextItemOpen( true, ImGuiCond_Once );
-		if ( ImGui::TreeNode( k.c_str( ) ) ) {
-			for ( auto& root : v->top_nodes ) {
-				drawSceneNode( root.get( ) );
-			}
-			ImGui::TreePop( );
-		}
-	}
-}
-
-void GltfMetallicRoughness::buildPipelines( VulkanEngine* engine ) {
-	// descriptor for set 1 (factors and textures for PBR)
-	DescriptorLayoutBuilder layoutBuilder;
-	layoutBuilder.add_binding( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-	layoutBuilder.add_binding( 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-	layoutBuilder.add_binding( 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-	layoutBuilder.add_binding( 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-	material_layout = layoutBuilder.build(
-		engine->gfx->device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-		nullptr );
-}
-
-void GltfMetallicRoughness::clearResources( VkDevice device ) {
-	vkDestroyDescriptorSetLayout( device, material_layout, nullptr );
-}
-
-MaterialInstance GltfMetallicRoughness::writeMaterial(
-	VulkanEngine* engine, MaterialPass pass, const MaterialResources& resources,
-	DescriptorAllocatorGrowable& descriptor_allocator ) {
-	MaterialInstance matData;
-	matData.passType = pass;
-	if ( pass == MaterialPass::Transparent ) {
-		matData.pipeline = &transparent_pipeline;
-	} else {
-		matData.pipeline = &opaque_pipeline;
-	}
-
-	matData.materialSet = descriptor_allocator.allocate( engine->gfx->device, material_layout );
-
-	auto& color = engine->gfx->image_codex.getImage( resources.color_image );
-	auto& metal_rough = engine->gfx->image_codex.getImage( resources.metal_rough_image );
-	auto& normal = engine->gfx->image_codex.getImage( resources.normal_map );
-
-	writer.clear( );
-	writer.write_buffer( 0, resources.data_buffer, sizeof( MaterialConstants ),
-		resources.data_buffer_offset,
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-	writer.write_image( 1, color.view, resources.color_sampler,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-	writer.write_image( 2, metal_rough.view,
-		resources.metal_rough_sampler,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-	writer.write_image( 3, normal.view, resources.normal_sampler,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-
-	writer.update_set( engine->gfx->device, matData.materialSet );
-
-	return matData;
-}
-
-void MeshNode::Draw( const glm::mat4& top_matrix, DrawContext& ctx ) {
-	glm::mat4 nodeMatrix = top_matrix * worldTransform;
-
-	for ( auto& s : mesh->surfaces ) {
-		RenderObject def;
-		def.index_count = s.count;
-		def.first_index = s.start_index;
-		def.index_buffer = mesh->mesh_buffers.indexBuffer.buffer;
-		def.material = &s.material->data;
-		def.bounds = s.bounds;
-		def.transform = nodeMatrix;
-		def.vertex_buffer_address = mesh->mesh_buffers.vertexBufferAddress;
-
-		if ( s.material->data.passType == MaterialPass::Transparent ) {
-			ctx.transparent_surfaces.push_back( def );
-		} else {
-			ctx.opaque_surfaces.push_back( def );
-		}
-	}
-
-	Node::Draw( top_matrix, ctx );
 }
