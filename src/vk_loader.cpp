@@ -97,6 +97,7 @@ generateRandomNumber( ) {
 std::optional<std::shared_ptr<LoadedGltf>>
 loadGltf( VulkanEngine* engine, std::string_view filePath ) {
 	fmt::println( "Loading GLTF: {}", filePath );
+	auto start = std::chrono::system_clock::now( );
 
 	auto scene = std::make_shared<LoadedGltf>( );
 	scene->creator = engine;
@@ -476,6 +477,18 @@ loadGltf( VulkanEngine* engine, std::string_view filePath ) {
 			node->refreshTransform( glm::mat4{ 1.f } );
 		}
 	}
+
+	// get clock again, compare with start clock
+	auto end = std::chrono::system_clock::now( );
+
+	// convert to microseconds (integer), and then come back to miliseconds
+	auto elapsed =
+		std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+	auto milliseconds = elapsed.count( ) / 1000.f;
+	auto seconds = milliseconds / 1000.0f;
+
+	fmt::println( "GLTF loading took: {} seconds", seconds );
+
 	return scene;
 }
 

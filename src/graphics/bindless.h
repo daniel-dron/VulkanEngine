@@ -12,7 +12,7 @@ public:
 	void addImage( GfxDevice& gfx, ImageID id, const VkImageView view);
 	void addSampler( GfxDevice& gfx, uint32_t id, const VkSampler sampler );
 
-	static const size_t MAX_BINDLESS_IMAGES = 100;
+	static const size_t MAX_BINDLESS_IMAGES = 16000;
 	static const size_t MAX_SAMPLERS = 3;
 	static const size_t TEXTURE_BINDING = 0;
 	static const size_t SAMPLERS_BINDING = 1;

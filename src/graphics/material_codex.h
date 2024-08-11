@@ -21,6 +21,8 @@ struct Material {
 	ImageID color_id;
 	ImageID metal_roughness_id;
 	ImageID normal_id;
+
+	std::string name;
 };
 
 class MaterialCodex {

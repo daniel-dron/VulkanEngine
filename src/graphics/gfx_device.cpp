@@ -44,6 +44,8 @@ ImmediateExecutor::Result<> ImmediateExecutor::init( GfxDevice* gfx ) {
 }
 
 void ImmediateExecutor::execute( std::function<void( VkCommandBuffer cmd )>&& func ) {
+	mutex.lock( );
+
 	VK_CHECK( vkResetFences( gfx->device, 1, &fence ) );
 	VK_CHECK( vkResetCommandBuffer( command_buffer, 0 ) );
 
@@ -79,6 +81,8 @@ void ImmediateExecutor::execute( std::function<void( VkCommandBuffer cmd )>&& fu
 
 	VK_CHECK( vkQueueSubmit2( gfx->graphics_queue, 1, &submit, fence ) );
 	VK_CHECK( vkWaitForFences( gfx->device, 1, &fence, true, 9999999999 ) );
+
+	mutex.unlock( );
 }
 
 void ImmediateExecutor::cleanup( ) {
@@ -101,9 +105,9 @@ GfxDevice::Result<> GfxDevice::init( SDL_Window* window ) {
 	material.base_color = { 1.0f, 0.0f, 0.0f, 1.0f };
 	material.metalness_factor = 1.0f;
 	material.roughness_factor = 1.0f;
-	material.color_id = 50;
-	material.metal_roughness_id = 50;
-	material.normal_id = 50;
+	material.color_id = 35;
+	material.metal_roughness_id = 35;
+	material.normal_id = 35;
 	material_codex.addMaterial( *this, material );
 	material_codex.addMaterial( *this, material );
 	material_codex.addMaterial( *this, material );
@@ -215,8 +219,10 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 	VkPhysicalDeviceVulkan12Features features_12{
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
 		.descriptorIndexing = true,
+		.descriptorBindingSampledImageUpdateAfterBind = true,
+		.descriptorBindingPartiallyBound = true,
 		.runtimeDescriptorArray = true,
-		.bufferDeviceAddress = true
+		.bufferDeviceAddress = true,
 	};
 	VkPhysicalDeviceFeatures features{
 		.fillModeNonSolid = true

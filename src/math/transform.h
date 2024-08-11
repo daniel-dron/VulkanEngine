@@ -4,6 +4,9 @@
 
 class Transform3D {
 public:
+	Transform3D( ) = default;
+	Transform3D( const mat4& matrix );
+
 	const vec3& get_position( ) const;
 	const quat& get_heading( ) const;
 	const vec3& get_scale( ) const;
@@ -19,6 +22,10 @@ public:
 	vec3 get_local_up( );
 	vec3 get_local_right( );
 	vec3 get_local_front( );
+
+	const glm::mat4& as_matrix( ) const;
+
+	Transform3D operator*( const Transform3D& rhs ) const;
 
 private:
 	vec3 position{};

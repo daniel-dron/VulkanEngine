@@ -40,6 +40,8 @@
 #include "tracy/TracyClient.cpp"
 #include "tracy/tracy/Tracy.hpp"
 
+#include <engine/loader.h>
+
 VulkanEngine* loaded_engine = nullptr;
 
 VulkanEngine& VulkanEngine::get( ) { return *loaded_engine; }
@@ -67,6 +69,8 @@ void VulkanEngine::init( ) {
 	const auto structure_file = loadGltf( this, structure_path );
 	assert( structure_file.has_value( ) );
 	loaded_scenes["structure"] = *structure_file;
+
+	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
 
 	// init camera
 	fps_controller =

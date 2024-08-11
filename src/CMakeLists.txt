@@ -57,6 +57,10 @@ file(GLOB SRC_MATH
 file(GLOB SRC_ENGINE
   engine/input.h
   engine/input.cpp
+  engine/loader.h
+  engine/loader.cpp
+  engine/scene.h
+  engine/scene.cpp
 )
 
 file(GLOB SRC_IMGUIZMO

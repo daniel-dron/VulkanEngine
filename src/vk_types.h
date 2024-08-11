@@ -52,6 +52,7 @@ const glm::vec3 GlobalRight{ 1.0f, 0.0f, 0.0f };
 const glm::vec3 GlobalFront{ 0.0f, 0.0f, 1.0f };
 
 using ImageID = uint32_t;
+using MeshID = uint32_t;
 using MaterialID = uint32_t;
 
 struct DeletionQueue {
@@ -177,6 +178,7 @@ struct Node : public IRenderable {
 	}
 };
 
+using vec2 = glm::vec2;
 using vec3 = glm::vec3;
 using vec4 = glm::vec4;
 using mat4 = glm::mat4;

@@ -2,8 +2,10 @@
 
 #include <expected>
 #include <vk_types.h>
+#include <mutex>
 #include "image_codex.h"
 #include "material_codex.h"
+#include "mesh_codex.h"
 #include "swapchain.h"
 
 class GfxDevice;
@@ -37,6 +39,8 @@ struct ImmediateExecutor {
 	VkFence fence;
 	VkCommandBuffer command_buffer;
 	VkCommandPool pool;
+
+	std::mutex mutex;
 
 	enum class Error {
 
@@ -96,6 +100,7 @@ public:
 
 	ImageCodex image_codex;
 	MaterialCodex material_codex;
+	MeshCodex mesh_codex;
 
 private:
 	Result<> initDevice( struct SDL_Window* window );
