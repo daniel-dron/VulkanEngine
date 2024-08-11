@@ -21,6 +21,8 @@
 #include "graphics/gfx_device.h"
 #include <graphics/material_codex.h>
 
+#include <engine/scene.h>
+
 class VulkanEngine;
 
 struct ComputePushConstants {
@@ -187,8 +189,10 @@ public:
 	GltfMetallicRoughness metal_rough_material;
 
 	DrawContext main_draw_context;
+	std::vector<MeshDrawCommand> draw_commands;
 
 	std::unordered_map<std::string, std::shared_ptr<LoadedGltf>> loaded_scenes;
+	std::unordered_map<std::string, std::unique_ptr<Scene>> scenes;
 	Camera3D camera;
 	std::unique_ptr<FirstPersonFlyingController> fps_controller;
 	CameraController* camera_controller;

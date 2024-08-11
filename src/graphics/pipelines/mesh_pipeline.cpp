@@ -134,14 +134,14 @@ DrawStats MeshPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::ve
 		auto gpu_scene_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
 
 		PushConstants push_constants = {
-			.world_from_local = draw_command.transform,
+			.world_from_local = draw_command.world_from_local,
 			.scene_data_address = gpu_scene_address,
 			.vertex_buffer_address = draw_command.vertex_buffer_address,
-			.material_id = 2
+			.material_id = draw_command.material_id
 		};
 		vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( PushConstants ), &push_constants );
 
-		vkCmdDrawIndexed( cmd, draw_command.index_count, 1, draw_command.first_index, 0, 0 );
+		vkCmdDrawIndexed( cmd, draw_command.index_count, 1, 0, 0, 0 );
 
 		stats.drawcall_count++;
 		stats.triangle_count += draw_command.index_count / 3;

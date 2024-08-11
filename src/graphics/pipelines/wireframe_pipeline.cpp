@@ -81,7 +81,7 @@ void WireframePipeline::cleanup( GfxDevice& gfx ) {
 	gfx.free( gpu_scene_data );
 }
 
-DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const {
+DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<OldMeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const {
 	DrawStats stats = {};
 
 	GpuSceneData* gpu_scene_addr = nullptr;

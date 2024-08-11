@@ -7,6 +7,9 @@ class GfxDevice;
 struct GpuMesh {
 	GpuBuffer index_buffer;
 	GpuBuffer vertex_buffer;
+
+	uint32_t index_count;
+	VkDeviceAddress vertex_buffer_address;
 };
 
 struct Mesh {

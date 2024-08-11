@@ -20,8 +20,6 @@ MeshID MeshCodex::addMesh( GfxDevice& gfx, const Mesh& mesh ) {
 }
 
 const GpuMesh& MeshCodex::getMesh( MeshID id ) const {
-	assert( false && "Implement upload mesh!" );
-
 	return meshes.at( id );
 }
 
@@ -74,6 +72,13 @@ GpuMesh MeshCodex::uploadMesh( GfxDevice& gfx, const Mesh& mesh ) {
 
 	gpu_mesh.index_buffer = index_buffer;
 	gpu_mesh.vertex_buffer = vertex_buffer;
+	gpu_mesh.index_count = mesh.indices.size( );
+
+	VkBufferDeviceAddressInfo address_info = {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+		.buffer = vertex_buffer.buffer
+	};
+	gpu_mesh.vertex_buffer_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
 
 	return gpu_mesh;
 }

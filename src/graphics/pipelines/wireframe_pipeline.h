@@ -22,7 +22,7 @@ public:
 	Result<> init( GfxDevice& gfx );
 	void cleanup( GfxDevice& gfx );
 
-	DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const;
+	DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<OldMeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const;
 
 private:
 	struct PushConstants {

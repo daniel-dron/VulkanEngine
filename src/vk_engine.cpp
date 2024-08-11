@@ -65,12 +65,13 @@ void VulkanEngine::init( ) {
 
 	initScene( );
 
-	const std::string structure_path = { "../../assets/sponza_scene.glb" };
-	const auto structure_file = loadGltf( this, structure_path );
-	assert( structure_file.has_value( ) );
-	loaded_scenes["structure"] = *structure_file;
+	//const std::string structure_path = { "../../assets/sponza_scene.glb" };
+	//const auto structure_file = loadGltf( this, structure_path );
+	//assert( structure_file.has_value( ) );
+	//loaded_scenes["structure"] = *structure_file;
 
 	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
+	scenes["sponza"] = std::move( scene );
 
 	// init camera
 	fps_controller =
@@ -639,35 +640,35 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 	// begin clock
 	auto start = std::chrono::system_clock::now( );
 
-	//
-	// sort opaque surfaces by material and mesh
-	//
-	std::vector<uint32_t> opaque_draws;
-	opaque_draws.reserve( main_draw_context.opaque_surfaces.size( ) );
-	{
-		ZoneScopedN( "order" );
-		for ( uint32_t i = 0; i < main_draw_context.opaque_surfaces.size( ); i++ ) {
-			if ( renderer_options.frustum ) {
-				auto& viewproj = scene_data.viewproj;
-				if ( is_visible( main_draw_context.opaque_surfaces[i], viewproj ) ) {
-					opaque_draws.push_back( i );
-				}
-			} else {
-				opaque_draws.push_back( i );
-			}
-		}
+	////
+	//// sort opaque surfaces by material and mesh
+	////
+	//std::vector<uint32_t> opaque_draws;
+	//opaque_draws.reserve( main_draw_context.opaque_surfaces.size( ) );
+	//{
+	//	ZoneScopedN( "order" );
+	//	for ( uint32_t i = 0; i < main_draw_context.opaque_surfaces.size( ); i++ ) {
+	//		if ( renderer_options.frustum ) {
+	//			auto& viewproj = scene_data.viewproj;
+	//			if ( is_visible( main_draw_context.opaque_surfaces[i], viewproj ) ) {
+	//				opaque_draws.push_back( i );
+	//			}
+	//		} else {
+	//			opaque_draws.push_back( i );
+	//		}
+	//	}
 
-		std::ranges::sort( opaque_draws, [&]( const auto& i_a, const auto& i_b ) {
-			const RenderObject& a = main_draw_context.opaque_surfaces[i_a];
-			const RenderObject& b = main_draw_context.opaque_surfaces[i_b];
+	//	std::ranges::sort( opaque_draws, [&]( const auto& i_a, const auto& i_b ) {
+	//		const RenderObject& a = main_draw_context.opaque_surfaces[i_a];
+	//		const RenderObject& b = main_draw_context.opaque_surfaces[i_b];
 
-			if ( a.material == b.material ) {
-				return a.index_buffer < b.index_buffer;
-			} else {
-				return a.material < b.material;
-			}
-		} );
-	}
+	//		if ( a.material == b.material ) {
+	//			return a.index_buffer < b.index_buffer;
+	//		} else {
+	//			return a.material < b.material;
+	//		}
+	//	} );
+	//}
 
 	// -----------
 	// begin render frame
@@ -686,27 +687,27 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 	}
 
 	{
-		std::vector<MeshDrawCommand> mesh_draw_commands;
 		ZoneScopedN( "render" );
-		for ( auto& r : opaque_draws ) {
-			const auto dc = main_draw_context.opaque_surfaces[r];
-			MeshDrawCommand mdc = {
-				.index_count = dc.index_count,
-				.first_index = dc.first_index,
-				.index_buffer = dc.index_buffer,
-				.material = dc.material,
-				.bounds = dc.bounds,
-				.transform = dc.transform,
-				.vertex_buffer_address = dc.vertex_buffer_address
-			};
-			mesh_draw_commands.push_back( mdc );
-		}
+		//std::vector<OldMeshDrawCommand> mesh_draw_commands;
+		//for ( auto& r : opaque_draws ) {
+		//	const auto dc = main_draw_context.opaque_surfaces[r];
+		//	OldMeshDrawCommand mdc = {
+		//		.index_count = dc.index_count,
+		//		.first_index = dc.first_index,
+		//		.index_buffer = dc.index_buffer,
+		//		.material = dc.material,
+		//		.bounds = dc.bounds,
+		//		.transform = dc.transform,
+		//		.vertex_buffer_address = dc.vertex_buffer_address
+		//	};
+		//	mesh_draw_commands.push_back( mdc );
+		//}
 
 		DrawStats s = {};
 		if ( renderer_options.wireframe ) {
-			s = wireframe_pipeline.draw( *gfx, cmd, mesh_draw_commands, scene_data );
+			//s = wireframe_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
 		} else {
-			s = mesh_pipeline.draw( *gfx, cmd, mesh_draw_commands, scene_data );
+			s = mesh_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
 		}
 		stats.drawcall_count += s.drawcall_count;
 		stats.triangle_count += s.triangle_count;
@@ -1104,14 +1105,43 @@ void VulkanEngine::drawImgui( VkCommandBuffer cmd,
 	vkCmdEndRendering( cmd );
 }
 
+static void createDrawCommands( GfxDevice& gfx, const Scene& scene, const Scene::Node& node, std::vector<MeshDrawCommand>& draw_commands ) {
+	if ( node.mesh_index != -1 ) {
+		auto& mesh_asset = scene.meshes[node.mesh_index];
+
+		size_t i = 0;
+		for ( auto& primitive : mesh_asset.primitives ) {
+			auto& mesh = gfx.mesh_codex.getMesh( primitive );
+
+			MeshDrawCommand mdc = {
+				.index_buffer = mesh.index_buffer.buffer,
+				.index_count = mesh.index_count,
+				.vertex_buffer_address = mesh.vertex_buffer_address,
+				.world_from_local = node.transform.as_matrix( ),
+				.material_id = scene.materials[mesh_asset.materials[i]]
+			};
+			draw_commands.push_back( mdc );
+
+			i++;
+		}
+	}
+
+	for ( auto& n : node.children ) {
+		createDrawCommands( gfx, scene, *n.get( ), draw_commands );
+	}
+}
+
 void VulkanEngine::updateScene( ) {
 	ZoneScopedN( "update_scene" );
 	auto start = std::chrono::system_clock::now( );
 
-	main_draw_context.opaque_surfaces.clear( );
-	main_draw_context.transparent_surfaces.clear( );
+	//main_draw_context.opaque_surfaces.clear( );
+	//main_draw_context.transparent_surfaces.clear( );
+	//loaded_scenes["structure"]->Draw( glm::mat4{ 1.f }, main_draw_context );
 
-	loaded_scenes["structure"]->Draw( glm::mat4{ 1.f }, main_draw_context );
+	draw_commands.clear( );
+	auto scene = scenes["sponza"].get( );
+	createDrawCommands( *gfx.get( ), *scene, *(scenes["sponza"]->top_nodes[0].get( )), draw_commands );
 
 	scene_data.view = camera.get_view_matrix( );
 	// camera projection

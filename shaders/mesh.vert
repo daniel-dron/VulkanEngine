@@ -8,10 +8,9 @@
 #include "push_constants.glsl"
 
 layout (location = 0) out vec3 out_normal;
-layout (location = 1) out vec3 outColor;
-layout (location = 2) out vec2 outUV;
-layout (location = 3) out vec3 out_frag_pos;
-layout (location = 4) out mat3 out_tbn;
+layout (location = 1) out vec2 out_uvs;
+layout (location = 2) out vec3 out_frag_pos;
+layout (location = 3) out mat3 out_tbn;
 
 void main() 
 {
@@ -22,9 +21,8 @@ void main()
 
 	gl_Position = pc.scene.viewproj * pc.model *position;
 
-	outColor = v.color.xyz * material.base_color.rgb;	
-	outUV.x = v.uv_x;
-	outUV.y = v.uv_y;
+	out_uvs.x = v.uv_x;
+	out_uvs.y = v.uv_y;
 	out_frag_pos = vec4(pc.model * position).xyz;
 
 	out_normal = normalize(vec3(pc.model * vec4(v.normal, 0.0f)));//normalize(mat3(transpose(inverse(PushConstants.model))) * v.normal);//(PushConstants.model * vec4(v.normal, 0.f)).xyz;
