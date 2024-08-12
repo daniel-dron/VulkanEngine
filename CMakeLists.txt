@@ -41,3 +41,5 @@ add_custom_target(
     Shaders 
     DEPENDS ${SPIRV_BINARY_FILES}
     )
+
+source_group(Shaders "shaders" FILES ${GLSL_SOURCE_FILES})

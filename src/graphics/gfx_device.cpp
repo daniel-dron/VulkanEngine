@@ -44,6 +44,8 @@ ImmediateExecutor::Result<> ImmediateExecutor::init( GfxDevice* gfx ) {
 }
 
 void ImmediateExecutor::execute( std::function<void( VkCommandBuffer cmd )>&& func ) {
+	mutex.lock( );
+
 	VK_CHECK( vkResetFences( gfx->device, 1, &fence ) );
 	VK_CHECK( vkResetCommandBuffer( command_buffer, 0 ) );
 
@@ -79,6 +81,8 @@ void ImmediateExecutor::execute( std::function<void( VkCommandBuffer cmd )>&& fu
 
 	VK_CHECK( vkQueueSubmit2( gfx->graphics_queue, 1, &submit, fence ) );
 	VK_CHECK( vkWaitForFences( gfx->device, 1, &fence, true, 9999999999 ) );
+
+	mutex.unlock( );
 }
 
 void ImmediateExecutor::cleanup( ) {
@@ -95,6 +99,22 @@ GfxDevice::Result<> GfxDevice::init( SDL_Window* window ) {
 	executor.init( this );
 
 	image_codex.init( this );
+	material_codex.init( *this );
+
+	Material material = {};
+	material.base_color = { 1.0f, 0.0f, 0.0f, 1.0f };
+	material.metalness_factor = 1.0f;
+	material.roughness_factor = 1.0f;
+	material.color_id = 35;
+	material.metal_roughness_id = 35;
+	material.normal_id = 35;
+	material_codex.addMaterial( *this, material );
+	material_codex.addMaterial( *this, material );
+	material_codex.addMaterial( *this, material );
+	material.color_id = 10;
+	material_codex.addMaterial( *this, material );
+	material_codex.addMaterial( *this, material );
+	material_codex.addMaterial( *this, material );
 
 	swapchain.init( this, 1920, 1080 );
 
@@ -105,7 +125,7 @@ void GfxDevice::execute( std::function<void( VkCommandBuffer )>&& func ) {
 	executor.execute( std::move( func ) );
 }
 
-AllocatedBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vma_usage, const std::string& name ) {
+GpuBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vma_usage, const std::string& name ) {
 	const VkBufferCreateInfo info = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.pNext = nullptr,
@@ -114,11 +134,11 @@ AllocatedBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaM
 	};
 
 	const VmaAllocationCreateInfo vma_info = {
-		.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
+		.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
 		.usage = vma_usage
 	};
 
-	AllocatedBuffer buffer{};
+	GpuBuffer buffer{};
 	VK_CHECK( vmaCreateBuffer( allocator, &info, &vma_info, &buffer.buffer, &buffer.allocation, &buffer.info ) );
 	buffer.name = name;
 
@@ -137,7 +157,7 @@ AllocatedBuffer GfxDevice::allocate( size_t size, VkBufferUsageFlags usage, VmaM
 	return buffer;
 }
 
-void GfxDevice::free( const AllocatedBuffer& buffer ) {
+void GfxDevice::free( const GpuBuffer& buffer ) {
 
 #ifdef ENABLE_DEBUG_UTILS
 	allocation_counter[buffer.name]--;
@@ -148,13 +168,23 @@ void GfxDevice::free( const AllocatedBuffer& buffer ) {
 
 void GfxDevice::cleanup( ) {
 	swapchain.cleanup( );
+	material_codex.cleanup( *this );
 	image_codex.cleanup( );
+	mesh_codex.cleanup( *this );
 	executor.cleanup( );
 	vmaDestroyAllocator( allocator );
 	vkDestroySurfaceKHR( instance, surface, nullptr );
 	vkDestroyDevice( device, nullptr );
 	vkb::destroy_debug_utils_messenger( instance, debug_messenger );
 	vkDestroyInstance( instance, nullptr );
+}
+
+VkDescriptorSetLayout GfxDevice::getBindlessLayout( ) const {
+	return image_codex.getBindlessLayout( );
+}
+
+VkDescriptorSet GfxDevice::getBindlessSet( ) const {
+	return image_codex.getBindlessSet( );
 }
 
 GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
@@ -190,7 +220,10 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 	VkPhysicalDeviceVulkan12Features features_12{
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
 		.descriptorIndexing = true,
-		.bufferDeviceAddress = true
+		.descriptorBindingSampledImageUpdateAfterBind = true,
+		.descriptorBindingPartiallyBound = true,
+		.runtimeDescriptorArray = true,
+		.bufferDeviceAddress = true,
 	};
 	VkPhysicalDeviceFeatures features{
 		.fillModeNonSolid = true
@@ -202,6 +235,7 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 		.set_required_features_13( features_13 )
 		.set_required_features_12( features_12 )
 		.set_required_features( features )
+		.add_required_extension( "VK_EXT_descriptor_indexing" )
 		.set_surface( surface )
 		.select( );
 	if ( !physical_device_res ) {
@@ -221,6 +255,13 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 
 	auto& bs_device = device_res.value( );
 	device = bs_device;
+
+	VkPhysicalDeviceProperties properties;
+	vkGetPhysicalDeviceProperties( physical_device.physical_device, &properties );
+
+	// Access maxDescriptorSetCount
+	uint32_t maxDescriptorSetCount = properties.limits.maxDescriptorSetSampledImages;
+	fmt::println( "Max sampled images: {}", maxDescriptorSetCount );
 
 	// ---------
 	// Queue

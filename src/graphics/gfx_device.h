@@ -2,7 +2,10 @@
 
 #include <expected>
 #include <vk_types.h>
+#include <mutex>
 #include "image_codex.h"
+#include "material_codex.h"
+#include "mesh_codex.h"
 #include "swapchain.h"
 
 class GfxDevice;
@@ -37,6 +40,8 @@ struct ImmediateExecutor {
 	VkCommandBuffer command_buffer;
 	VkCommandPool pool;
 
+	std::mutex mutex;
+
 	enum class Error {
 
 	};
@@ -70,9 +75,12 @@ public:
 
 	Result<> init( struct SDL_Window* window );
 	void execute( std::function<void( VkCommandBuffer )>&& func );
-	AllocatedBuffer allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vma_usage, const std::string& name );
-	void free( const AllocatedBuffer& buffer );
+	GpuBuffer allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vma_usage, const std::string& name );
+	void free( const GpuBuffer& buffer );
 	void cleanup( );
+
+	VkDescriptorSetLayout getBindlessLayout( ) const;
+	VkDescriptorSet getBindlessSet( ) const;
 
 	VkInstance instance;
 	VkPhysicalDevice chosen_gpu;
@@ -91,6 +99,8 @@ public:
 	::Swapchain swapchain;
 
 	ImageCodex image_codex;
+	MaterialCodex material_codex;
+	MeshCodex mesh_codex;
 
 private:
 	Result<> initDevice( struct SDL_Window* window );

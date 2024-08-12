@@ -52,6 +52,8 @@ const glm::vec3 GlobalRight{ 1.0f, 0.0f, 0.0f };
 const glm::vec3 GlobalFront{ 0.0f, 0.0f, 1.0f };
 
 using ImageID = uint32_t;
+using MeshID = uint32_t;
+using MaterialID = uint32_t;
 
 struct DeletionQueue {
 	std::deque<std::function<void( )>> deletors;
@@ -74,58 +76,11 @@ struct DeletionQueue {
 	}
 };
 
-struct AllocatedImage {
-	VkImage image;
-	VkImageView view;
-	VmaAllocation allocation;
-	VkExtent3D extent;
-	VkFormat format;
-};
-
-struct AllocatedBuffer {
+struct GpuBuffer {
 	VkBuffer buffer;
 	VmaAllocation allocation;
 	VmaAllocationInfo info;
 	std::string name;
-};
-
-struct Vertex {
-	glm::vec3 position;
-	float uv_x;
-	glm::vec3 normal;
-	float uv_y;
-	glm::vec4 color;
-	glm::vec4 tangent;
-};
-
-// resources needed for a single mesh
-struct GPUMeshBuffers {
-	AllocatedBuffer indexBuffer;
-	AllocatedBuffer vertexBuffer;
-	VkDeviceAddress vertexBufferAddress;
-};
-
-// push constants for our mesh object to be drawn
-struct GPUDrawPushConstants {
-	glm::mat4 worldMatrix;
-	VkDeviceAddress vertexBuffer;
-};
-
-//
-// Rendering system types
-//
-
-enum class MaterialPass : uint8_t { MainColor, Transparent, Other };
-
-struct MaterialPipeline {
-	VkPipeline pipeline;
-	VkPipelineLayout layout;
-};
-
-struct MaterialInstance {
-	MaterialPipeline* pipeline;
-	MaterialPass passType;
-	VkDescriptorSet materialSet;
 };
 
 struct EngineStats {
@@ -136,46 +91,8 @@ struct EngineStats {
 	float mesh_draw_time;
 };
 
-struct Bounds {
-	glm::vec3 origin;
-	float sphereRadius;
-	glm::vec3 extents;
-};
 
-struct DrawContext;
-
-class IRenderable {
-public:
-	virtual ~IRenderable( ) = default;
-
-private:
-	virtual void Draw( const glm::mat4& topMatrix, DrawContext& ctx ) = 0;
-};
-
-struct Node : public IRenderable {
-	// parent pointer must be a weak pointer to avoid circular dependencies
-	std::weak_ptr<Node> parent;
-	std::vector<std::shared_ptr<Node>> children;
-
-	std::string name;
-
-	glm::mat4 localTransform;
-	glm::mat4 worldTransform;
-
-	void refreshTransform( const glm::mat4& parentMatrix ) {
-		worldTransform = parentMatrix * localTransform;
-		for ( auto c : children ) {
-			c->refreshTransform( worldTransform );
-		}
-	}
-
-	void Draw( const glm::mat4& topMatrix, DrawContext& ctx ) override {
-		for ( auto& c : children ) {
-			c->Draw( topMatrix, ctx );
-		}
-	}
-};
-
+using vec2 = glm::vec2;
 using vec3 = glm::vec3;
 using vec4 = glm::vec4;
 using mat4 = glm::mat4;
@@ -187,6 +104,8 @@ struct GpuPointLightData {
 	vec4 color;
 	float diffuse;
 	float specular;
+	int pad;
+	int pad2;
 };
 
 struct GpuSceneData {
@@ -194,13 +113,12 @@ struct GpuSceneData {
 	mat4 proj;
 	mat4 viewproj;
 	vec4 fog_color;
-	float fog_end;
-	float fog_start;
-	float _pad1;
-	float _pad2;
 	vec3 camera_position;
 	float ambient_light_factor;
 	vec3 ambient_light_color;
+	float fog_end;
+	float fog_start;
+	VkDeviceAddress materials;
 	int number_of_lights;
 	GpuPointLightData point_lights[10];
 };

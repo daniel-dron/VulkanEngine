@@ -160,6 +160,7 @@ void Swapchain::createFrameImages( ) {
 
 	VkImageUsageFlags depth_image_usages{};
 	depth_image_usages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	depth_image_usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
 	for ( auto& frame : frames ) {
 		std::vector<unsigned char> empty_image_data;

@@ -1,17 +1,25 @@
 #include "image_codex.h"
 
+#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include "gfx_device.h"
 #include <vk_initializers.h>
 #include <vk_images.h>
 
-void ImageCodex::init( GfxDevice* gfx ) { this->gfx = gfx; }
+void ImageCodex::init( GfxDevice* gfx ) {
+	this->gfx = gfx;
+	bindless_registry.init( *this->gfx );
+
+	initDefaultImages( );
+}
 
 void ImageCodex::cleanup( ) {
 	for ( auto& img : images ) {
 		vkDestroyImageView( gfx->device, img.view, nullptr );
 		vmaDestroyImage( gfx->allocator, img.image, img.allocation );
 	}
+
+	bindless_registry.cleanup( *gfx );
 }
 
 const std::vector<GpuImage>& ImageCodex::getImages( ) { return images; }
@@ -67,7 +75,7 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 		data_size = data_size * 2;
 	}
 
-	AllocatedBuffer staging_buffer = gfx->allocate(
+	GpuBuffer staging_buffer = gfx->allocate(
 		data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, __FUNCTION__ );
 
 	void* mapped_buffer = nullptr;
@@ -137,13 +145,46 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 		.pNext = nullptr,
 		.objectType = VkObjectType::VK_OBJECT_TYPE_IMAGE,
 		.objectHandle = (uint64_t)image.image,
-		.pObjectName = name.c_str()
+		.pObjectName = name.c_str( )
 	};
 	vkSetDebugUtilsObjectNameEXT( gfx->device, &obj );
 #endif
 
 	ImageID image_id = images.size( );
 	image.id = image_id;
+
+	bindless_registry.addImage( *gfx, image_id, image.view );
 	images.push_back( std::move( image ) );
+
 	return image_id;
+}
+
+VkDescriptorSetLayout ImageCodex::getBindlessLayout( ) const {
+	return bindless_registry.layout;
+}
+
+VkDescriptorSet ImageCodex::getBindlessSet( ) const {
+	return bindless_registry.set;
+}
+
+void ImageCodex::initDefaultImages( ) {
+	// 3 default textures, white, grey, black. 1 pixel each
+	uint32_t white = glm::packUnorm4x8( glm::vec4( 1, 1, 1, 1 ) );
+	white = loadImageFromData( "debug_white_img", (void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+
+	uint32_t grey = glm::packUnorm4x8( glm::vec4( 0.66f, 0.66f, 0.66f, 1 ) );
+	grey = loadImageFromData( "debug_grey_img", (void*)&grey, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+
+	uint32_t black = glm::packUnorm4x8( glm::vec4( 0, 0, 0, 0 ) );
+	black = loadImageFromData( "debug_black_img", (void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+
+	// checkerboard image
+	uint32_t magenta = glm::packUnorm4x8( glm::vec4( 1, 0, 1, 1 ) );
+	std::array<uint32_t, 16 * 16> pixels;  // for 16x16 checkerboard texture
+	for ( int x = 0; x < 16; x++ ) {
+		for ( int y = 0; y < 16; y++ ) {
+			pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
+		}
+	}
+	checkboard = loadImageFromData( "debug_checkboard_img", (void*)&white, VkExtent3D{ 16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 }
