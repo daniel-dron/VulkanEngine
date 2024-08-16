@@ -27,7 +27,6 @@ public:
 		VkSemaphore render_semaphore;
 		VkFence fence;
 		DeletionQueue deletion_queue;
-		DescriptorAllocatorGrowable frame_descriptors;
 		ImageID color;
 		ImageID depth;
 		VkDescriptorSet set = nullptr;

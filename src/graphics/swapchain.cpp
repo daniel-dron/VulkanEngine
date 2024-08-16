@@ -58,7 +58,6 @@ void Swapchain::cleanup( ) {
 		vkDestroySemaphore( gfx->device, frames[i].swapchain_semaphore, nullptr );
 
 		frames[i].deletion_queue.flush( );
-		frames[i].frame_descriptors.destroy_pools( gfx->device );
 	}
 
 	vkDestroySwapchainKHR( gfx->device, swapchain, nullptr );

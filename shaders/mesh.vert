@@ -7,10 +7,9 @@
 #include "input_structures.glsl"
 #include "push_constants.glsl"
 
-layout (location = 0) out vec3 out_normal;
-layout (location = 1) out vec2 out_uvs;
-layout (location = 2) out vec3 out_frag_pos;
-layout (location = 3) out mat3 out_tbn;
+layout (location = 0) out vec2 out_uvs;
+layout (location = 1) out vec3 out_frag_pos;
+layout (location = 2) out mat3 out_tbn;
 
 void main() 
 {
@@ -25,9 +24,8 @@ void main()
 	out_uvs.y = v.uv_y;
 	out_frag_pos = vec4(pc.model * position).xyz;
 
-	out_normal = normalize(vec3(pc.model * vec4(v.normal, 0.0f)));//normalize(mat3(transpose(inverse(PushConstants.model))) * v.normal);//(PushConstants.model * vec4(v.normal, 0.f)).xyz;
+	vec3 out_normal = normalize(vec3(pc.model * vec4(v.normal, 0.0f)));
 	vec3 tangent = normalize(vec3(pc.model * vec4(v.tangent.rgb, 0.0f)));
-	// out_tangent = v.tangent.rgb;
 	vec3 bitangent = cross(out_normal, tangent);
 
 	out_tbn = mat3(tangent, bitangent, out_normal);
