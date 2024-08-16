@@ -6,10 +6,9 @@
 #include "input_structures.glsl"
 #include "push_constants.glsl"
 
-layout (location = 0) in vec3 inNormal;
-layout (location = 1) in vec2 in_uvs;
-layout (location = 2) in vec3 in_frag_pos;
-layout (location = 3) in mat3 in_tbn;
+layout (location = 0) in vec2 in_uvs;
+layout (location = 1) in vec3 in_frag_pos;
+layout (location = 2) in mat3 in_tbn;
 
 layout (location = 0) out vec4 outFragColor;
 
@@ -17,7 +16,6 @@ void main()
 {
 	Material material = pc.scene.materials.mat[pc.material_id];
 
-	// vec3 norm = normalize(inNormal);
 	vec3 norm = sampleTexture2DNearest(material.normal_tex, in_uvs).rgb;
 	norm = normalize(norm * 2.0f - 1.0f);
 	norm = normalize(in_tbn * norm);

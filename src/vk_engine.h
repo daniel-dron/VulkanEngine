@@ -24,22 +24,6 @@
 
 class VulkanEngine;
 
-struct ComputePushConstants {
-	glm::vec4 data1;
-	glm::vec4 data2;
-	glm::vec4 data3;
-	glm::vec4 data4;
-};
-
-struct ComputeEffect {
-	const char* name;
-
-	VkPipeline pipeline;
-	VkPipelineLayout layout;
-
-	ComputePushConstants data;
-};
-
 struct RendererOptions {
 	bool wireframe = false;
 	bool frustum = false;
@@ -83,14 +67,6 @@ public:
 	float render_scale = 1.f;
 
 	//
-	// descriptors
-	//
-	DescriptorAllocatorGrowable global_descriptor_allocator;
-
-	VkDescriptorSet draw_image_descriptors;
-	VkDescriptorSetLayout draw_image_descriptor_layout;
-
-	//
 	// Pipeline
 	//
 	VkPipelineLayout gradient_pipeline_layout;
@@ -99,15 +75,11 @@ public:
 	MeshPipeline mesh_pipeline;
 	WireframePipeline wireframe_pipeline;
 
-	std::vector<ComputeEffect> background_effects;
-	int current_background_effect{ 0 };
-
 	// ----------
 	// scene
 	std::vector<PointLight> point_lights;
 	GpuSceneData scene_data;
 	GpuBuffer gpu_scene_data;
-	VkDescriptorSetLayout gpu_scene_data_descriptor_layout;
 
 	ImageID white_image;
 	ImageID black_image;
@@ -135,31 +107,8 @@ private:
 	/// @brief Initializes core vulkan resources
 	void initVulkan( );
 
-	/// @brief Initializes swapchain.
-	/// Creates an intermediate draw image where the actual frame rendering is
-	/// done onto. The contents are then blipped to the swap chain image at the
-	/// end of the frame. Also creates a depth image.
-
-	/// @brief Creates pipeline descriptors and its allocators.
-	/// Creates a growable descriptor allocator for each inflight frame.
-	/// Creates a descriptor set for the background compute shader.
-	/// Creates a descriptor set for scene data.
-	void initDescriptors( );
-
-	/// @brief Creates general pipelines.
-	/// Creates the background compute pipeline.
-	/// Creates the PBR Metalness pipeline.
-	void initPipelines( );
-
-	/// @brief Creates the background compute pipeline.
-	void initBackgroundPipelines( );
-
 	/// @brief Initializes ImGui entire context
 	void initImgui( );
-
-	/// @brief Dispatches compute shader to fill in main image
-	/// @param cmd VkCommandBuffer that will queue in the work
-	void drawBackground( VkCommandBuffer cmd );
 
 	/// @brief Responsible for queueing commands to render all Renderables.
 	/// Sorts based on material and performs frustum culling.

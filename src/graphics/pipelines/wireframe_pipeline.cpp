@@ -16,7 +16,7 @@ WireframePipeline::Result<> WireframePipeline::init( GfxDevice& gfx ) {
 	}
 
 	VkShaderModule vert_shader;
-	if ( !load_shader_module( "../../shaders/mesh.vert.spv", gfx.device, &vert_shader ) ) {
+	if ( !load_shader_module( "../../shaders/wireframe.vert.spv", gfx.device, &vert_shader ) ) {
 		return std::unexpected( PipelineError{
 			.error = Error::ShaderLoadingFailed,
 			.message = "Failed to load mesh vertex shader!"

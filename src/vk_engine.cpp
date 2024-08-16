@@ -106,158 +106,6 @@ void VulkanEngine::initVulkan( ) {
 	gfx->init( window );
 
 	main_deletion_queue.flush( );
-
-	initDescriptors( );
-	initPipelines( );
-}
-
-void VulkanEngine::initDescriptors( ) {
-	std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
-		{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1} };
-
-	global_descriptor_allocator.init( gfx->device, 1000, sizes );
-
-	{
-		DescriptorLayoutBuilder builder;
-		builder.add_binding( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-		draw_image_descriptor_layout =
-			builder.build( gfx->device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr );
-	}
-
-	draw_image_descriptors = global_descriptor_allocator.allocate(
-		gfx->device, draw_image_descriptor_layout );
-	const VkDebugUtilsObjectNameInfoEXT obj = {
-		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-		.pNext = nullptr,
-		.objectType = VkObjectType::VK_OBJECT_TYPE_DESCRIPTOR_SET,
-		.objectHandle = (uint64_t)draw_image_descriptors,
-		.pObjectName = "Compute Draw Image"
-	};
-	vkSetDebugUtilsObjectNameEXT( gfx->device, &obj );
-
-	auto& color_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
-
-	DescriptorWriter writer;
-	writer.write_image( 0, color_image.view, VK_NULL_HANDLE,
-		VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-	writer.update_set( gfx->device, draw_image_descriptors );
-
-	for ( int i = 0; i < gfx->swapchain.FRAME_OVERLAP; i++ ) {
-		// create a descriptor pool
-		std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> frame_sizes = {
-			{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
-			{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
-			{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
-			{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
-		};
-
-		gfx->swapchain.frames[i].frame_descriptors = DescriptorAllocatorGrowable{};
-		gfx->swapchain.frames[i].frame_descriptors.init( gfx->device, 1000, frame_sizes );
-
-		main_deletion_queue.pushFunction(
-			[&, i]( ) { gfx->swapchain.frames[i].frame_descriptors.destroy_pools( gfx->device ); } );
-	}
-
-	//
-	// init scene descriptors
-	//
-	{
-		DescriptorLayoutBuilder builder;
-		builder.add_binding( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-		gpu_scene_data_descriptor_layout = builder.build(
-			gfx->device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-			nullptr );
-	}
-
-	// make sure both the descriptor allocator and the new layout get cleaned up
-	// properly
-	main_deletion_queue.pushFunction( [&]( ) {
-		global_descriptor_allocator.destroy_pools( gfx->device );
-
-		vkDestroyDescriptorSetLayout( gfx->device, draw_image_descriptor_layout, nullptr );
-	} );
-}
-
-void VulkanEngine::initPipelines( ) {
-	// compute
-	initBackgroundPipelines( );
-}
-
-void VulkanEngine::initBackgroundPipelines( ) {
-	VkPipelineLayoutCreateInfo computeLayout{};
-	computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	computeLayout.pNext = nullptr;
-	computeLayout.pSetLayouts = &draw_image_descriptor_layout;
-	computeLayout.setLayoutCount = 1;
-
-	// push constants
-	VkPushConstantRange pushConstant{};
-	pushConstant.offset = 0;
-	pushConstant.size = sizeof( ComputePushConstants );
-	pushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-	computeLayout.pushConstantRangeCount = 1;
-	computeLayout.pPushConstantRanges = &pushConstant;
-
-	VK_CHECK( vkCreatePipelineLayout( gfx->device, &computeLayout, nullptr,
-		&gradient_pipeline_layout ) );
-
-	VkShaderModule gradientShader;
-	if ( !vkutil::load_shader_module( "../../shaders/gradient_color.comp.spv",
-		gfx->device, &gradientShader ) ) {
-		fmt::println(
-			"Error when building the compute shader [gradient_color.comp]" );
-	}
-
-	VkShaderModule skyShader;
-	if ( !vkutil::load_shader_module( "../../shaders/sky.comp.spv", gfx->device,
-		&skyShader ) ) {
-		fmt::println( "Error when building the compute shader [sky.comp]" );
-	}
-
-	VkPipelineShaderStageCreateInfo stageinfo{};
-	stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	stageinfo.pNext = nullptr;
-	stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-	stageinfo.module = gradientShader;
-	stageinfo.pName = "main";
-
-	VkComputePipelineCreateInfo computePipelineCreateInfo{};
-	computePipelineCreateInfo.sType =
-		VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-	computePipelineCreateInfo.pNext = nullptr;
-	computePipelineCreateInfo.layout = gradient_pipeline_layout;
-	computePipelineCreateInfo.stage = stageinfo;
-
-	ComputeEffect gradient;
-	gradient.layout = gradient_pipeline_layout;
-	gradient.name = "gradient";
-	gradient.data = { .data1 = glm::vec4( 1, 0, 0, 1 ),
-					 .data2 = glm::vec4( 0, 0, 1, 1 ) };
-
-	VK_CHECK( vkCreateComputePipelines( gfx->device, VK_NULL_HANDLE, 1,
-		&computePipelineCreateInfo, nullptr,
-		&gradient.pipeline ) );
-
-	ComputeEffect sky;
-	sky.layout = gradient_pipeline_layout;
-	sky.name = "sky";
-	sky.data = { .data1 = glm::vec4( 0.1, 0.2, 0.4, 0.97 ) };
-
-	VK_CHECK( vkCreateComputePipelines( gfx->device, VK_NULL_HANDLE, 1,
-		&computePipelineCreateInfo, nullptr,
-		&sky.pipeline ) );
-
-	background_effects.push_back( gradient );
-	background_effects.push_back( sky );
-
-	vkDestroyShaderModule( gfx->device, gradientShader, nullptr );
-	vkDestroyShaderModule( gfx->device, skyShader, nullptr );
-	main_deletion_queue.pushFunction( [&, sky, gradient]( ) {
-		vkDestroyPipelineLayout( gfx->device, gradient_pipeline_layout, nullptr );
-		vkDestroyPipeline( gfx->device, sky.pipeline, nullptr );
-		vkDestroyPipeline( gfx->device, gradient.pipeline, nullptr );
-	} );
 }
 
 void VulkanEngine::initImgui( ) {
@@ -345,9 +193,6 @@ void VulkanEngine::cleanup( ) {
 		// wait for gpu work to finish
 		vkDeviceWaitIdle( gfx->device );
 
-		vkDestroyDescriptorSetLayout( gfx->device, gpu_scene_data_descriptor_layout,
-			nullptr );
-
 		mesh_pipeline.cleanup( *gfx );
 		wireframe_pipeline.cleanup( *gfx );
 
@@ -374,7 +219,6 @@ void VulkanEngine::draw( ) {
 			1000000000 ) );
 
 		gfx->swapchain.getCurrentFrame( ).deletion_queue.flush( );
-		gfx->swapchain.getCurrentFrame( ).frame_descriptors.clear_pools( gfx->device );
 
 		VkResult e = (vkAcquireNextImageKHR( gfx->device, gfx->swapchain.swapchain, 1000000000,
 			gfx->swapchain.getCurrentFrame( ).swapchain_semaphore,
@@ -415,11 +259,6 @@ void VulkanEngine::draw( ) {
 	// transition our main draw image into general layout so it can
 	// be written into
 	vkutil::transition_image( cmd, color.image, VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_GENERAL );
-
-	drawBackground( cmd );
-
-	vkutil::transition_image( cmd, color.image, VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
 	vkutil::transition_image( cmd, depth.image, VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
@@ -497,71 +336,6 @@ void VulkanEngine::draw( ) {
 	frame_number++;
 }
 
-void VulkanEngine::drawBackground( VkCommandBuffer cmd ) {
-	ZoneScopedN( "draw_background" );
-
-	auto& color_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
-	DescriptorWriter writer;
-	writer.write_image( 0, color_image.view, VK_NULL_HANDLE,
-		VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-	writer.update_set( gfx->device, draw_image_descriptors );
-
-	auto& [name, pipeline, layout, data] =
-		background_effects[current_background_effect];
-
-	vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline );
-
-	// bind the descriptor set containing the draw image for the compute pipeline
-	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-		gradient_pipeline_layout, 0, 1,
-		&draw_image_descriptors, 0, nullptr );
-
-	vkCmdPushConstants( cmd, gradient_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT,
-		0, sizeof( ComputePushConstants ), &data );
-
-	// execute the compute pipeline dispatch. We are using 16x16 workgroup size so
-	// we need to divide by it
-	vkCmdDispatch( cmd, static_cast<uint32_t>(::ceil( draw_extent.width / 16.0 )),
-		static_cast<uint32_t>(std::ceil( draw_extent.height / 16.0 )), 1 );
-}
-
-//// TODO: breaking at certain angles
-//static bool is_visible( const RenderObject& obj, const glm::mat4& viewproj ) {
-//	constexpr std::array<glm::vec3, 8> corners{
-//		glm::vec3{1, 1, 1},   glm::vec3{1, 1, -1},   glm::vec3{1, -1, 1},
-//		glm::vec3{1, -1, -1}, glm::vec3{-1, 1, 1},   glm::vec3{-1, 1, -1},
-//		glm::vec3{-1, -1, 1}, glm::vec3{-1, -1, -1},
-//	};
-//
-//	const glm::mat4 matrix = viewproj * obj.transform;
-//
-//	glm::vec3 min = { 1.5, 1.5, 1.5 };
-//	glm::vec3 max = { -1.5, -1.5, -1.5 };
-//
-//	for ( int c = 0; c < 8; c++ ) {
-//		// project each corner into clip space
-//		glm::vec4 v =
-//			matrix *
-//			glm::vec4( obj.bounds.origin + (corners[c] * obj.bounds.extents), 1.f );
-//
-//		// perspective correction
-//		v.x = v.x / v.w;
-//		v.y = v.y / v.w;
-//		v.z = v.z / v.w;
-//
-//		min = glm::min( glm::vec3{ v.x, v.y, v.z }, min );
-//		max = glm::max( glm::vec3{ v.x, v.y, v.z }, max );
-//	}
-//
-//	// check the clip space box is within the view
-//	if ( min.z > 1.f || max.z < 0.f || min.x > 1.f || max.x < -1.f ||
-//		min.y > 1.f || max.y < -1.f ) {
-//		return false;
-//	} else {
-//		return true;
-//	}
-//}
-
 void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 	ZoneScopedN( "draw_geometry" );
 	START_LABEL( cmd, "Draw Geometry", vec4( 1.0f, 0.0f, 0.0f, 1.0 ) );
@@ -572,36 +346,6 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 
 	// begin clock
 	auto start = std::chrono::system_clock::now( );
-
-	////
-	//// sort opaque surfaces by material and mesh
-	////
-	//std::vector<uint32_t> opaque_draws;
-	//opaque_draws.reserve( main_draw_context.opaque_surfaces.size( ) );
-	//{
-	//	ZoneScopedN( "order" );
-	//	for ( uint32_t i = 0; i < main_draw_context.opaque_surfaces.size( ); i++ ) {
-	//		if ( renderer_options.frustum ) {
-	//			auto& viewproj = scene_data.viewproj;
-	//			if ( is_visible( main_draw_context.opaque_surfaces[i], viewproj ) ) {
-	//				opaque_draws.push_back( i );
-	//			}
-	//		} else {
-	//			opaque_draws.push_back( i );
-	//		}
-	//	}
-
-	//	std::ranges::sort( opaque_draws, [&]( const auto& i_a, const auto& i_b ) {
-	//		const RenderObject& a = main_draw_context.opaque_surfaces[i_a];
-	//		const RenderObject& b = main_draw_context.opaque_surfaces[i_b];
-
-	//		if ( a.material == b.material ) {
-	//			return a.index_buffer < b.index_buffer;
-	//		} else {
-	//			return a.material < b.material;
-	//		}
-	//	} );
-	//}
 
 	// -----------
 	// begin render frame
@@ -621,33 +365,15 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 
 	{
 		ZoneScopedN( "render" );
-		//std::vector<OldMeshDrawCommand> mesh_draw_commands;
-		//for ( auto& r : opaque_draws ) {
-		//	const auto dc = main_draw_context.opaque_surfaces[r];
-		//	OldMeshDrawCommand mdc = {
-		//		.index_count = dc.index_count,
-		//		.first_index = dc.first_index,
-		//		.index_buffer = dc.index_buffer,
-		//		.material = dc.material,
-		//		.bounds = dc.bounds,
-		//		.transform = dc.transform,
-		//		.vertex_buffer_address = dc.vertex_buffer_address
-		//	};
-		//	mesh_draw_commands.push_back( mdc );
-		//}
 
 		DrawStats s = {};
 		if ( renderer_options.wireframe ) {
-			//s = wireframe_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
+			s = wireframe_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
 		} else {
 			s = mesh_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
 		}
 		stats.drawcall_count += s.drawcall_count;
 		stats.triangle_count += s.triangle_count;
-
-		//for ( auto& r : main_draw_context.transparent_surfaces ) {
-		//	draw( r );
-		//}
 	}
 
 	vkCmdEndRendering( cmd );
@@ -873,6 +599,7 @@ void VulkanEngine::run( ) {
 				ImGui::OpenPopup( "Viewport Context" );
 			}
 			if ( ImGui::BeginPopup( "Viewport Context" ) ) {
+				ImGui::SliderFloat( "Render Scale", &render_scale, 0.3f, 1.f );
 				ImGui::Checkbox( "Wireframe", &renderer_options.wireframe );
 				ImGui::Checkbox( "Frustum Culling", &renderer_options.frustum );
 				if ( ImGui::Checkbox( "VSync", &renderer_options.vsync ) ) {
@@ -984,17 +711,6 @@ void VulkanEngine::run( ) {
 				ImGui::DragFloat( "Start", &scene_data.fog_start, 0.1f, 0.1f );
 				ImGui::DragFloat( "End", &scene_data.fog_end, 0.1f,
 					scene_data.fog_start + 0.1f );
-
-				ImGui::SeparatorText( "Background" );
-				ImGui::SliderFloat( "Render Scale", &render_scale, 0.3f, 1.f );
-				ComputeEffect& selected = background_effects[current_background_effect];
-				ImGui::Text( "Selected effect: %s", selected.name );
-				ImGui::SliderInt( "Effect Index", &current_background_effect, 0,
-					(int)background_effects.size( ) - 1 );
-				ImGui::InputFloat4( "data1", (float*)&selected.data.data1 );
-				ImGui::InputFloat4( "data2", (float*)&selected.data.data2 );
-				ImGui::InputFloat4( "data3", (float*)&selected.data.data3 );
-				ImGui::InputFloat4( "data4", (float*)&selected.data.data4 );
 			}
 			ImGui::End( );
 
