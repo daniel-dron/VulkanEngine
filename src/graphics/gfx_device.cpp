@@ -7,7 +7,7 @@
 
 using namespace vkb;
 
-const bool B_USE_VALIDATION_LAYERS = false;
+const bool B_USE_VALIDATION_LAYERS = true;
 
 ImmediateExecutor::Result<> ImmediateExecutor::init( GfxDevice* gfx ) {
 	this->gfx = gfx;
@@ -100,21 +100,6 @@ GfxDevice::Result<> GfxDevice::init( SDL_Window* window ) {
 
 	image_codex.init( this );
 	material_codex.init( *this );
-
-	Material material = {};
-	material.base_color = { 1.0f, 0.0f, 0.0f, 1.0f };
-	material.metalness_factor = 1.0f;
-	material.roughness_factor = 1.0f;
-	material.color_id = 35;
-	material.metal_roughness_id = 35;
-	material.normal_id = 35;
-	material_codex.addMaterial( *this, material );
-	material_codex.addMaterial( *this, material );
-	material_codex.addMaterial( *this, material );
-	material.color_id = 10;
-	material_codex.addMaterial( *this, material );
-	material_codex.addMaterial( *this, material );
-	material_codex.addMaterial( *this, material );
 
 	swapchain.init( this, 1920, 1080 );
 
