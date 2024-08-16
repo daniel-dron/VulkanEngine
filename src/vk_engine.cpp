@@ -353,8 +353,9 @@ void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
 		auto& color = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
 		auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
 
+		VkClearValue color_clear = { 0.0f, 0.0f, 0.0f, 1.0f };
 		VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(
-			color.view, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
+			color.view, &color_clear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
 		VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(
 			depth.view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
 
