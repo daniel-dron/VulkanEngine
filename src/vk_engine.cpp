@@ -263,7 +263,7 @@ void VulkanEngine::draw( ) {
 	vkutil::transition_image( cmd, depth.image, VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
-	drawGeometry( cmd );
+	geometryPass( cmd );
 
 	// transform drawImg into source layout
 	// transform swapchain img into dst layout
@@ -336,7 +336,7 @@ void VulkanEngine::draw( ) {
 	frame_number++;
 }
 
-void VulkanEngine::drawGeometry( VkCommandBuffer cmd ) {
+void VulkanEngine::geometryPass( VkCommandBuffer cmd ) {
 	ZoneScopedN( "draw_geometry" );
 	START_LABEL( cmd, "Draw Geometry", vec4( 1.0f, 0.0f, 0.0f, 1.0 ) );
 

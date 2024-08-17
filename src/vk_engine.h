@@ -113,7 +113,7 @@ private:
 	/// @brief Responsible for queueing commands to render all Renderables.
 	/// Sorts based on material and performs frustum culling.
 	/// @param cmd VkCommandBuffer that will queue in the work
-	void drawGeometry( VkCommandBuffer cmd );
+	void geometryPass( VkCommandBuffer cmd );
 
 	void drawImgui( VkCommandBuffer cmd, VkImageView target_image_view );
 
