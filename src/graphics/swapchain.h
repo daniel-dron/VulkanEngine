@@ -4,6 +4,7 @@
 #include <expected>
 
 #include "vk_descriptors.h"
+#include "gbuffer.h"
 
 class GfxDevice;
 
@@ -18,7 +19,7 @@ public:
 	template<typename T = void>
 	using Result = std::expected<void, Error>;
 
-	const static unsigned int FRAME_OVERLAP = 3;
+	const static unsigned int FRAME_OVERLAP = 1;
 
 	struct FrameData {
 		VkCommandPool pool;
@@ -29,6 +30,8 @@ public:
 		DeletionQueue deletion_queue;
 		ImageID color;
 		ImageID depth;
+		GBuffer gbuffer;
+		ImGuiGBuffer imgui_gbuffer;
 		VkDescriptorSet set = nullptr;
 	};
 
@@ -52,6 +55,7 @@ public:
 private:
 	Result<> create( uint32_t width, uint32_t height );
 	void createFrameImages( );
+	void createGBuffers( );
 
 	VkSampler linear = nullptr;
 	GfxDevice* gfx = nullptr;

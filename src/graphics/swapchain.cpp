@@ -142,6 +142,7 @@ Swapchain::Result<> Swapchain::create( uint32_t width, uint32_t height ) {
 	views = bs_swapchain.get_image_views( ).value( );
 
 	createFrameImages( );
+	createGBuffers( );
 
 	return {};
 }
@@ -151,9 +152,6 @@ void Swapchain::createFrameImages( ) {
 		.width = extent.width, .height = extent.height, .depth = 1 };
 
 	VkImageUsageFlags draw_image_usages{};
-	draw_image_usages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	draw_image_usages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-	draw_image_usages |= VK_IMAGE_USAGE_STORAGE_BIT;
 	draw_image_usages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	draw_image_usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
@@ -173,6 +171,24 @@ void Swapchain::createFrameImages( ) {
 	}
 }
 
+void Swapchain::createGBuffers( ) {
+	VkImageUsageFlags usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	const VkExtent3D extent = {
+		.width = this->extent.width, .height = this->extent.height, .depth = 1
+	};
+
+	for ( auto& frame : frames ) {
+		std::vector<unsigned char> empty_data;
+		empty_data.resize( extent.width * extent.height * 4 * 2, 0 );
+
+		frame.gbuffer.position = gfx->image_codex.loadImageFromData( "gbuffer.position", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+		frame.gbuffer.normal = gfx->image_codex.loadImageFromData( "gbuffer.normal", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+		frame.gbuffer.pbr = gfx->image_codex.loadImageFromData( "gbuffer.pbr", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+		frame.gbuffer.albedo = gfx->image_codex.loadImageFromData( "gbuffer.albedo", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+
+	}
+}
+
 void Swapchain::createImguiSet( ) {
 
 	for ( auto& frame : frames ) {
@@ -188,7 +204,16 @@ void Swapchain::createImguiSet( ) {
 			ImGui_ImplVulkan_RemoveTexture( frame.set );
 		}
 		auto& color = gfx->image_codex.getImage( frame.color );
-		frame.set =
-			ImGui_ImplVulkan_AddTexture( linear, color.view, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
+		frame.set = ImGui_ImplVulkan_AddTexture( linear, color.view, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
+
+		auto& albedo = gfx->image_codex.getImage( frame.gbuffer.albedo );
+		auto& normal = gfx->image_codex.getImage( frame.gbuffer.normal );
+		auto& position = gfx->image_codex.getImage( frame.gbuffer.position );
+		auto& pbr = gfx->image_codex.getImage( frame.gbuffer.pbr );
+
+		frame.imgui_gbuffer.albedo_set = ImGui_ImplVulkan_AddTexture( linear, albedo.view, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
+		frame.imgui_gbuffer.normal_set = ImGui_ImplVulkan_AddTexture( linear, normal.view, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
+		frame.imgui_gbuffer.pbr_set = ImGui_ImplVulkan_AddTexture( linear, pbr.view, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
+		frame.imgui_gbuffer.position_set = ImGui_ImplVulkan_AddTexture( linear, position.view, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 	}
 }

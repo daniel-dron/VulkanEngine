@@ -1,28 +1,12 @@
 #pragma once
 
-#include <vk_types.h>
-#include <graphics/gfx_device.h>
-#include <graphics/draw_command.h>
-#include <expected>
+#include "pipeline.h"
 
-class MeshPipeline {
+class MeshPipeline : public Pipeline {
 public:
-	enum class Error {
-		ShaderLoadingFailed
-	};
-
-	struct PipelineError {
-		Error error;
-		std::string message;
-	};
-
-	template<typename T = void>
-	using Result = std::expected<T, PipelineError>;
-
-	Result<> init( GfxDevice& gfx );
-	void cleanup( GfxDevice& gfx );
-
-	DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const;
+	virtual Result<> init( GfxDevice& gfx ) override;
+	void cleanup( GfxDevice& gfx ) override;
+	virtual DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const override;
 
 private:
 	struct PushConstants {
@@ -31,9 +15,6 @@ private:
 		VkDeviceAddress vertex_buffer_address;
 		uint32_t material_id;
 	};
-
-	VkPipeline pipeline;
-	VkPipelineLayout layout;
 
 	GpuBuffer gpu_scene_data;
 };

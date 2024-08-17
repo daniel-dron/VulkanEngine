@@ -2,7 +2,7 @@
 
 #include "pipeline.h"
 
-class WireframePipeline : public Pipeline {
+class GBufferPipeline : public Pipeline {
 public:
 	virtual Result<> init( GfxDevice& gfx ) override;
 	void cleanup( GfxDevice& gfx ) override;

@@ -16,6 +16,7 @@
 #include <graphics/image_codex.h>
 #include <graphics/pipelines/mesh_pipeline.h>
 #include <graphics/pipelines/wireframe_pipeline.h>
+#include <graphics/pipelines/gbuffer_pipeline.h>
 
 #include "graphics/gfx_device.h"
 #include <graphics/material_codex.h>
@@ -74,6 +75,8 @@ public:
 	MaterialCodex material_codex;
 	MeshPipeline mesh_pipeline;
 	WireframePipeline wireframe_pipeline;
+	GBufferPipeline gbuffer_pipeline;
+
 
 	// ----------
 	// scene
@@ -110,9 +113,7 @@ private:
 	/// @brief Initializes ImGui entire context
 	void initImgui( );
 
-	/// @brief Responsible for queueing commands to render all Renderables.
-	/// Sorts based on material and performs frustum culling.
-	/// @param cmd VkCommandBuffer that will queue in the work
+	void gbufferPass( VkCommandBuffer cmd ) const;
 	void geometryPass( VkCommandBuffer cmd );
 
 	void drawImgui( VkCommandBuffer cmd, VkImageView target_image_view );

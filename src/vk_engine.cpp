@@ -65,11 +65,6 @@ void VulkanEngine::init( ) {
 
 	initScene( );
 
-	//const std::string structure_path = { "../../assets/sponza_scene.glb" };
-	//const auto structure_file = loadGltf( this, structure_path );
-	//assert( structure_file.has_value( ) );
-	//loaded_scenes["structure"] = *structure_file;
-
 	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
 	scenes["sponza"] = std::move( scene );
 
@@ -195,6 +190,7 @@ void VulkanEngine::cleanup( ) {
 
 		mesh_pipeline.cleanup( *gfx );
 		wireframe_pipeline.cleanup( *gfx );
+		gbuffer_pipeline.cleanup( *gfx );
 
 		main_deletion_queue.flush( );
 
@@ -215,14 +211,11 @@ void VulkanEngine::draw( ) {
 	{
 		ZoneScopedN( "vsync" );
 		// wait for last frame rendering phase. 1 sec timeout
-		VK_CHECK( vkWaitForFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence, true,
-			1000000000 ) );
+		VK_CHECK( vkWaitForFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence, true, 1000000000 ) );
 
 		gfx->swapchain.getCurrentFrame( ).deletion_queue.flush( );
 
-		VkResult e = (vkAcquireNextImageKHR( gfx->device, gfx->swapchain.swapchain, 1000000000,
-			gfx->swapchain.getCurrentFrame( ).swapchain_semaphore,
-			0, &swapchainImageIndex ));
+		VkResult e = (vkAcquireNextImageKHR( gfx->device, gfx->swapchain.swapchain, 1000000000, gfx->swapchain.getCurrentFrame( ).swapchain_semaphore, 0, &swapchainImageIndex ));
 		if ( e != VK_SUCCESS ) {
 			return;
 		}
@@ -233,14 +226,19 @@ void VulkanEngine::draw( ) {
 		VK_CHECK( vkResetFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence ) );
 	}
 
-	auto& color = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
+	auto& gbuffer = gfx->swapchain.getCurrentFrame( ).gbuffer;
+	auto& albedo = gfx->image_codex.getImage( gbuffer.albedo );
+	auto& normal = gfx->image_codex.getImage( gbuffer.normal );
+	auto& position = gfx->image_codex.getImage( gbuffer.position );
+	auto& pbr = gfx->image_codex.getImage( gbuffer.pbr );
+
 	auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
 
 	draw_extent.height = static_cast<uint32_t>(
-		std::min( gfx->swapchain.extent.height, color.extent.height ) *
+		std::min( gfx->swapchain.extent.height, albedo.extent.height ) *
 		render_scale);
 	draw_extent.width = static_cast<uint32_t>(
-		std::min( gfx->swapchain.extent.width, color.extent.width ) * render_scale);
+		std::min( gfx->swapchain.extent.width, albedo.extent.width ) * render_scale);
 
 	//
 	// commands
@@ -252,44 +250,32 @@ void VulkanEngine::draw( ) {
 	VK_CHECK( vkResetCommandBuffer( cmd, 0 ) );
 
 	// begin recording. will only use this command buffer once
-	auto cmdBeginInfo = vkinit::command_buffer_begin_info(
-		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
+	auto cmdBeginInfo = vkinit::command_buffer_begin_info( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
 	VK_CHECK( vkBeginCommandBuffer( cmd, &cmdBeginInfo ) );
 
 	// transition our main draw image into general layout so it can
 	// be written into
-	vkutil::transition_image( cmd, color.image, VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
-	vkutil::transition_image( cmd, depth.image, VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
+	vkutil::transition_image( cmd, albedo.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
+	vkutil::transition_image( cmd, depth.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
-	geometryPass( cmd );
+	gbufferPass( cmd );
+	//geometryPass( cmd );
 
 	// transform drawImg into source layout
 	// transform swapchain img into dst layout
-	vkutil::transition_image( cmd, color.image,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
-	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex],
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
+	vkutil::transition_image( cmd, albedo.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
+	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
 
-	vkutil::copy_image_to_image( cmd, color.image,
-		gfx->swapchain.images[swapchainImageIndex],
-		draw_extent, gfx->swapchain.extent );
+	vkutil::copy_image_to_image( cmd, albedo.image, gfx->swapchain.images[swapchainImageIndex], draw_extent, gfx->swapchain.extent );
 
 	// transition swapchain to present
-	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex],
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
+	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
 
 	// draw imgui into the swapchain image
 	drawImgui( cmd, gfx->swapchain.views[swapchainImageIndex] );
 
 	// set swapchain image layout to Present so we can draw it
-	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex],
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
+	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
 
 	VK_CHECK( vkEndCommandBuffer( cmd ) );
 
@@ -334,6 +320,53 @@ void VulkanEngine::draw( ) {
 
 	// increase frame number for next loop
 	frame_number++;
+}
+
+void VulkanEngine::gbufferPass( VkCommandBuffer cmd ) const {
+	ZoneScopedN( "GBuffer Pass" );
+	START_LABEL( cmd, "GBuffer Pass", vec4( 1.0f, 1.0f, 0.0f, 1.0 ) );
+
+	using namespace vkinit;
+
+	// ----------
+	// Attachments
+	{
+		auto& gbuffer = gfx->swapchain.getCurrentFrame( ).gbuffer;
+		auto& albedo = gfx->image_codex.getImage( gbuffer.albedo );
+		auto& normal = gfx->image_codex.getImage( gbuffer.normal );
+		auto& position = gfx->image_codex.getImage( gbuffer.position );
+		auto& pbr = gfx->image_codex.getImage( gbuffer.pbr );
+		auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
+
+		VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
+		std::array<VkRenderingAttachmentInfo, 4> color_attachments = {
+			attachment_info( albedo.view, &clear_color ),
+			attachment_info( normal.view, &clear_color ),
+			attachment_info( position.view, &clear_color ),
+			attachment_info( pbr.view, &clear_color ),
+		};
+		VkRenderingAttachmentInfo depth_attachment = depth_attachment_info( depth.view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+
+		VkRenderingInfo render_info = {
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.pNext = nullptr,
+			.renderArea = VkRect2D { VkOffset2D{ 0, 0 }, draw_extent },
+			.layerCount = 1,
+			.colorAttachmentCount = color_attachments.size( ),
+			.pColorAttachments = color_attachments.data( ),
+			.pDepthAttachment = &depth_attachment,
+			.pStencilAttachment = nullptr
+		};
+		vkCmdBeginRendering( cmd, &render_info );
+	}
+
+	// ----------
+	// Call pipeline
+	gbuffer_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
+
+	vkCmdEndRendering( cmd );
+
+	END_LABEL( cmd );
 }
 
 void VulkanEngine::geometryPass( VkCommandBuffer cmd ) {
@@ -395,6 +428,7 @@ void VulkanEngine::initDefaultData( ) {
 
 	mesh_pipeline.init( *gfx );
 	wireframe_pipeline.init( *gfx );
+	gbuffer_pipeline.init( *gfx );
 }
 
 void VulkanEngine::initImages( ) {
@@ -500,6 +534,9 @@ void draw_fps_graph( bool useGraph = false ) {
 void VulkanEngine::run( ) {
 	bool bQuit = false;
 
+	static VkDescriptorSet selected_set = gfx->swapchain.getCurrentFrame( ).imgui_gbuffer.albedo_set;
+	static int selected_set_n = 0;
+
 	// main loop
 	while ( !bQuit ) {
 		FrameMarkNamed( "main" );
@@ -562,8 +599,7 @@ void VulkanEngine::run( ) {
 			ImGui::ShowDemoWindow( );
 
 			if ( ImGui::Begin( "Viewport", 0, ImGuiWindowFlags_NoScrollbar ) ) {
-				ImGui::Image( (ImTextureID)(gfx->swapchain.getCurrentFrame( ).set),
-					ImGui::GetWindowContentRegionMax( ) );
+				ImGui::Image( (ImTextureID)(selected_set), ImGui::GetWindowContentRegionMax( ) );
 
 				// ----------
 				// guizmos
@@ -595,6 +631,20 @@ void VulkanEngine::run( ) {
 				ImGui::OpenPopup( "Viewport Context" );
 			}
 			if ( ImGui::BeginPopup( "Viewport Context" ) ) {
+				ImGui::SeparatorText( "GBuffer" );
+				if ( ImGui::RadioButton( "Albedo", &selected_set_n, 0 ) ) {
+					selected_set = gfx->swapchain.getCurrentFrame( ).imgui_gbuffer.albedo_set;
+				}
+				if ( ImGui::RadioButton( "Position", &selected_set_n, 1 ) ) {
+					selected_set = gfx->swapchain.getCurrentFrame( ).imgui_gbuffer.position_set;
+				}
+				if ( ImGui::RadioButton( "Normal", &selected_set_n, 2 ) ) {
+					selected_set = gfx->swapchain.getCurrentFrame( ).imgui_gbuffer.normal_set;
+				}
+				if ( ImGui::RadioButton( "PBR", &selected_set_n, 3 ) ) {
+					selected_set = gfx->swapchain.getCurrentFrame( ).imgui_gbuffer.pbr_set;
+				}
+				ImGui::Separator( );
 				ImGui::SliderFloat( "Render Scale", &render_scale, 0.3f, 1.f );
 				ImGui::Checkbox( "Wireframe", &renderer_options.wireframe );
 				ImGui::Checkbox( "Frustum Culling", &renderer_options.frustum );

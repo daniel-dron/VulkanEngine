@@ -1,4 +1,4 @@
-#include "mesh_pipeline.h"
+#include "gbuffer_pipeline.h"
 
 #include <vk_pipelines.h>
 #include <vk_initializers.h>
@@ -6,10 +6,9 @@
 using namespace vkinit;
 using namespace vkutil;
 
-MeshPipeline::Result<> MeshPipeline::init( GfxDevice& gfx ) {
-
+GBufferPipeline::Result<> GBufferPipeline::init( GfxDevice& gfx ) {
 	VkShaderModule frag_shader;
-	if ( !load_shader_module( "../../shaders/mesh.frag.spv", gfx.device, &frag_shader ) ) {
+	if ( !load_shader_module( "../../shaders/gbuffer.frag.spv", gfx.device, &frag_shader ) ) {
 		return std::unexpected( PipelineError{
 			.error = Error::ShaderLoadingFailed,
 			.message = "Failed to load mesh fragment shader!"
@@ -31,8 +30,7 @@ MeshPipeline::Result<> MeshPipeline::init( GfxDevice& gfx ) {
 	};
 
 	auto bindless_layout = gfx.getBindlessLayout( );
-
-	VkDescriptorSetLayout layouts[] = { bindless_layout	};
+	VkDescriptorSetLayout layouts[] = { bindless_layout };
 
 	// ----------
 	// pipeline
@@ -52,9 +50,20 @@ MeshPipeline::Result<> MeshPipeline::init( GfxDevice& gfx ) {
 	builder.disable_blending( );
 	builder.enable_depthtest( true, VK_COMPARE_OP_GREATER_OR_EQUAL );
 
-	auto& color = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).color );
+	auto& gbuffer = gfx.swapchain.getCurrentFrame( ).gbuffer;
+	auto& albedo = gfx.image_codex.getImage( gbuffer.albedo );
+	auto& normal = gfx.image_codex.getImage( gbuffer.normal );
+	auto& position = gfx.image_codex.getImage( gbuffer.position );
+	auto& pbr = gfx.image_codex.getImage( gbuffer.pbr );
 	auto& depth = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).depth );
-	builder.set_color_attachment_format( color.format );
+
+	std::array<VkFormat, 4> formats = {
+		albedo.format,
+		normal.format,
+		position.format,
+		pbr.format
+	};
+	builder.set_color_attachment_formats( formats.data( ), formats.size( ) );
 	builder.set_depth_format( depth.format );
 	builder._pipelineLayout = layout;
 	pipeline = builder.build_pipeline( gfx.device );
@@ -65,26 +74,25 @@ MeshPipeline::Result<> MeshPipeline::init( GfxDevice& gfx ) {
 		.pNext = nullptr,
 		.objectType = VkObjectType::VK_OBJECT_TYPE_PIPELINE,
 		.objectHandle = (uint64_t)pipeline,
-		.pObjectName = "Mesh Pipeline"
+		.pObjectName = "GBuffer Pipeline"
 	};
 	vkSetDebugUtilsObjectNameEXT( gfx.device, &obj );
 #endif
 
 	vkDestroyShaderModule( gfx.device, frag_shader, nullptr );
 	vkDestroyShaderModule( gfx.device, vert_shader, nullptr );
-	gpu_scene_data = gfx.allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data Mesh Pipeline" );
+	gpu_scene_data = gfx.allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data GBuffer Pipeline" );
 
 	return {};
 }
 
-void MeshPipeline::cleanup( GfxDevice& gfx ) {
+void GBufferPipeline::cleanup( GfxDevice& gfx ) {
 	vkDestroyPipelineLayout( gfx.device, layout, nullptr );
-	vkDestroyPipeline( gfx.device, pipeline, nullptr );
+	vkDestroyPipeline( gfx.device, pipeline, NULL );
 	gfx.free( gpu_scene_data );
 }
 
-DrawStats MeshPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const {
+DrawStats GBufferPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const {
 	DrawStats stats = {};
 
 	GpuSceneData* gpu_scene_addr = nullptr;
@@ -98,7 +106,7 @@ DrawStats MeshPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::ve
 	auto bindless_set = gfx.getBindlessSet( );
 	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &bindless_set, 0, nullptr );
 
-	auto& target_image = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).color );
+	auto& target_image = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).gbuffer.albedo );
 
 	VkViewport viewport = {
 		.x = 0,

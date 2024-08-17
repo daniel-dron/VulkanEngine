@@ -83,8 +83,11 @@ VkPipeline vkutil::PipelineBuilder::build_pipeline( VkDevice device ) {
 
 	colorBlending.logicOpEnable = VK_FALSE;
 	colorBlending.logicOp = VK_LOGIC_OP_COPY;
-	colorBlending.attachmentCount = 1;
-	colorBlending.pAttachments = &_colorBlendAttachment;
+	colorBlending.attachmentCount = _attachment_count;
+
+	std::vector<VkPipelineColorBlendAttachmentState> blend_attachments;
+	blend_attachments.resize( _attachment_count, _colorBlendAttachment );
+	colorBlending.pAttachments = blend_attachments.data( );
 
 	// completely clear VertexInputStateCreateInfo, as we have no need for it
 	VkPipelineVertexInputStateCreateInfo _vertexInputInfo = {
@@ -210,8 +213,15 @@ void vkutil::PipelineBuilder::set_depth_format( VkFormat format ) {
 void vkutil::PipelineBuilder::set_color_attachment_format( VkFormat format ) {
 	_colorAttachmentFormat = format;
 	// connect the format to the renderInfo  structure
+	_attachment_count = 1;
 	_renderInfo.colorAttachmentCount = 1;
 	_renderInfo.pColorAttachmentFormats = &_colorAttachmentFormat;
+}
+
+void vkutil::PipelineBuilder::set_color_attachment_formats( VkFormat* formats, size_t count ) {
+	_attachment_count = count;
+	_renderInfo.colorAttachmentCount = count;
+	_renderInfo.pColorAttachmentFormats = formats;
 }
 
 void vkutil::PipelineBuilder::disable_depthtest( ) {

@@ -17,6 +17,7 @@ namespace vkutil {
 		VkPipelineLayout _pipelineLayout;
 		VkPipelineDepthStencilStateCreateInfo _depthStencil;
 		VkPipelineRenderingCreateInfo _renderInfo;
+		size_t _attachment_count;
 		VkFormat _colorAttachmentFormat;
 
 	public:
@@ -33,6 +34,7 @@ namespace vkutil {
 		void enable_blending_additive( );
 		void set_depth_format( VkFormat format );
 		void set_color_attachment_format( VkFormat format );
+		void set_color_attachment_formats( VkFormat* formats, size_t count );
 		void disable_depthtest( );
 		void enable_depthtest( bool depthWriteEnable, VkCompareOp op );
 

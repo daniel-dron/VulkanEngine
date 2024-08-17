@@ -33,13 +33,17 @@ file(GLOB SRC_GRAPHICS
   graphics/draw_command.cpp
   graphics/bindless.h
   graphics/bindless.cpp
+  graphics/gbuffer.h
 )
 
 file (GLOB SRC_PIPELINES
+  graphics/pipelines/pipeline.h
   graphics/pipelines/mesh_pipeline.h
   graphics/pipelines/mesh_pipeline.cpp
   graphics/pipelines/wireframe_pipeline.h
   graphics/pipelines/wireframe_pipeline.cpp
+  graphics/pipelines/gbuffer_pipeline.h
+  graphics/pipelines/gbuffer_pipeline.cpp
 )
 
 file(GLOB SRC_CAMERA
