@@ -337,7 +337,7 @@ void VulkanEngine::draw( ) {
 }
 
 void VulkanEngine::geometryPass( VkCommandBuffer cmd ) {
-	ZoneScopedN( "draw_geometry" );
+	ZoneScopedN( "Draw Geometry" );
 	START_LABEL( cmd, "Draw Geometry", vec4( 1.0f, 0.0f, 0.0f, 1.0 ) );
 
 	// reset counters
@@ -364,23 +364,18 @@ void VulkanEngine::geometryPass( VkCommandBuffer cmd ) {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	{
-		ZoneScopedN( "render" );
-
-		DrawStats s = {};
-		if ( renderer_options.wireframe ) {
-			s = wireframe_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
-		} else {
-			s = mesh_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
-		}
-		stats.drawcall_count += s.drawcall_count;
-		stats.triangle_count += s.triangle_count;
+	DrawStats s = {};
+	if ( renderer_options.wireframe ) {
+		s = wireframe_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
+	} else {
+		s = mesh_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
 	}
+	stats.drawcall_count += s.drawcall_count;
+	stats.triangle_count += s.triangle_count;
 
 	vkCmdEndRendering( cmd );
 
 	auto end = std::chrono::system_clock::now( );
-
 	// convert to microseconds (integer), and then come back to miliseconds
 	auto elapsed =
 		std::chrono::duration_cast<std::chrono::microseconds>(end - start);
