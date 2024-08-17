@@ -165,6 +165,7 @@ void VulkanEngine::initImgui( ) {
 	auto& io = ImGui::GetIO( );
 	io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	ImGui::StyleColorsDark( );
 
 	// add the destroy the imgui created structures
 	main_deletion_queue.pushFunction( [&, imguiPool]( ) {

@@ -18,7 +18,7 @@ layout (location = 3) out vec4 out_pbr;
 void main() {
 	Material material = pc.scene.materials.mat[pc.material_id];
 
-    out_albedo = sampleTexture2DNearest(material.color_tex, in_uvs);
+    out_albedo = toLinear(sampleTexture2DLinear(material.color_tex, in_uvs));
 
 	vec3 norm = sampleTexture2DNearest(material.normal_tex, in_uvs).rgb;
 	norm = normalize(norm * 2.0f - 1.0f);
