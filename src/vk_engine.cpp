@@ -576,7 +576,7 @@ void VulkanEngine::run( ) {
 			dirt_swapchain = false;
 		}
 
-		camera_controller->update( 1.0f / 165.0f );
+		camera_controller->update( stats.frametime / 1000.0f );
 
 		// do not draw if we are minimized
 		if ( stop_rendering ) {
@@ -641,67 +641,6 @@ void VulkanEngine::run( ) {
 			}
 
 			if ( ImGui::Begin( "Settings" ) ) {
-				//if ( selected_node != nullptr ) {
-					//ImGui::SeparatorText( selected_node->name.c_str( ) );
-					//MeshNode* node = dynamic_cast<MeshNode*>(selected_node);
-					//if ( node ) {
-					//	ImGui::TextColored( ImVec4( 0.7f, 0.2f, 0.5f, 1.0f ), "Mesh: %s",
-					//		node->mesh->name.c_str( ) );
-					//	static ImGuiTableFlags flags =
-					//		ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg |
-					//		ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable |
-					//		ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
-
-					//	// material data
-					//	auto idx = 0;
-					//	for ( auto& surface : node->mesh->surfaces ) {
-					//		if ( ImGui::CollapsingHeader(
-					//			std::format( "Surface {}", idx ).c_str( ) ) ) {
-					//			ImGui::InputText( "Name", (char*)surface.material->name.c_str( ),
-					//				surface.material->name.size( ),
-					//				ImGuiInputTextFlags_ReadOnly );
-
-					//			std::string pipeline_name;
-					//			switch ( surface.material->data.passType ) {
-					//			case MaterialPass::MainColor:
-					//				pipeline_name = "Opaque Material";
-					//				break;
-					//			case MaterialPass::Transparent:
-					//				pipeline_name = "Transparent Material";
-					//				break;
-					//			default:
-					//				pipeline_name = "Other";
-					//			}
-
-					//			ImGui::InputText( "Pipeline", (char*)pipeline_name.c_str( ),
-					//				pipeline_name.size( ),
-					//				ImGuiInputTextFlags_ReadOnly );
-
-					//			// albedo
-					//			if ( ImGui::CollapsingHeader( "Albedo" ) ) {
-					//				ImGui::Image( (ImTextureID)(
-					//					surface.material->debug_sets.base_color_set),
-					//					ImVec2( 200, 200 ) );
-					//			}
-
-					//			// metal roughness
-					//			if ( ImGui::CollapsingHeader( "Metal Roughness" ) ) {
-					//				ImGui::Image(
-					//					(ImTextureID)(
-					//						surface.material->debug_sets.metal_roughness_set),
-					//					ImVec2( 200, 200 ) );
-					//			}
-
-					//			// normal map
-					//			if ( ImGui::CollapsingHeader( "Normal" ) ) {
-					//				ImGui::Image( (ImTextureID)(
-					//					surface.material->debug_sets.normal_map_set),
-					//					ImVec2( 200, 200 ) );
-					//			}
-					//		}
-					//	}
-					//}
-				//}
 				ImGui::SeparatorText( "Camera 3D" );
 				camera.draw_debug( );
 
