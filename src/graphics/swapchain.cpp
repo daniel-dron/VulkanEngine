@@ -188,32 +188,3 @@ void Swapchain::createGBuffers( ) {
 
 	}
 }
-
-void Swapchain::createImguiSet( ) {
-
-	for ( auto& frame : frames ) {
-		// sampler for imgui
-		if ( linear == nullptr ) {
-			VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-			sampl.magFilter = VK_FILTER_LINEAR;
-			sampl.minFilter = VK_FILTER_LINEAR;
-			vkCreateSampler( gfx->device, &sampl, nullptr, &linear );
-		}
-
-		if ( frame.set != nullptr ) {
-			ImGui_ImplVulkan_RemoveTexture( frame.set );
-		}
-		auto& color = gfx->image_codex.getImage( frame.color );
-		frame.set = ImGui_ImplVulkan_AddTexture( linear, color.view, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
-
-		auto& albedo = gfx->image_codex.getImage( frame.gbuffer.albedo );
-		auto& normal = gfx->image_codex.getImage( frame.gbuffer.normal );
-		auto& position = gfx->image_codex.getImage( frame.gbuffer.position );
-		auto& pbr = gfx->image_codex.getImage( frame.gbuffer.pbr );
-
-		frame.imgui_gbuffer.albedo_set = ImGui_ImplVulkan_AddTexture( linear, albedo.view, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
-		frame.imgui_gbuffer.normal_set = ImGui_ImplVulkan_AddTexture( linear, normal.view, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
-		frame.imgui_gbuffer.pbr_set = ImGui_ImplVulkan_AddTexture( linear, pbr.view, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
-		frame.imgui_gbuffer.position_set = ImGui_ImplVulkan_AddTexture( linear, position.view, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
-	}
-}

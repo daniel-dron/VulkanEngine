@@ -8,10 +8,3 @@ struct GBuffer {
 	ImageID position;
 	ImageID pbr;
 };
-
-struct ImGuiGBuffer {
-	VkDescriptorSet albedo_set = nullptr;
-	VkDescriptorSet normal_set = nullptr;
-	VkDescriptorSet position_set = nullptr;
-	VkDescriptorSet pbr_set = nullptr;
-};

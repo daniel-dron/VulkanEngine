@@ -61,8 +61,6 @@ void VulkanEngine::init( ) {
 
 	imgui_pipeline.init( *gfx );
 
-	gfx->swapchain.createImguiSet( );
-
 	EG_INPUT.init( );
 
 	initScene( );
@@ -183,7 +181,6 @@ void VulkanEngine::resizeSwapchain( uint32_t width, uint32_t height ) {
 	window_extent.height = height;
 
 	gfx->swapchain.recreate( width, height );
-	gfx->swapchain.createImguiSet( );
 }
 
 void VulkanEngine::cleanup( ) {
@@ -576,7 +573,6 @@ void VulkanEngine::run( ) {
 
 		if ( dirt_swapchain ) {
 			gfx->swapchain.recreate( gfx->swapchain.extent.width, gfx->swapchain.extent.height );
-			gfx->swapchain.createImguiSet( );
 			dirt_swapchain = false;
 		}
 

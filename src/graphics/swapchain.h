@@ -31,8 +31,6 @@ public:
 		ImageID color;
 		ImageID depth;
 		GBuffer gbuffer;
-		ImGuiGBuffer imgui_gbuffer;
-		VkDescriptorSet set = nullptr;
 	};
 
 	VkSwapchainKHR swapchain;
@@ -48,8 +46,6 @@ public:
 
 	Result<> init( GfxDevice* gfx, uint32_t width, uint32_t height );
 	void cleanup( );
-
-	void createImguiSet( );
 
 	Result<> recreate( uint32_t width, uint32_t height );
 private:
