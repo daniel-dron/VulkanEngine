@@ -65,7 +65,7 @@ void VulkanEngine::init( ) {
 
 	initScene( );
 
-	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
+	auto scene = GltfLoader::load( *gfx, "../../assets/cerberus.glb" );
 	scenes["sponza"] = std::move( scene );
 
 	// init camera
@@ -288,18 +288,14 @@ void VulkanEngine::draw( ) {
 	// wait on _renderSemaphore. signaled when rendering has finished
 	auto cmdinfo = vkinit::command_buffer_submit_info( cmd );
 
-	auto waitInfo = vkinit::semaphore_submit_info(
-		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
-		gfx->swapchain.getCurrentFrame( ).swapchain_semaphore );
-	auto signalInfo = vkinit::semaphore_submit_info(
-		VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, gfx->swapchain.getCurrentFrame( ).render_semaphore );
+	auto waitInfo = vkinit::semaphore_submit_info( VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, gfx->swapchain.getCurrentFrame( ).swapchain_semaphore );
+	auto signalInfo = vkinit::semaphore_submit_info( VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, gfx->swapchain.getCurrentFrame( ).render_semaphore );
 
 	auto submit = vkinit::submit_info( &cmdinfo, &signalInfo, &waitInfo );
 
 	// submit command buffer and execute it
 	// _renderFence will now block until the commands finish
-	VK_CHECK( vkQueueSubmit2( gfx->graphics_queue, 1, &submit,
-		gfx->swapchain.getCurrentFrame( ).fence ) );
+	VK_CHECK( vkQueueSubmit2( gfx->graphics_queue, 1, &submit, gfx->swapchain.getCurrentFrame( ).fence ) );
 
 	//
 	// present
@@ -320,7 +316,7 @@ void VulkanEngine::draw( ) {
 	vkQueuePresentKHR( gfx->graphics_queue, &presentInfo );
 
 	// increase frame number for next loop
-	frame_number++;
+	gfx->swapchain.frame_number++;
 }
 
 void VulkanEngine::gbufferPass( VkCommandBuffer cmd ) const {
@@ -694,8 +690,6 @@ void VulkanEngine::run( ) {
 
 		draw( );
 
-		gfx->swapchain.frame_number++;
-
 		// get clock again, compare with start clock
 		auto end = std::chrono::system_clock::now( );
 
@@ -761,22 +755,15 @@ void VulkanEngine::updateScene( ) {
 	ZoneScopedN( "update_scene" );
 	auto start = std::chrono::system_clock::now( );
 
-	//main_draw_context.opaque_surfaces.clear( );
-	//main_draw_context.transparent_surfaces.clear( );
-	//loaded_scenes["structure"]->Draw( glm::mat4{ 1.f }, main_draw_context );
-
 	draw_commands.clear( );
 	auto scene = scenes["sponza"].get( );
 	createDrawCommands( *gfx.get( ), *scene, *(scenes["sponza"]->top_nodes[0].get( )), draw_commands );
 
+	// camera
 	scene_data.view = camera.get_view_matrix( );
-	// camera projection
-	scene_data.proj = glm::perspective(
-		glm::radians( 70.f ),
+	scene_data.proj = glm::perspective( glm::radians( 70.f ),
 		(float)window_extent.width / (float)window_extent.height, 10000.f, 0.1f );
-
 	scene_data.viewproj = scene_data.proj * scene_data.view;
-
 	scene_data.camera_position = camera.transform.getPosition( );
 
 	// point lights

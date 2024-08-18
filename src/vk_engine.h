@@ -36,7 +36,6 @@ struct RendererOptions {
 class VulkanEngine {
 public:
 	bool is_initialized{ false };
-	int frame_number{ 0 };
 	bool stop_rendering{ false };
 	VkExtent2D window_extent{ 1920, 1080 };
 	EngineStats stats;
