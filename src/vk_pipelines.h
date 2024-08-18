@@ -31,6 +31,7 @@ namespace vkutil {
 		void set_multisampling_none( );
 		void disable_blending( );
 		void enable_blending_alphablend( );
+		void enable_blending( VkBlendOp blend_op, VkBlendFactor src, VkBlendFactor dst, VkBlendFactor src_alpha, VkBlendFactor dst_alpha );
 		void enable_blending_additive( );
 		void set_depth_format( VkFormat format );
 		void set_color_attachment_format( VkFormat format );

@@ -59,6 +59,8 @@ void VulkanEngine::init( ) {
 
 	initImgui( );
 
+	imgui_pipeline.init( *gfx );
+
 	gfx->swapchain.createImguiSet( );
 
 	EG_INPUT.init( );
@@ -192,6 +194,7 @@ void VulkanEngine::cleanup( ) {
 		mesh_pipeline.cleanup( *gfx );
 		wireframe_pipeline.cleanup( *gfx );
 		gbuffer_pipeline.cleanup( *gfx );
+		imgui_pipeline.cleanup( *gfx );
 
 		main_deletion_queue.flush( );
 
@@ -535,7 +538,7 @@ void draw_fps_graph( bool useGraph = false ) {
 void VulkanEngine::run( ) {
 	bool bQuit = false;
 
-	static VkDescriptorSet selected_set = gfx->swapchain.getCurrentFrame( ).imgui_gbuffer.albedo_set;
+	static ImageID selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.albedo;
 	static int selected_set_n = 0;
 
 	// main loop
@@ -601,25 +604,6 @@ void VulkanEngine::run( ) {
 
 			if ( ImGui::Begin( "Viewport", 0, ImGuiWindowFlags_NoScrollbar ) ) {
 				ImGui::Image( (ImTextureID)(selected_set), ImGui::GetWindowContentRegionMax( ) );
-
-				// ----------
-				// guizmos
-			/*	if ( selected_node != nullptr ) {
-					ImGuizmo::SetOrthographic( false );
-					ImGuizmo::SetDrawlist( );
-					ImGuizmo::SetRect( ImGui::GetWindowPos( ).x, ImGui::GetWindowPos( ).y,
-						(float)ImGui::GetWindowWidth( ),
-						(float)ImGui::GetWindowHeight( ) );
-					auto camera_view = scene_data.view;
-					auto camera_proj = scene_data.proj;
-					camera_proj[1][1] *= -1;
-
-					auto& tc = selected_node->worldTransform;
-					ImGuizmo::Manipulate( glm::value_ptr( camera_view ),
-						glm::value_ptr( camera_proj ),
-						ImGuizmo::OPERATION::UNIVERSAL,
-						ImGuizmo::MODE::LOCAL, glm::value_ptr( tc ) );
-				}*/
 			}
 			ImGui::End( );
 
@@ -634,16 +618,16 @@ void VulkanEngine::run( ) {
 			if ( ImGui::BeginPopup( "Viewport Context" ) ) {
 				ImGui::SeparatorText( "GBuffer" );
 				if ( ImGui::RadioButton( "Albedo", &selected_set_n, 0 ) ) {
-					selected_set = gfx->swapchain.getCurrentFrame( ).imgui_gbuffer.albedo_set;
+					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.albedo;
 				}
 				if ( ImGui::RadioButton( "Position", &selected_set_n, 1 ) ) {
-					selected_set = gfx->swapchain.getCurrentFrame( ).imgui_gbuffer.position_set;
+					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.position;
 				}
 				if ( ImGui::RadioButton( "Normal", &selected_set_n, 2 ) ) {
-					selected_set = gfx->swapchain.getCurrentFrame( ).imgui_gbuffer.normal_set;
+					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.normal;
 				}
 				if ( ImGui::RadioButton( "PBR", &selected_set_n, 3 ) ) {
-					selected_set = gfx->swapchain.getCurrentFrame( ).imgui_gbuffer.pbr_set;
+					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.pbr;
 				}
 				ImGui::Separator( );
 				ImGui::SliderFloat( "Render Scale", &render_scale, 0.3f, 1.f );
@@ -775,6 +759,8 @@ void VulkanEngine::run( ) {
 
 		draw( );
 
+		gfx->swapchain.frame_number++;
+
 		// get clock again, compare with start clock
 		auto end = std::chrono::system_clock::now( );
 
@@ -785,16 +771,27 @@ void VulkanEngine::run( ) {
 	}
 }
 
-void VulkanEngine::drawImgui( VkCommandBuffer cmd,
-	VkImageView target_image_view ) {
-	VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(
-		target_image_view, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
-	VkRenderingInfo renderInfo =
-		vkinit::rendering_info( gfx->swapchain.extent, &colorAttachment, nullptr );
+void VulkanEngine::drawImgui( VkCommandBuffer cmd, VkImageView target_image_view ) {
+	{
+		using namespace vkinit;
 
-	vkCmdBeginRendering( cmd, &renderInfo );
+		VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
+		VkRenderingAttachmentInfo color_attachment = attachment_info( target_image_view, &clear_color );
 
-	ImGui_ImplVulkan_RenderDrawData( ImGui::GetDrawData( ), cmd );
+		VkRenderingInfo render_info = {
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.pNext = nullptr,
+			.renderArea = VkRect2D { VkOffset2D{ 0, 0 }, draw_extent },
+			.layerCount = 1,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &color_attachment,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr
+		};
+		vkCmdBeginRendering( cmd, &render_info );
+	}
+
+	imgui_pipeline.draw( *gfx, cmd, ImGui::GetDrawData( ) );
 
 	vkCmdEndRendering( cmd );
 }

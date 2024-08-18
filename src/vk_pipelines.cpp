@@ -206,6 +206,18 @@ void vkutil::PipelineBuilder::enable_blending_alphablend( ) {
 	_colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 }
 
+void vkutil::PipelineBuilder::enable_blending( VkBlendOp blend_op, VkBlendFactor src, VkBlendFactor dst, VkBlendFactor src_alpha, VkBlendFactor dst_alpha ) {
+	_colorBlendAttachment.blendEnable = VK_TRUE;
+	_colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+		VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	_colorBlendAttachment.srcColorBlendFactor = src;
+	_colorBlendAttachment.dstColorBlendFactor = dst;
+	_colorBlendAttachment.colorBlendOp = blend_op;
+	_colorBlendAttachment.srcAlphaBlendFactor = src_alpha;
+	_colorBlendAttachment.dstAlphaBlendFactor = dst_alpha;
+	_colorBlendAttachment.alphaBlendOp = blend_op;
+}
+
 void vkutil::PipelineBuilder::set_depth_format( VkFormat format ) {
 	_renderInfo.depthAttachmentFormat = format;
 }

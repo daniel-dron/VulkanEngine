@@ -4,8 +4,7 @@
 #include "scene.glsl"
 #include "vertex.glsl"
 
-layout( push_constant ) uniform constants
-{
+layout( push_constant ) uniform constants {
 	mat4 model;
 	SceneBuffer scene;
 	VertexBuffer vertexBuffer;

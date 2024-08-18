@@ -1,28 +1,24 @@
-#version 450 core
-layout(location = 0) out vec4 fColor;
-layout(set=0, binding=0) uniform sampler2D sTexture;
-layout(location = 0) in struct { vec4 Color; vec2 UV; } In;
+#version 450
 
-vec4 fromLinear(vec4 linearRGB)
-{
-    bvec3 cutoff = lessThan(linearRGB.rgb, vec3(0.0031308));
-    vec3 higher = vec3(1.055)*pow(linearRGB.rgb, vec3(1.0/2.4)) - vec3(0.055);
-    vec3 lower = linearRGB.rgb * vec3(12.92);
+#extension GL_GOOGLE_include_directive : require
 
-    return vec4(mix(higher, lower, cutoff), linearRGB.a);
-}
+#include "bindless.glsl"
+#include "imgui_push_constants.glsl"
+#include "input_structures.glsl"
 
-// Converts a color from sRGB gamma to linear light gamma
-vec4 toLinear(vec4 sRGB)
-{
-    bvec3 cutoff = lessThan(sRGB.rgb, vec3(0.04045));
-    vec3 higher = pow((sRGB.rgb + vec3(0.055))/vec3(1.055), vec3(2.4));
-    vec3 lower = sRGB.rgb/vec3(12.92);
+layout (location = 0) in vec4 in_color;
+layout (location = 1) in vec2 in_uvs;
 
-    return vec4(mix(higher, lower, cutoff), sRGB.a);
-}
+layout (location = 0) out vec4 out_color;
 
-void main()
-{
-    fColor = toLinear(In.Color * texture(sTexture, In.UV.st));
+void main() {
+    vec4 color = in_color * sampleTexture2DNearest(pc.texture_id, in_uvs);
+    color.rgb *= color.a;
+
+    if (pc.is_srgb != 0) {
+        color = toLinear(color);
+        color.a = 1.0 - gammaToLinear(1 - color.a);
+    }
+
+    out_color = color;
 }

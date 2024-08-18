@@ -17,6 +17,7 @@
 #include <graphics/pipelines/mesh_pipeline.h>
 #include <graphics/pipelines/wireframe_pipeline.h>
 #include <graphics/pipelines/gbuffer_pipeline.h>
+#include <graphics/pipelines/imgui_pipeline.h>
 
 #include "graphics/gfx_device.h"
 #include <graphics/material_codex.h>
@@ -76,6 +77,7 @@ public:
 	MeshPipeline mesh_pipeline;
 	WireframePipeline wireframe_pipeline;
 	GBufferPipeline gbuffer_pipeline;
+	ImGuiPipeline imgui_pipeline;
 
 
 	// ----------

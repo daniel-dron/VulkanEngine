@@ -17,3 +17,9 @@ vec4 toLinear(vec4 sRGB)
 
     return vec4(mix(higher, lower, cutoff), sRGB.a);
 }
+
+float gammaToLinear(float gamma) {
+    return gamma < 0.04045 ?
+        gamma / 12.92 :
+        pow(max(gamma + 0.055, 0.0) / 1.055, 2.4);
+}
