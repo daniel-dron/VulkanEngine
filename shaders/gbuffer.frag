@@ -19,6 +19,9 @@ void main() {
 	Material material = pc.scene.materials.mat[pc.material_id];
 
     out_albedo = toLinear(sampleTexture2DLinear(material.color_tex, in_uvs));
+    if (out_albedo.a < 0.1f) {
+        discard;
+    }
 
 	vec3 norm = sampleTexture2DNearest(material.normal_tex, in_uvs).rgb;
 	norm = normalize(norm * 2.0f - 1.0f);
