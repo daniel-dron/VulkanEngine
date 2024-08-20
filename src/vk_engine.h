@@ -14,7 +14,7 @@
 #include "vk_descriptors.h"
 #include "graphics/light.h"
 #include <graphics/image_codex.h>
-#include <graphics/pipelines/mesh_pipeline.h>
+#include <graphics/pipelines/pbr_pipeline.h>
 #include <graphics/pipelines/wireframe_pipeline.h>
 #include <graphics/pipelines/gbuffer_pipeline.h>
 #include <graphics/pipelines/imgui_pipeline.h>
@@ -73,7 +73,7 @@ public:
 	VkPipelineLayout gradient_pipeline_layout;
 
 	MaterialCodex material_codex;
-	MeshPipeline mesh_pipeline;
+	PbrPipeline pbr_pipeline;
 	WireframePipeline wireframe_pipeline;
 	GBufferPipeline gbuffer_pipeline;
 	ImGuiPipeline imgui_pipeline;
@@ -115,7 +115,7 @@ private:
 	void initImgui( );
 
 	void gbufferPass( VkCommandBuffer cmd ) const;
-	void geometryPass( VkCommandBuffer cmd );
+	void pbrPass( VkCommandBuffer cmd ) const;
 
 	void drawImgui( VkCommandBuffer cmd, VkImageView target_image_view );
 

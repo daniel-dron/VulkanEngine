@@ -39,7 +39,7 @@ public:
 	std::vector<VkImageView> views;
 	VkFormat format;
 	VkExtent2D extent;
-	VkPresentModeKHR present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
+	VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
 
 	uint64_t frame_number = 0;
 	FrameData& getCurrentFrame( );

@@ -21,7 +21,6 @@ public:
 
 	virtual Result<> init( GfxDevice& gfx ) = 0;
 	virtual void cleanup( GfxDevice& gfx ) = 0;
-	virtual DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const = 0;
 
 protected:
 	VkPipeline pipeline;

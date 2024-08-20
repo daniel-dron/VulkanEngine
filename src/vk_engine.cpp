@@ -65,7 +65,7 @@ void VulkanEngine::init( ) {
 
 	initScene( );
 
-	auto scene = GltfLoader::load( *gfx, "../../assets/cerberus.glb" );
+	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
 	scenes["sponza"] = std::move( scene );
 
 	// init camera
@@ -188,7 +188,7 @@ void VulkanEngine::cleanup( ) {
 		// wait for gpu work to finish
 		vkDeviceWaitIdle( gfx->device );
 
-		mesh_pipeline.cleanup( *gfx );
+		pbr_pipeline.cleanup( *gfx );
 		wireframe_pipeline.cleanup( *gfx );
 		gbuffer_pipeline.cleanup( *gfx );
 		imgui_pipeline.cleanup( *gfx );
@@ -254,30 +254,15 @@ void VulkanEngine::draw( ) {
 	auto cmdBeginInfo = vkinit::command_buffer_begin_info( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
 	VK_CHECK( vkBeginCommandBuffer( cmd, &cmdBeginInfo ) );
 
-	// transition our main draw image into general layout so it can
-	// be written into
-	vkutil::transition_image( cmd, albedo.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
 	vkutil::transition_image( cmd, depth.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
 	gbufferPass( cmd );
-	//geometryPass( cmd );
+	pbrPass( cmd );
 
-	// transform drawImg into source layout
-	// transform swapchain img into dst layout
-	vkutil::transition_image( cmd, albedo.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
-	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
-
-	vkutil::copy_image_to_image( cmd, albedo.image, gfx->swapchain.images[swapchainImageIndex], draw_extent, gfx->swapchain.extent );
-
-	// transition swapchain to present
-	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
-
-	// draw imgui into the swapchain image
+	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
 	drawImgui( cmd, gfx->swapchain.views[swapchainImageIndex] );
 
-	// set swapchain image layout to Present so we can draw it
 	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
-
 	VK_CHECK( vkEndCommandBuffer( cmd ) );
 
 	//
@@ -366,53 +351,85 @@ void VulkanEngine::gbufferPass( VkCommandBuffer cmd ) const {
 	END_LABEL( cmd );
 }
 
-void VulkanEngine::geometryPass( VkCommandBuffer cmd ) {
-	ZoneScopedN( "Draw Geometry" );
-	START_LABEL( cmd, "Draw Geometry", vec4( 1.0f, 0.0f, 0.0f, 1.0 ) );
+void VulkanEngine::pbrPass( VkCommandBuffer cmd ) const {
+	ZoneScopedN( "PBR Pass" );
+	START_LABEL( cmd, "PBR Pass", vec4( 1.0f, 0.0f, 1.0f, 1.0f ) );
 
-	// reset counters
-	stats.drawcall_count = 0;
-	stats.triangle_count = 0;
+	using namespace vkinit;
 
-	// begin clock
-	auto start = std::chrono::system_clock::now( );
-
-	// -----------
-	// begin render frame
 	{
-		auto& color = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
-		auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
+		auto& image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
 
-		VkClearValue color_clear = { 0.0f, 0.0f, 0.0f, 1.0f };
-		VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(
-			color.view, &color_clear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
-		VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(
-			depth.view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+		VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 0.0f };
+		VkRenderingAttachmentInfo color_attachment = attachment_info( image.view, &clear_color );
 
-		VkRenderingInfo render_info =
-			vkinit::rendering_info( draw_extent, &colorAttachment, &depthAttachment );
+		VkRenderingInfo render_info = {
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.pNext = nullptr,
+			.renderArea = VkRect2D { VkOffset2D { 0, 0 }, draw_extent },
+			.layerCount = 1,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &color_attachment,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr
+		};
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	DrawStats s = {};
-	if ( renderer_options.wireframe ) {
-		s = wireframe_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
-	} else {
-		s = mesh_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
-	}
-	stats.drawcall_count += s.drawcall_count;
-	stats.triangle_count += s.triangle_count;
+	pbr_pipeline.draw( *gfx, cmd, scene_data, gfx->swapchain.getCurrentFrame( ).gbuffer );
 
 	vkCmdEndRendering( cmd );
 
-	auto end = std::chrono::system_clock::now( );
-	// convert to microseconds (integer), and then come back to miliseconds
-	auto elapsed =
-		std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-	stats.mesh_draw_time = elapsed.count( ) / 1000.f;
-
 	END_LABEL( cmd );
 }
+
+//void geometryPass( VkCommandBuffer cmd ) {
+//	ZoneScopedN( "Draw Geometry" );
+//	START_LABEL( cmd, "Draw Geometry", vec4( 1.0f, 0.0f, 0.0f, 1.0 ) );
+//
+//	// reset counters
+//	stats.drawcall_count = 0;
+//	stats.triangle_count = 0;
+//
+//	// begin clock
+//	auto start = std::chrono::system_clock::now( );
+//
+//	// -----------
+//	// begin render frame
+//	{
+//		auto& color = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
+//		auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
+//
+//		VkClearValue color_clear = { 0.0f, 0.0f, 0.0f, 1.0f };
+//		VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(
+//			color.view, &color_clear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
+//		VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(
+//			depth.view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+//
+//		VkRenderingInfo render_info =
+//			vkinit::rendering_info( draw_extent, &colorAttachment, &depthAttachment );
+//		vkCmdBeginRendering( cmd, &render_info );
+//	}
+//
+//	DrawStats s = {};
+//	if ( renderer_options.wireframe ) {
+//		s = wireframe_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
+//	} else {
+//		s = mesh_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
+//	}
+//	stats.drawcall_count += s.drawcall_count;
+//	stats.triangle_count += s.triangle_count;
+//
+//	vkCmdEndRendering( cmd );
+//
+//	auto end = std::chrono::system_clock::now( );
+//	// convert to microseconds (integer), and then come back to miliseconds
+//	auto elapsed =
+//		std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+//	stats.mesh_draw_time = elapsed.count( ) / 1000.f;
+//
+//	END_LABEL( cmd );
+//}
 
 void VulkanEngine::initDefaultData( ) {
 	initImages( );
@@ -423,7 +440,7 @@ void VulkanEngine::initDefaultData( ) {
 		gfx->free( gpu_scene_data );
 	} );
 
-	mesh_pipeline.init( *gfx );
+	pbr_pipeline.init( *gfx );
 	wireframe_pipeline.init( *gfx );
 	gbuffer_pipeline.init( *gfx );
 }
@@ -567,6 +584,12 @@ void VulkanEngine::run( ) {
 			SDL_WarpMouseInWindow( window, savedMouseX, savedMouseY );
 		}
 
+		if ( EG_INPUT.was_key_pressed( EG_KEY::K ) ) {
+			gbuffer_pipeline.cleanup( *gfx );
+			gbuffer_pipeline = GBufferPipeline( );
+			gbuffer_pipeline.init( *gfx );
+		}
+
 		if ( dirt_swapchain ) {
 			gfx->swapchain.recreate( gfx->swapchain.extent.width, gfx->swapchain.extent.height );
 			dirt_swapchain = false;
@@ -609,16 +632,19 @@ void VulkanEngine::run( ) {
 			}
 			if ( ImGui::BeginPopup( "Viewport Context" ) ) {
 				ImGui::SeparatorText( "GBuffer" );
-				if ( ImGui::RadioButton( "Albedo", &selected_set_n, 0 ) ) {
+				if ( ImGui::RadioButton( "PBR Pass", &selected_set_n, 0 ) ) {
+					selected_set = gfx->swapchain.getCurrentFrame( ).color;
+				}
+				if ( ImGui::RadioButton( "Albedo", &selected_set_n, 1 ) ) {
 					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.albedo;
 				}
-				if ( ImGui::RadioButton( "Position", &selected_set_n, 1 ) ) {
+				if ( ImGui::RadioButton( "Position", &selected_set_n, 2 ) ) {
 					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.position;
 				}
-				if ( ImGui::RadioButton( "Normal", &selected_set_n, 2 ) ) {
+				if ( ImGui::RadioButton( "Normal", &selected_set_n, 3 ) ) {
 					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.normal;
 				}
-				if ( ImGui::RadioButton( "PBR", &selected_set_n, 3 ) ) {
+				if ( ImGui::RadioButton( "PBR", &selected_set_n, 4 ) ) {
 					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.pbr;
 				}
 				ImGui::Separator( );
