@@ -17,7 +17,7 @@ PbrPipeline::Result<> PbrPipeline::init( GfxDevice& gfx ) {
 	}
 
 	VkShaderModule vert_shader;
-	if ( !load_shader_module( "../../shaders/pbr.vert.spv", gfx.device, &vert_shader ) ) {
+	if ( !load_shader_module( "../../shaders/fullscreen_tri.vert.spv", gfx.device, &vert_shader ) ) {
 		return std::unexpected( PipelineError{
 			.error = Error::ShaderLoadingFailed,
 			.message = "Failed to load mesh vertex shader!"

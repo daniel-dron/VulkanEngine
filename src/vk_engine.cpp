@@ -258,6 +258,7 @@ void VulkanEngine::draw( ) {
 
 	gbufferPass( cmd );
 	pbrPass( cmd );
+	vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, wireframe_pipeline.getPipeline( ) );
 
 	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
 	drawImgui( cmd, gfx->swapchain.views[swapchainImageIndex] );
@@ -382,54 +383,6 @@ void VulkanEngine::pbrPass( VkCommandBuffer cmd ) const {
 
 	END_LABEL( cmd );
 }
-
-//void geometryPass( VkCommandBuffer cmd ) {
-//	ZoneScopedN( "Draw Geometry" );
-//	START_LABEL( cmd, "Draw Geometry", vec4( 1.0f, 0.0f, 0.0f, 1.0 ) );
-//
-//	// reset counters
-//	stats.drawcall_count = 0;
-//	stats.triangle_count = 0;
-//
-//	// begin clock
-//	auto start = std::chrono::system_clock::now( );
-//
-//	// -----------
-//	// begin render frame
-//	{
-//		auto& color = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
-//		auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
-//
-//		VkClearValue color_clear = { 0.0f, 0.0f, 0.0f, 1.0f };
-//		VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(
-//			color.view, &color_clear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
-//		VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(
-//			depth.view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
-//
-//		VkRenderingInfo render_info =
-//			vkinit::rendering_info( draw_extent, &colorAttachment, &depthAttachment );
-//		vkCmdBeginRendering( cmd, &render_info );
-//	}
-//
-//	DrawStats s = {};
-//	if ( renderer_options.wireframe ) {
-//		s = wireframe_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
-//	} else {
-//		s = mesh_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
-//	}
-//	stats.drawcall_count += s.drawcall_count;
-//	stats.triangle_count += s.triangle_count;
-//
-//	vkCmdEndRendering( cmd );
-//
-//	auto end = std::chrono::system_clock::now( );
-//	// convert to microseconds (integer), and then come back to miliseconds
-//	auto elapsed =
-//		std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-//	stats.mesh_draw_time = elapsed.count( ) / 1000.f;
-//
-//	END_LABEL( cmd );
-//}
 
 void VulkanEngine::initDefaultData( ) {
 	initImages( );
@@ -585,9 +538,10 @@ void VulkanEngine::run( ) {
 		}
 
 		if ( EG_INPUT.was_key_pressed( EG_KEY::K ) ) {
-			gbuffer_pipeline.cleanup( *gfx );
-			gbuffer_pipeline = GBufferPipeline( );
-			gbuffer_pipeline.init( *gfx );
+			VK_CHECK( vkWaitForFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence, true, 1000000000 ) );
+			pbr_pipeline.cleanup( *gfx );
+			pbr_pipeline = PbrPipeline( );
+			pbr_pipeline.init( *gfx );
 		}
 
 		if ( dirt_swapchain ) {

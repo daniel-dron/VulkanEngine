@@ -8,6 +8,8 @@ public:
 	void cleanup( GfxDevice& gfx ) override;
 	DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const;
 
+	VkPipeline getPipeline( ) { return this->pipeline; }
+
 private:
 	struct PushConstants {
 		mat4 world_from_local;
