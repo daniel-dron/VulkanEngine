@@ -192,6 +192,7 @@ void VulkanEngine::cleanup( ) {
 		wireframe_pipeline.cleanup( *gfx );
 		gbuffer_pipeline.cleanup( *gfx );
 		imgui_pipeline.cleanup( *gfx );
+		skybox_pipeline.cleanup( *gfx );
 
 		main_deletion_queue.flush( );
 
@@ -227,19 +228,15 @@ void VulkanEngine::draw( ) {
 		VK_CHECK( vkResetFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence ) );
 	}
 
-	auto& gbuffer = gfx->swapchain.getCurrentFrame( ).gbuffer;
-	auto& albedo = gfx->image_codex.getImage( gbuffer.albedo );
-	auto& normal = gfx->image_codex.getImage( gbuffer.normal );
-	auto& position = gfx->image_codex.getImage( gbuffer.position );
-	auto& pbr = gfx->image_codex.getImage( gbuffer.pbr );
+	auto& color = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
 
 	auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
 
 	draw_extent.height = static_cast<uint32_t>(
-		std::min( gfx->swapchain.extent.height, albedo.extent.height ) *
+		std::min( gfx->swapchain.extent.height, color.extent.height ) *
 		render_scale);
 	draw_extent.width = static_cast<uint32_t>(
-		std::min( gfx->swapchain.extent.width, albedo.extent.width ) * render_scale);
+		std::min( gfx->swapchain.extent.width, color.extent.width ) * render_scale);
 
 	//
 	// commands
@@ -258,7 +255,7 @@ void VulkanEngine::draw( ) {
 
 	gbufferPass( cmd );
 	pbrPass( cmd );
-	vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, wireframe_pipeline.getPipeline( ) );
+	skyboxPass( cmd );
 
 	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
 	drawImgui( cmd, gfx->swapchain.views[swapchainImageIndex] );
@@ -384,6 +381,46 @@ void VulkanEngine::pbrPass( VkCommandBuffer cmd ) const {
 	END_LABEL( cmd );
 }
 
+void VulkanEngine::skyboxPass( VkCommandBuffer cmd ) const {
+	ZoneScopedN( "Skybox Pass" );
+	START_LABEL( cmd, "Skybox Pass", vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
+
+	using namespace vkinit;
+
+	{
+		auto& image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
+		auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
+
+		VkRenderingAttachmentInfo color_attachment = attachment_info( image.view, nullptr );
+
+		VkRenderingAttachmentInfo depth_attachment = {
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.pNext = nullptr,
+			.imageView = depth.view,
+			.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+		};
+		VkRenderingInfo render_info = {
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.pNext = nullptr,
+			.renderArea = VkRect2D { VkOffset2D { 0, 0 }, draw_extent },
+			.layerCount = 1,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &color_attachment,
+			.pDepthAttachment = &depth_attachment,
+			.pStencilAttachment = nullptr
+		};
+		vkCmdBeginRendering( cmd, &render_info );
+	}
+
+	skybox_pipeline.draw( *gfx, cmd, 0, scene_data );
+
+	vkCmdEndRendering( cmd );
+
+	END_LABEL( cmd );
+}
+
 void VulkanEngine::initDefaultData( ) {
 	initImages( );
 
@@ -396,6 +433,7 @@ void VulkanEngine::initDefaultData( ) {
 	pbr_pipeline.init( *gfx );
 	wireframe_pipeline.init( *gfx );
 	gbuffer_pipeline.init( *gfx );
+	skybox_pipeline.init( *gfx );
 }
 
 void VulkanEngine::initImages( ) {
@@ -501,7 +539,7 @@ void draw_fps_graph( bool useGraph = false ) {
 void VulkanEngine::run( ) {
 	bool bQuit = false;
 
-	static ImageID selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.albedo;
+	static ImageID selected_set = gfx->swapchain.getCurrentFrame( ).color;
 	static int selected_set_n = 0;
 
 	// main loop
@@ -742,7 +780,7 @@ void VulkanEngine::updateScene( ) {
 	// camera
 	scene_data.view = camera.get_view_matrix( );
 	scene_data.proj = glm::perspective( glm::radians( 70.f ),
-		(float)window_extent.width / (float)window_extent.height, 10000.f, 0.1f );
+		(float)window_extent.width / (float)window_extent.height, 0.1f, 10000.0f );
 	scene_data.viewproj = scene_data.proj * scene_data.view;
 	scene_data.camera_position = camera.transform.getPosition( );
 

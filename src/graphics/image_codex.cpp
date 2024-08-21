@@ -101,7 +101,7 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 
 	// if the format is for depth, use the correct aspect
 	VkImageAspectFlags aspect = format == VK_FORMAT_D32_SFLOAT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-	auto depth = aspect == VK_IMAGE_ASPECT_DEPTH_BIT;
+	auto depth = aspect & VK_IMAGE_ASPECT_DEPTH_BIT;
 
 	auto view_info = vkinit::imageview_create_info( format, image.image, aspect );
 	view_info.subresourceRange.levelCount = create_info.mipLevels;

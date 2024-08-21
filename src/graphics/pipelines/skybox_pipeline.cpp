@@ -1,4 +1,4 @@
-#include "gbuffer_pipeline.h"
+#include "skybox_pipeline.h"
 
 #include <vk_pipelines.h>
 #include <vk_initializers.h>
@@ -6,20 +6,20 @@
 using namespace vkinit;
 using namespace vkutil;
 
-GBufferPipeline::Result<> GBufferPipeline::init( GfxDevice& gfx ) {
+SkyboxPipeline::Result<> SkyboxPipeline::init( GfxDevice& gfx ) {
 	VkShaderModule frag_shader;
-	if ( !load_shader_module( "../../shaders/gbuffer.frag.spv", gfx.device, &frag_shader ) ) {
+	if ( !load_shader_module( "../../shaders/skybox.frag.spv", gfx.device, &frag_shader ) ) {
 		return std::unexpected( PipelineError{
 			.error = Error::ShaderLoadingFailed,
-			.message = "Failed to load mesh fragment shader!"
+			.message = "Failed to load skybox fragment shader!"
 			} );
 	}
 
 	VkShaderModule vert_shader;
-	if ( !load_shader_module( "../../shaders/gbuffer.vert.spv", gfx.device, &vert_shader ) ) {
+	if ( !load_shader_module( "../../shaders/skybox.vert.spv", gfx.device, &vert_shader ) ) {
 		return std::unexpected( PipelineError{
 			.error = Error::ShaderLoadingFailed,
-			.message = "Failed to load mesh vertex shader!"
+			.message = "Failed to load skybox vertex shader!"
 			} );
 	}
 
@@ -47,23 +47,12 @@ GBufferPipeline::Result<> GBufferPipeline::init( GfxDevice& gfx ) {
 	builder.set_polygon_mode( VK_POLYGON_MODE_FILL );
 	builder.set_cull_mode( VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE );
 	builder.set_multisampling_none( );
-	builder.disable_blending( );
-	builder.enable_depthtest( true, VK_COMPARE_OP_LESS_OR_EQUAL );
+	builder.disable_blending( );	
+	builder.enable_depthtest(false, VK_COMPARE_OP_LESS_OR_EQUAL );
 
-	auto& gbuffer = gfx.swapchain.getCurrentFrame( ).gbuffer;
-	auto& albedo = gfx.image_codex.getImage( gbuffer.albedo );
-	auto& normal = gfx.image_codex.getImage( gbuffer.normal );
-	auto& position = gfx.image_codex.getImage( gbuffer.position );
-	auto& pbr = gfx.image_codex.getImage( gbuffer.pbr );
+	auto& color = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).color );
 	auto& depth = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).depth );
-
-	std::array<VkFormat, 4> formats = {
-		albedo.format,
-		normal.format,
-		position.format,
-		pbr.format
-	};
-	builder.set_color_attachment_formats( formats.data( ), formats.size( ) );
+	builder.set_color_attachment_format( color.format );
 	builder.set_depth_format( depth.format );
 	builder._pipelineLayout = layout;
 	pipeline = builder.build_pipeline( gfx.device );
@@ -74,27 +63,78 @@ GBufferPipeline::Result<> GBufferPipeline::init( GfxDevice& gfx ) {
 		.pNext = nullptr,
 		.objectType = VkObjectType::VK_OBJECT_TYPE_PIPELINE,
 		.objectHandle = (uint64_t)pipeline,
-		.pObjectName = "GBuffer Pipeline"
+		.pObjectName = "Skybox Pipeline"
 	};
 	vkSetDebugUtilsObjectNameEXT( gfx.device, &obj );
 #endif
 
 	vkDestroyShaderModule( gfx.device, frag_shader, nullptr );
 	vkDestroyShaderModule( gfx.device, vert_shader, nullptr );
+
 	gpu_scene_data = gfx.allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data GBuffer Pipeline" );
+
+	// create cube mesh
+	createCubeMesh( gfx );
 
 	return {};
 }
 
-void GBufferPipeline::cleanup( GfxDevice& gfx ) {
+void SkyboxPipeline::createCubeMesh( GfxDevice& gfx ) {
+	std::vector<Mesh::Vertex> vertices = {
+		// Front face
+		{{-1.0f, 1.0f, 1.0f}, 0.0f, {0.0f, 0.0f, 1.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+		{{1.0f, 1.0f, 1.0f}, 1.0f, {0.0f, 0.0f, 1.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+		{{1.0f, -1.0f, 1.0f}, 1.0f, {0.0f, 0.0f, 1.0f}, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+		{{-1.0f, -1.0f, 1.0f}, 0.0f, {0.0f, 0.0f, 1.0f}, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+
+		// Back face
+		{{-1.0f, 1.0f, -1.0f}, 1.0f, {0.0f, 0.0f, -1.0f}, 0.0f, {-1.0f, 0.0f, 0.0f, 1.0f}},
+		{{1.0f, 1.0f, -1.0f}, 0.0f, {0.0f, 0.0f, -1.0f}, 0.0f, {-1.0f, 0.0f, 0.0f, 1.0f}},
+		{{1.0f, -1.0f, -1.0f}, 0.0f, {0.0f, 0.0f, -1.0f}, 1.0f, {-1.0f, 0.0f, 0.0f, 1.0f}},
+		{{-1.0f, -1.0f, -1.0f}, 1.0f, {0.0f, 0.0f, -1.0f}, 1.0f, {-1.0f, 0.0f, 0.0f, 1.0f}}
+	};
+
+	std::vector<uint32_t> indices = {
+		// Front face
+		0, 1, 2,
+		2, 3, 0,
+
+		// Right face
+		1, 5, 6,
+		6, 2, 1,
+
+		// Back face
+		5, 4, 7,
+		7, 6, 5,
+
+		// Left face
+		4, 0, 3,
+		3, 7, 4,
+
+		// Top face
+		4, 5, 1,
+		1, 0, 4,
+
+		// Bottom face
+		3, 2, 6,
+		6, 7, 3
+	};
+
+	Mesh mesh = {
+		.vertices = vertices,
+		.indices = indices
+	};
+
+	cube_mesh = gfx.mesh_codex.addMesh( gfx, mesh );
+}
+
+void SkyboxPipeline::cleanup( GfxDevice& gfx ) {
 	vkDestroyPipelineLayout( gfx.device, layout, nullptr );
 	vkDestroyPipeline( gfx.device, pipeline, NULL );
 	gfx.free( gpu_scene_data );
 }
 
-DrawStats GBufferPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const {
-	DrawStats stats = {};
-
+void SkyboxPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID skybox_texture, const GpuSceneData& scene_data ) const {
 	GpuSceneData* gpu_scene_addr = nullptr;
 	vmaMapMemory( gfx.allocator, gpu_scene_data.allocation, (void**)&gpu_scene_addr );
 	*gpu_scene_addr = scene_data;
@@ -106,7 +146,7 @@ DrawStats GBufferPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std:
 	auto bindless_set = gfx.getBindlessSet( );
 	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &bindless_set, 0, nullptr );
 
-	auto& target_image = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).gbuffer.albedo );
+	auto& target_image = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).color );
 
 	VkViewport viewport = {
 		.x = 0,
@@ -130,6 +170,9 @@ DrawStats GBufferPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std:
 	};
 	vkCmdSetScissor( cmd, 0, 1, &scissor );
 
+	auto& mesh = gfx.mesh_codex.getMesh( cube_mesh );
+	vkCmdBindIndexBuffer( cmd, mesh.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32 );
+
 	VkBufferDeviceAddressInfo address_info = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
 		.pNext = nullptr,
@@ -137,22 +180,12 @@ DrawStats GBufferPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std:
 	};
 	auto gpu_scene_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
 
-	for ( const auto& draw_command : draw_commands ) {
-		vkCmdBindIndexBuffer( cmd, draw_command.index_buffer, 0, VK_INDEX_TYPE_UINT32 );
+	PushConstants push_constants = {
+		.scene_data_address =  gpu_scene_address,
+		.vertex_buffer_address = mesh.vertex_buffer_address,
+		.texture_id = skybox_texture,
+	};
+	vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( PushConstants ), &push_constants );
 
-		PushConstants push_constants = {
-			.world_from_local = draw_command.world_from_local,
-			.scene_data_address = gpu_scene_address,
-			.vertex_buffer_address = draw_command.vertex_buffer_address,
-			.material_id = draw_command.material_id
-		};
-		vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( PushConstants ), &push_constants );
-
-		vkCmdDrawIndexed( cmd, draw_command.index_count, 1, 0, 0, 0 );
-
-		stats.drawcall_count++;
-		stats.triangle_count += draw_command.index_count / 3;
-	}
-
-	return stats;
+	vkCmdDrawIndexed( cmd, mesh.index_count, 1, 0, 0, 0 );
 }

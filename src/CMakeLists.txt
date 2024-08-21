@@ -46,6 +46,8 @@ file (GLOB SRC_PIPELINES
   graphics/pipelines/gbuffer_pipeline.cpp
   graphics/pipelines/imgui_pipeline.h
   graphics/pipelines/imgui_pipeline.cpp
+  graphics/pipelines/skybox_pipeline.h
+  graphics/pipelines/skybox_pipeline.cpp
 )
 
 file(GLOB SRC_CAMERA

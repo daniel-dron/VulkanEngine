@@ -50,7 +50,7 @@ PbrPipeline::Result<> PbrPipeline::init( GfxDevice& gfx ) {
 	builder.set_cull_mode( VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE );
 	builder.set_multisampling_none( );
 	builder.disable_blending( );
-	builder.enable_depthtest( true, VK_COMPARE_OP_GREATER_OR_EQUAL );
+	builder.disable_depthtest( );
 
 	auto& color = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).color );
 	auto& depth = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).depth );

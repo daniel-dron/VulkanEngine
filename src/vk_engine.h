@@ -18,6 +18,7 @@
 #include <graphics/pipelines/wireframe_pipeline.h>
 #include <graphics/pipelines/gbuffer_pipeline.h>
 #include <graphics/pipelines/imgui_pipeline.h>
+#include <graphics/pipelines/skybox_pipeline.h>
 
 #include "graphics/gfx_device.h"
 #include <graphics/material_codex.h>
@@ -77,6 +78,7 @@ public:
 	WireframePipeline wireframe_pipeline;
 	GBufferPipeline gbuffer_pipeline;
 	ImGuiPipeline imgui_pipeline;
+	SkyboxPipeline skybox_pipeline;
 
 
 	// ----------
@@ -116,6 +118,7 @@ private:
 
 	void gbufferPass( VkCommandBuffer cmd ) const;
 	void pbrPass( VkCommandBuffer cmd ) const;
+	void skyboxPass( VkCommandBuffer cmd ) const;
 
 	void drawImgui( VkCommandBuffer cmd, VkImageView target_image_view );
 
