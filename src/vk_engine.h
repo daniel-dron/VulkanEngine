@@ -91,6 +91,7 @@ public:
 	ImageID black_image;
 	ImageID grey_image;
 	ImageID error_checkerboard_image;
+	ImageID skybox_image;
 
 	VkSampler default_sampler_linear;
 	VkSampler default_sampler_nearest;

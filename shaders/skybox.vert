@@ -5,16 +5,10 @@
 #extension GL_EXT_scalar_block_layout : require
 
 #include "bindless.glsl"
-#include "vertex.glsl"
-#include "scene.glsl"
-
-layout (push_constant) uniform constants {
-    SceneBuffer scene;
-    VertexBuffer vertex_buffer;
-    uint skybox_texture;
-} pc;
+#include "skybox_push_constants.glsl"
 
 layout (location = 0) out vec3 out_pos;
+layout (location = 1) out uint out_image;
 
 void main() {
 	Vertex v = pc.vertex_buffer.vertices[gl_VertexIndex];

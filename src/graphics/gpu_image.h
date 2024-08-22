@@ -10,6 +10,7 @@ struct GpuImage {
 	VkFormat format;
 	VkImageUsageFlags usage;
 	ImageID id;
+	bool cubemap = false;
 	bool mipmapped;
 
 	struct Info {

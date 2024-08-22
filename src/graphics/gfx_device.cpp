@@ -221,6 +221,7 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 		.set_required_features_12( features_12 )
 		.set_required_features( features )
 		.add_required_extension( "VK_EXT_descriptor_indexing" )
+		.add_required_extension( "VK_KHR_synchronization2" )
 		.set_surface( surface )
 		.select( );
 	if ( !physical_device_res ) {
@@ -229,6 +230,10 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 
 	auto& physical_device = physical_device_res.value( );
 	chosen_gpu = physical_device;
+
+	for ( const auto& ext : physical_device.get_available_extensions( ) ) {
+		fmt::println( "{}", ext.c_str( ) );
+	}
 
 	// ----------
 	// Logical Device

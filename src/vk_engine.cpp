@@ -414,7 +414,7 @@ void VulkanEngine::skyboxPass( VkCommandBuffer cmd ) const {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	skybox_pipeline.draw( *gfx, cmd, 0, scene_data );
+	skybox_pipeline.draw( *gfx, cmd, skybox_image, scene_data );
 
 	vkCmdEndRendering( cmd );
 
@@ -437,6 +437,16 @@ void VulkanEngine::initDefaultData( ) {
 }
 
 void VulkanEngine::initImages( ) {
+	std::vector<std::string> paths = {
+		"../../assets/texture/water/right.jpg",
+		"../../assets/texture/water/left.jpg",
+		"../../assets/texture/water/bottom.jpg",
+		"../../assets/texture/water/top.jpg",
+		"../../assets/texture/water/front.jpg",
+		"../../assets/texture/water/back.jpg",
+	};
+	skybox_image = gfx->image_codex.loadCubemapFromFile( paths, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+
 	// 3 default textures, white, grey, black. 1 pixel each
 	uint32_t white = glm::packUnorm4x8( glm::vec4( 1, 1, 1, 1 ) );
 	white_image = gfx->image_codex.loadImageFromData( "debug_white_img", (void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
