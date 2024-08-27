@@ -546,6 +546,58 @@ void draw_fps_graph( bool useGraph = false ) {
 	ImGui::End( );
 }
 
+std::shared_ptr<Scene::Node> selected_node = nullptr;
+void drawNodeHierarchy( const std::shared_ptr<Scene::Node>& node ) {
+	if ( !node ) return;  // Safety check in case of nullptr
+
+	// Create a unique label for each tree node to avoid ID conflicts
+	std::string label = node->name.empty( ) ? "Unnamed Node" : node->name;
+	label += "##" + std::to_string( reinterpret_cast<uintptr_t>(node.get( )) );
+
+	// Check if the node has children
+	if ( !node->children.empty( ) ) {
+		// Create a collapsible tree node for this scene node
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+		if ( selected_node == node ) {
+			flags |= ImGuiTreeNodeFlags_Selected;
+		}
+		bool node_open = ImGui::TreeNodeEx( label.c_str( ), flags );
+
+		// Check if this node is clicked
+		if ( ImGui::IsItemClicked( ) ) {
+			selected_node = node;
+		}
+
+		// Highlight the selected node
+		if ( node == selected_node ) {
+			ImGui::SetItemDefaultFocus( );
+		}
+
+		// Recursively draw children nodes if the node is open
+		if ( node_open ) {
+			for ( const auto& child : node->children ) {
+				drawNodeHierarchy( child );
+			}
+			ImGui::TreePop( );
+		}
+	} else {
+		// For nodes without children, create a selectable tree leaf
+		if ( ImGui::Selectable( label.c_str( ), selected_node == node ) ) {
+			selected_node = node;
+			ImGui::SetItemDefaultFocus( );
+		}
+
+	}
+}
+
+static void drawSceneHierarchy( Scene::Node& node ) {
+	node.transform.drawDebug( node.name );
+
+	for ( auto& n : node.children ) {
+		drawSceneHierarchy( *n.get( ) );
+	}
+};
+
 void VulkanEngine::run( ) {
 	bool bQuit = false;
 
@@ -625,7 +677,7 @@ void VulkanEngine::run( ) {
 			ImGui::End( );
 
 			if ( ImGui::Begin( "Scene" ) ) {
-				//drawSceneHierarchy( );
+				drawNodeHierarchy( scenes["sponza"]->top_nodes[0] );
 			}
 			ImGui::End( );
 
@@ -665,6 +717,11 @@ void VulkanEngine::run( ) {
 			}
 
 			if ( ImGui::Begin( "Settings" ) ) {
+				ImGui::SeparatorText( "Scene Node" );
+				if ( selected_node ) {
+					selected_node->transform.drawDebug( selected_node->name );
+				}
+
 				ImGui::SeparatorText( "Camera 3D" );
 				camera.draw_debug( );
 

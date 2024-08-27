@@ -1,4 +1,5 @@
 #include "scene.h"
+#include <imgui.h>
 
 void Scene::Node::propagateMatrix( ) {
 	Transform3D parent_transform;

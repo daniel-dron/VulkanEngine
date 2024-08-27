@@ -22,6 +22,7 @@ public:
 	const glm::mat4& asMatrix( ) const;
 
 	Transform3D operator*( const Transform3D& rhs ) const;
+	void drawDebug( const std::string& label );
 
 private:
 	vec3 position{};

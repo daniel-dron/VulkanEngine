@@ -1,6 +1,7 @@
 #include "transform.h"
 
 #include <glm/gtx/matrix_decompose.hpp>
+#include <imgui.h>
 
 Transform3D::Transform3D( const mat4& matrix ) {
 	vec3 scale;
@@ -53,4 +54,32 @@ const glm::mat4& Transform3D::asMatrix( ) const {
 
 Transform3D Transform3D::operator*( const Transform3D& rhs ) const {
 	return Transform3D( this->asMatrix( ) * rhs.asMatrix( ) );
+}
+
+void Transform3D::drawDebug( const std::string& label ) {
+	ImGui::PushID( label.c_str( ) );
+	ImGui::Text( "%s", label.c_str( ) );
+
+	ImGui::Text( "Position" );
+	if ( ImGui::DragFloat3( "##Position", &position[0], 0.1f ) ) {
+		is_dirty = true; 
+	}
+
+	ImGui::Text( "Rotation" );
+	float headingEuler[3] = {
+		glm::degrees( glm::eulerAngles( heading ).x ),
+		glm::degrees( glm::eulerAngles( heading ).y ),
+		glm::degrees( glm::eulerAngles( heading ).z )
+	};
+	if ( ImGui::DragFloat3( "##Rotation", headingEuler, 0.1f ) ) {
+		heading = glm::quat( glm::radians( vec3( headingEuler[0], headingEuler[1], headingEuler[2] ) ) );
+		is_dirty = true;
+	}
+
+	ImGui::Text( "Scale" );
+	if ( ImGui::DragFloat3( "##Scale", &scale[0], 0.1f ) ) {
+		is_dirty = true;
+	}
+
+	ImGui::PopID( );
 }
