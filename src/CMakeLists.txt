@@ -34,6 +34,8 @@ file(GLOB SRC_GRAPHICS
   graphics/bindless.h
   graphics/bindless.cpp
   graphics/gbuffer.h
+  graphics/ibl.h
+  graphics/ibl.cpp
 )
 
 file (GLOB SRC_PIPELINES

@@ -33,6 +33,8 @@ void main() {
     vec4 pbr_factors = material.metal_roughness_factors;
     vec4 pbr_sample = sampleTexture2DNearest(material.metal_roughness_tex, in_uvs);
 
-    out_pbr = pbr_factors * pbr_sample;
+    out_pbr = pbr_sample;
+    out_pbr.g = out_pbr.g * pbr_factors.g;
+    out_pbr.b = out_pbr.b * pbr_factors.r;
     out_pbr.a = 1.0f;
 }

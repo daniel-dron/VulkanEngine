@@ -24,6 +24,7 @@
 #include <graphics/material_codex.h>
 
 #include <engine/scene.h>
+#include <graphics/ibl.h>
 
 class VulkanEngine;
 
@@ -91,7 +92,8 @@ public:
 	ImageID black_image;
 	ImageID grey_image;
 	ImageID error_checkerboard_image;
-	ImageID skybox_image;
+
+	IBL ibl;
 
 	VkSampler default_sampler_linear;
 	VkSampler default_sampler_nearest;

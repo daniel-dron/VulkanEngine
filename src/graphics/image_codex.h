@@ -16,6 +16,7 @@ public:
 	const std::vector<GpuImage>& getImages( );
 	const GpuImage& getImage( ImageID );
 	ImageID loadImageFromFile( const std::string& path, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
+	ImageID loadHDRFromFile( const std::string& path, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
 	ImageID loadImageFromData( const std::string& name, void* data, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
 	ImageID loadCubemapFromFile( const std::vector<std::string>& paths, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
 	ImageID loadCubemapFromData( const std::vector<std::string>& paths, const std::vector<unsigned char*> datas, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, bool mipmapped );

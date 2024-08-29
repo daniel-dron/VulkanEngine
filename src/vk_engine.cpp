@@ -65,15 +65,6 @@ void VulkanEngine::init( ) {
 
 	initScene( );
 
-	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
-	scenes["sponza"] = std::move( scene );
-
-	// init camera
-	fps_controller =
-		std::make_unique<FirstPersonFlyingController>( &camera, 0.1f, 5.0f );
-	camera_controller = fps_controller.get( );
-	// camera.transform.set_position({0.0f, 0.0f, 100.0f});
-
 	// everything went fine
 	is_initialized = true;
 }
@@ -414,7 +405,7 @@ void VulkanEngine::skyboxPass( VkCommandBuffer cmd ) const {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	skybox_pipeline.draw( *gfx, cmd, skybox_image, scene_data );
+	skybox_pipeline.draw( *gfx, cmd, ibl.getSkyboxImage( ), scene_data );
 
 	vkCmdEndRendering( cmd );
 
@@ -437,16 +428,6 @@ void VulkanEngine::initDefaultData( ) {
 }
 
 void VulkanEngine::initImages( ) {
-	std::vector<std::string> paths = {
-		"../../assets/texture/water/right.jpg",
-		"../../assets/texture/water/left.jpg",
-		"../../assets/texture/water/bottom.jpg",
-		"../../assets/texture/water/top.jpg",
-		"../../assets/texture/water/front.jpg",
-		"../../assets/texture/water/back.jpg",
-	};
-	skybox_image = gfx->image_codex.loadCubemapFromFile( paths, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
-
 	// 3 default textures, white, grey, black. 1 pixel each
 	uint32_t white = glm::packUnorm4x8( glm::vec4( 1, 1, 1, 1 ) );
 	white_image = gfx->image_codex.loadImageFromData( "debug_white_img", (void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
@@ -485,6 +466,18 @@ void VulkanEngine::initImages( ) {
 }
 
 void VulkanEngine::initScene( ) {
+	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
+	scenes["sponza"] = std::move( scene );
+
+	ibl.init( *gfx, "../../assets/texture/ibls/zwartkops_straight_sunset_4k.hdr" );
+
+	// init camera
+	fps_controller =
+		std::make_unique<FirstPersonFlyingController>( &camera, 0.1f, 5.0f );
+	camera_controller = fps_controller.get( );
+	camera.transform.setPosition( { 0.225f, 0.138f, -0.920 } );
+	camera.rotate_by( { 6.5f, 32.0f, 0.0f } );
+
 	scene_data.ambient_light_color = vec3( 1.0f, 1.0f, 1.0f );
 	scene_data.ambient_light_factor = 1.0f;
 
@@ -494,7 +487,7 @@ void VulkanEngine::initScene( ) {
 
 	PointLight light = {};
 	light.transform.setPosition( vec3( 0.0f, 2.0f, 0.0f ) );
-	light.color = vec4( 1.0f, 0.0f, 1.0f, 1000.0f );
+	light.color = vec4( 300.0f, 300.0f, 300.0f, 1000.0f );
 	light.diffuse = 0.1f;
 	light.specular = 1.0f;
 	light.radius = 10.0f;
@@ -738,7 +731,8 @@ void VulkanEngine::run( ) {
 					if ( ImGui::CollapsingHeader(
 						std::format( "Point Light {}", i ).c_str( ) ) ) {
 						ImGui::PushID( i );
-						ImGui::ColorEdit3( "Color", &point_lights.at( i ).color.x );
+						auto flags = ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR;
+						ImGui::ColorEdit3( "Color", &point_lights.at( i ).color.x, flags );
 
 						auto pos = point_lights.at( i ).transform.getPosition( );
 						ImGui::DragFloat3( "Pos", &pos.x, 0.1f );

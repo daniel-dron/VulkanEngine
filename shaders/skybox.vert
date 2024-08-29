@@ -8,7 +8,6 @@
 #include "skybox_push_constants.glsl"
 
 layout (location = 0) out vec3 out_pos;
-layout (location = 1) out uint out_image;
 
 void main() {
 	Vertex v = pc.vertex_buffer.vertices[gl_VertexIndex];

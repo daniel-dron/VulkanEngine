@@ -55,6 +55,34 @@ ImageID ImageCodex::loadImageFromFile( const std::string& path, VkFormat format,
 	return id;
 }
 
+ImageID ImageCodex::loadHDRFromFile( const std::string& path, VkFormat format, VkImageUsageFlags usage, bool mipmapped ) {
+	// search for already loaded image
+	for ( const auto& img : images ) {
+		if ( path == img.info.path && format == img.format && usage == img.usage &&
+			mipmapped == img.mipmapped ) {
+			return img.id;
+		}
+	}
+
+	int width, height, nr_channels;
+	float *data = stbi_loadf( path.c_str( ), &width, &height, &nr_channels, 4 );
+	if ( !data ) {
+		return -1;
+	}
+
+	VkExtent3D extent = {
+		.width = static_cast<uint32_t>(width),
+		.height = static_cast<uint32_t>(height),
+		.depth = 1
+	};
+
+	auto id = loadImageFromData( path, data, extent, format, usage, mipmapped );
+
+	stbi_image_free( data );
+
+	return id;
+}
+
 ImageID ImageCodex::loadCubemapFromFile( const std::vector<std::string>& paths, VkFormat format, VkImageUsageFlags usage, bool mipmapped ) {
 	assert( paths.size( ) == 6 && "Cubemap needs 6 faces!" );
 
@@ -235,10 +263,11 @@ ImageID ImageCodex::loadImageFromData( const std::string& name, void* data, VkEx
 
 	// ----------
 	// allocate
-	size_t data_size =
-		image.extent.depth * image.extent.width * image.extent.height * 4;
+	size_t data_size = image.extent.depth * image.extent.width * image.extent.height * 4;
 	if ( format == VK_FORMAT_R16G16B16A16_SFLOAT ) {
 		data_size = data_size * 2;
+	} else if ( format == VK_FORMAT_R32G32B32A32_SFLOAT ) {
+		data_size = data_size * 4;
 	}
 
 	GpuBuffer staging_buffer = gfx->allocate(
