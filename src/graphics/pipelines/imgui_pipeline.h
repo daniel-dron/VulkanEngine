@@ -6,7 +6,7 @@
 class ImGuiPipeline : public Pipeline {
 public:
 	virtual Result<> init( GfxDevice& gfx ) override;
-	void cleanup( GfxDevice& gfx ) override;
+	virtual void cleanup( GfxDevice& gfx ) override;
 
 	void draw( GfxDevice& gfx, VkCommandBuffer cmd, ImDrawData* draw_data );
 private:

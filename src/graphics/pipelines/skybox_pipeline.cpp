@@ -181,7 +181,7 @@ void SkyboxPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID skybox_t
 	auto gpu_scene_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
 
 	PushConstants push_constants = {
-		.scene_data_address =  gpu_scene_address,
+		.scene_data_address = gpu_scene_address,
 		.vertex_buffer_address = mesh.vertex_buffer_address,
 		.texture_id = skybox_texture,
 	};

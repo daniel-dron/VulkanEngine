@@ -5,7 +5,7 @@
 class WireframePipeline : public Pipeline {
 public:
 	virtual Result<> init( GfxDevice& gfx ) override;
-	void cleanup( GfxDevice& gfx ) override;
+	virtual void cleanup( GfxDevice& gfx ) override;
 	DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const;
 
 	VkPipeline getPipeline( ) { return this->pipeline; }

@@ -6,7 +6,7 @@
 class PbrPipeline : public Pipeline {
 public:
 	virtual Result<> init( GfxDevice& gfx ) override;
-	void cleanup( GfxDevice& gfx ) override;
+	virtual void cleanup( GfxDevice& gfx ) override;
 	DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuSceneData& scene_data, const GBuffer& gbuffer ) const;
 
 private:

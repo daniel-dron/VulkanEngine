@@ -230,6 +230,10 @@ void vkutil::PipelineBuilder::set_color_attachment_format( VkFormat format ) {
 	_renderInfo.pColorAttachmentFormats = &_colorAttachmentFormat;
 }
 
+void vkutil::PipelineBuilder::set_multiview( uint32_t views ) {
+	_renderInfo.viewMask = 0x3f;
+}
+
 void vkutil::PipelineBuilder::set_color_attachment_formats( VkFormat* formats, size_t count ) {
 	_attachment_count = count;
 	_renderInfo.colorAttachmentCount = count;

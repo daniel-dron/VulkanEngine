@@ -35,6 +35,7 @@ namespace vkutil {
 		void enable_blending_additive( );
 		void set_depth_format( VkFormat format );
 		void set_color_attachment_format( VkFormat format );
+		void set_multiview( uint32_t views );
 		void set_color_attachment_formats( VkFormat* formats, size_t count );
 		void disable_depthtest( );
 		void enable_depthtest( bool depthWriteEnable, VkCompareOp op );

@@ -200,7 +200,7 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 	VkPhysicalDeviceVulkan13Features features_13{
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
 		.synchronization2 = true,
-		.dynamicRendering = true
+		.dynamicRendering = true,
 	};
 	VkPhysicalDeviceVulkan12Features features_12{
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
@@ -210,8 +210,12 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 		.runtimeDescriptorArray = true,
 		.bufferDeviceAddress = true,
 	};
+	VkPhysicalDeviceVulkan11Features features_11{
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+		.multiview = true
+	};
 	VkPhysicalDeviceFeatures features{
-		.fillModeNonSolid = true
+		.fillModeNonSolid = true,
 	};
 
 	PhysicalDeviceSelector selector{ bs_instance };
@@ -219,9 +223,11 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 		.set_minimum_version( 1, 3 )
 		.set_required_features_13( features_13 )
 		.set_required_features_12( features_12 )
+		.set_required_features_11 ( features_11 )
 		.set_required_features( features )
 		.add_required_extension( "VK_EXT_descriptor_indexing" )
 		.add_required_extension( "VK_KHR_synchronization2" )
+		.add_required_extension( "VK_KHR_multiview" )
 		.set_surface( surface )
 		.select( );
 	if ( !physical_device_res ) {

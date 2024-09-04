@@ -184,6 +184,7 @@ void VulkanEngine::cleanup( ) {
 		gbuffer_pipeline.cleanup( *gfx );
 		imgui_pipeline.cleanup( *gfx );
 		skybox_pipeline.cleanup( *gfx );
+		ibl.clean( *gfx );
 
 		main_deletion_queue.flush( );
 
@@ -243,6 +244,10 @@ void VulkanEngine::draw( ) {
 	VK_CHECK( vkBeginCommandBuffer( cmd, &cmdBeginInfo ) );
 
 	vkutil::transition_image( cmd, depth.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
+
+	if ( gfx->swapchain.frame_number == 0 ) {
+		ibl.init( *gfx, cmd, "../../assets/texture/ibls/zwartkops_straight_sunset_4k.hdr" );
+	}
 
 	gbufferPass( cmd );
 	pbrPass( cmd );
@@ -405,7 +410,7 @@ void VulkanEngine::skyboxPass( VkCommandBuffer cmd ) const {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	skybox_pipeline.draw( *gfx, cmd, ibl.getSkyboxImage( ), scene_data );
+	skybox_pipeline.draw( *gfx, cmd, ibl.getIrradianceImage( ), scene_data );
 
 	vkCmdEndRendering( cmd );
 
@@ -468,8 +473,6 @@ void VulkanEngine::initImages( ) {
 void VulkanEngine::initScene( ) {
 	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
 	scenes["sponza"] = std::move( scene );
-
-	ibl.init( *gfx, "../../assets/texture/ibls/zwartkops_straight_sunset_4k.hdr" );
 
 	// init camera
 	fps_controller =
