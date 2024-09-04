@@ -7,21 +7,64 @@
 using namespace vkinit;
 using namespace vkutil;
 
-IblPipeline::Result<> IblPipeline::init( GfxDevice& gfx ) {
+std::vector<Mesh::Vertex> vertices = {
+	// Front face
+	{{-1.0f, 1.0f, 1.0f}, 0.0f, {0.0f, 0.0f, 1.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+	{{1.0f, 1.0f, 1.0f}, 1.0f, {0.0f, 0.0f, 1.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+	{{1.0f, -1.0f, 1.0f}, 1.0f, {0.0f, 0.0f, 1.0f}, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+	{{-1.0f, -1.0f, 1.0f}, 0.0f, {0.0f, 0.0f, 1.0f}, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+
+	// Back face
+	{{-1.0f, 1.0f, -1.0f}, 1.0f, {0.0f, 0.0f, -1.0f}, 0.0f, {-1.0f, 0.0f, 0.0f, 1.0f}},
+	{{1.0f, 1.0f, -1.0f}, 0.0f, {0.0f, 0.0f, -1.0f}, 0.0f, {-1.0f, 0.0f, 0.0f, 1.0f}},
+	{{1.0f, -1.0f, -1.0f}, 0.0f, {0.0f, 0.0f, -1.0f}, 1.0f, {-1.0f, 0.0f, 0.0f, 1.0f}},
+	{{-1.0f, -1.0f, -1.0f}, 1.0f, {0.0f, 0.0f, -1.0f}, 1.0f, {-1.0f, 0.0f, 0.0f, 1.0f}}
+};
+
+std::vector<uint32_t> indices = {
+	// Front face
+	0, 1, 2,
+	2, 3, 0,
+
+	// Right face
+	1, 5, 6,
+	6, 2, 1,
+
+	// Back face
+	5, 4, 7,
+	7, 6, 5,
+
+	// Left face
+	4, 0, 3,
+	3, 7, 4,
+
+	// Top face
+	4, 5, 1,
+	1, 0, 4,
+
+	// Bottom face
+	3, 2, 6,
+	6, 7, 3
+};
+
+Mesh mesh = {
+	.vertices = vertices,
+	.indices = indices
+};
+
+void EquiToCubePipeline::init( GfxDevice& gfx, const std::string& shader ) {
 	VkShaderModule frag_shader;
-	if ( !load_shader_module( "../../shaders/ibl.frag.spv", gfx.device, &frag_shader ) ) {
-		return std::unexpected( PipelineError{
-			.error = Error::ShaderLoadingFailed,
-			.message = "Failed to load mesh fragment shader!"
-			} );
+	if ( !load_shader_module(
+		std::format( "../../shaders/{}.frag.spv", shader.c_str( ) ).c_str( ),
+		gfx.device, &frag_shader ) ) {
+		assert( false );
 	}
 
 	VkShaderModule vert_shader;
-	if ( !load_shader_module( "../../shaders/ibl.vert.spv", gfx.device, &vert_shader ) ) {
-		return std::unexpected( PipelineError{
-			.error = Error::ShaderLoadingFailed,
-			.message = "Failed to load mesh vertex shader!"
-			} );
+	if ( !load_shader_module(
+		std::format( "../../shaders/{}.vert.spv", shader.c_str( ) ).c_str( ),
+		gfx.device, &vert_shader ) ) {
+		assert( false );
 	}
 
 	VkPushConstantRange range = {
@@ -61,7 +104,7 @@ IblPipeline::Result<> IblPipeline::init( GfxDevice& gfx ) {
 		.pNext = nullptr,
 		.objectType = VkObjectType::VK_OBJECT_TYPE_PIPELINE,
 		.objectHandle = (uint64_t)pipeline,
-		.pObjectName = "IBL Pipeline"
+		.pObjectName = "EquiToCube Pipeline"
 	};
 	vkSetDebugUtilsObjectNameEXT( gfx.device, &obj );
 #endif
@@ -69,21 +112,50 @@ IblPipeline::Result<> IblPipeline::init( GfxDevice& gfx ) {
 	vkDestroyShaderModule( gfx.device, frag_shader, nullptr );
 	vkDestroyShaderModule( gfx.device, vert_shader, nullptr );
 
-	initCubeMesh( gfx );
-	initPushConstants( gfx );
+	cube_mesh = gfx.mesh_codex.addMesh( gfx, mesh );
+	auto& gpu_mesh = gfx.mesh_codex.getMesh( cube_mesh );
 
-	return {};
+	mat4 projection = glm::perspective( glm::radians( 90.0f ), 1.0f, 0.1f, 10.0f );
+	Matrices matrices = {
+		.projection = projection,
+		.views = {
+			glm::lookAt( glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 1.0f,  0.0f,  0.0f ), glm::vec3( 0.0f, -1.0f,  0.0f ) ),
+			glm::lookAt( glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( -1.0f,  0.0f,  0.0f ), glm::vec3( 0.0f, -1.0f,  0.0f ) ),
+			glm::lookAt( glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f,  1.0f,  0.0f ), glm::vec3( 0.0f,  0.0f,  1.0f ) ),
+			glm::lookAt( glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, -1.0f,  0.0f ), glm::vec3( 0.0f,  0.0f, -1.0f ) ),
+			glm::lookAt( glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f,  0.0f,  1.0f ), glm::vec3( 0.0f, -1.0f,  0.0f ) ),
+			glm::lookAt( glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f,  0.0f, -1.0f ), glm::vec3( 0.0f, -1.0f,  0.0f ) )
+		}
+	};
+
+	gpu_matrices = gfx.allocate( sizeof( Matrices ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Matrices EquiToRect data" );
+	Matrices* gpu_matrices_addr = nullptr;
+	vmaMapMemory( gfx.allocator, gpu_matrices.allocation, (void**)&gpu_matrices_addr );
+	memcpy( gpu_matrices_addr, &matrices, sizeof( Matrices ) );
+	vmaUnmapMemory( gfx.allocator, gpu_matrices.allocation );
+
+	VkBufferDeviceAddressInfo address_info = {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+		.pNext = nullptr,
+		.buffer = gpu_matrices.buffer
+	};
+	auto gpu_matrices_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
+
+	push_constants = {
+		.vertex_buffer_address = gpu_mesh.vertex_buffer_address,
+		.matrices = gpu_matrices_address
+	};
 }
 
-void IblPipeline::cleanup( GfxDevice& gfx ) {
+void EquiToCubePipeline::cleanup( GfxDevice& gfx ) {
 	vkDestroyPipelineLayout( gfx.device, layout, nullptr );
 	vkDestroyPipeline( gfx.device, pipeline, NULL );
 	gfx.free( gpu_matrices );
 }
 
-DrawStats IblPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID equirectangular, ImageID dst_cubemap ) const {
-	ZoneScopedN( "IBL Pass" );
-	START_LABEL( cmd, "IBL Pass", vec4( 1.0f, 0.0f, 1.0f, 1.0f ) );
+void EquiToCubePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID equirectangular, ImageID dst_cubemap ) const {
+	ZoneScopedN( "EquiToCube Pass" );
+	START_LABEL( cmd, "EquiToCube Pass", vec4( 1.0f, 0.0f, 1.0f, 1.0f ) );
 
 	using namespace vkinit;
 
@@ -142,92 +214,4 @@ DrawStats IblPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID equire
 	vkCmdEndRendering( cmd );
 
 	END_LABEL( cmd );
-
-	return {};
 }
-
-void IblPipeline::initCubeMesh( GfxDevice& gfx ) {
-	std::vector<Mesh::Vertex> vertices = {
-		// Front face
-		{{-1.0f, 1.0f, 1.0f}, 0.0f, {0.0f, 0.0f, 1.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-		{{1.0f, 1.0f, 1.0f}, 1.0f, {0.0f, 0.0f, 1.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-		{{1.0f, -1.0f, 1.0f}, 1.0f, {0.0f, 0.0f, 1.0f}, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-		{{-1.0f, -1.0f, 1.0f}, 0.0f, {0.0f, 0.0f, 1.0f}, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-
-		// Back face
-		{{-1.0f, 1.0f, -1.0f}, 1.0f, {0.0f, 0.0f, -1.0f}, 0.0f, {-1.0f, 0.0f, 0.0f, 1.0f}},
-		{{1.0f, 1.0f, -1.0f}, 0.0f, {0.0f, 0.0f, -1.0f}, 0.0f, {-1.0f, 0.0f, 0.0f, 1.0f}},
-		{{1.0f, -1.0f, -1.0f}, 0.0f, {0.0f, 0.0f, -1.0f}, 1.0f, {-1.0f, 0.0f, 0.0f, 1.0f}},
-		{{-1.0f, -1.0f, -1.0f}, 1.0f, {0.0f, 0.0f, -1.0f}, 1.0f, {-1.0f, 0.0f, 0.0f, 1.0f}}
-	};
-
-	std::vector<uint32_t> indices = {
-		// Front face
-		0, 1, 2,
-		2, 3, 0,
-
-		// Right face
-		1, 5, 6,
-		6, 2, 1,
-
-		// Back face
-		5, 4, 7,
-		7, 6, 5,
-
-		// Left face
-		4, 0, 3,
-		3, 7, 4,
-
-		// Top face
-		4, 5, 1,
-		1, 0, 4,
-
-		// Bottom face
-		3, 2, 6,
-		6, 7, 3
-	};
-
-	Mesh mesh = {
-		.vertices = vertices,
-		.indices = indices
-	};
-	cube_mesh = gfx.mesh_codex.addMesh( gfx, mesh );
-}
-
-void IblPipeline::initPushConstants( GfxDevice& gfx ) {
-
-	auto& gpu_mesh = gfx.mesh_codex.getMesh( cube_mesh );
-
-
-	mat4 projection = glm::perspective( glm::radians( 90.0f ), 1.0f, 0.1f, 10.0f );
-	Matrices matrices = {
-		.projection = projection,
-		.views = {
-			glm::lookAt( glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 1.0f,  0.0f,  0.0f ), glm::vec3( 0.0f, -1.0f,  0.0f ) ),
-			glm::lookAt( glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( -1.0f,  0.0f,  0.0f ), glm::vec3( 0.0f, -1.0f,  0.0f ) ),
-			glm::lookAt( glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f,  1.0f,  0.0f ), glm::vec3( 0.0f,  0.0f,  1.0f ) ),
-			glm::lookAt( glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, -1.0f,  0.0f ), glm::vec3( 0.0f,  0.0f, -1.0f ) ),
-			glm::lookAt( glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f,  0.0f,  1.0f ), glm::vec3( 0.0f, -1.0f,  0.0f ) ),
-			glm::lookAt( glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f,  0.0f, -1.0f ), glm::vec3( 0.0f, -1.0f,  0.0f ) )
-		}
-	};
-
-	gpu_matrices = gfx.allocate( sizeof( Matrices ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Matrices IBL data" );
-	Matrices* gpu_matrices_addr = nullptr;
-	vmaMapMemory( gfx.allocator, gpu_matrices.allocation, (void**)&gpu_matrices_addr );
-	memcpy( gpu_matrices_addr, &matrices, sizeof( Matrices ) );
-	vmaUnmapMemory( gfx.allocator, gpu_matrices.allocation );
-
-	VkBufferDeviceAddressInfo address_info = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-		.pNext = nullptr,
-		.buffer = gpu_matrices.buffer
-	};
-	auto gpu_matrices_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
-
-	push_constants = {
-		.vertex_buffer_address = gpu_mesh.vertex_buffer_address,
-		.matrices = gpu_matrices_address
-	};
-}
-

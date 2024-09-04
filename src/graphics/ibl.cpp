@@ -4,15 +4,16 @@
 #include <graphics/image_codex.h>
 
 void IBL::init( GfxDevice& gfx, VkCommandBuffer cmd, const std::string& path ) {
-	ibl_pipeline.init( gfx );
+	etc_pipeline.init( gfx, "ibl" );
+
 	loadHdrSkyboxMap( gfx, path );
 
 	irradiance = gfx.image_codex.createCubemap( "IBL SKYBOX", VkExtent3D{ 512, 512, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT );
-	ibl_pipeline.draw( gfx, cmd, getSkyboxImage( ), irradiance);
+	etc_pipeline.draw( gfx, cmd, getSkyboxImage( ), irradiance);
 }
 
 void IBL::clean( GfxDevice& gfx ) {
-	ibl_pipeline.cleanup( gfx );
+	etc_pipeline.cleanup( gfx );
 }
 
 ImageID IBL::getSkyboxImage( ) const {

@@ -2,16 +2,15 @@
 
 #include "pipeline.h"
 
-class IblPipeline : public Pipeline {
+class EquiToCubePipeline {
 public:
-	virtual Result<> init( GfxDevice& gfx ) override;
-	virtual void cleanup( GfxDevice& gfx ) override;
-	DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID equirectangular, ImageID dst_cubemap ) const;
+	void init( GfxDevice& gfx, const std::string& shader );
+	void cleanup( GfxDevice& gfx );
 
+	void draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID equirectangular, ImageID dst_cubemap ) const;
 private:
-
-	void initCubeMesh( GfxDevice& gfx );
-	void initPushConstants( GfxDevice& gfx );
+	VkPipeline pipeline;
+	VkPipelineLayout layout;
 
 	struct PushConstants {
 		VkDeviceAddress vertex_buffer_address;

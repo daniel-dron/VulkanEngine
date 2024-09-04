@@ -16,7 +16,7 @@ public:
 private:
 
 	void loadHdrSkyboxMap( GfxDevice& gfx, const std::string& path);
-	IblPipeline ibl_pipeline;
+	EquiToCubePipeline etc_pipeline;
 
 	ImageID skybox = ImageCodex::INVALID_IMAGE_ID;
 	ImageID irradiance = ImageCodex::INVALID_IMAGE_ID;
