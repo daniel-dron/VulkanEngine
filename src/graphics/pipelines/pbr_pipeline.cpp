@@ -84,7 +84,7 @@ void PbrPipeline::cleanup( GfxDevice& gfx ) {
 	gfx.free( gpu_scene_data );
 }
 
-DrawStats PbrPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuSceneData& scene_data, const GBuffer& gbuffer ) const {
+DrawStats PbrPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuSceneData& scene_data, const GBuffer& gbuffer, uint32_t irradiance_map ) const {
 	DrawStats stats = {};
 
 	GpuSceneData* gpu_scene_addr = nullptr;
@@ -134,7 +134,8 @@ DrawStats PbrPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuScene
 		.albedo_tex = gbuffer.albedo,
 		.normal_tex = gbuffer.normal,
 		.position_tex = gbuffer.position,
-		.pbr_tex = gbuffer.pbr
+		.pbr_tex = gbuffer.pbr,
+		.irradiance_tex = irradiance_map
 	};
 	vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( PushConstants ), &push_constants );
 

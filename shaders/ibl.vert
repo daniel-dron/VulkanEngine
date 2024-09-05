@@ -17,10 +17,10 @@ layout (buffer_reference, scalar) readonly buffer IblMatrices {
 layout (push_constant) uniform constants {
     VertexBuffer vertex_buffer;
     IblMatrices iblMatrices;
+    int skybox;
 } pc;
 
 layout (location = 0) out vec3 out_pos;
-layout (location = 1) out vec4 out_color;
 
 void main() {
 	Vertex v = pc.vertex_buffer.vertices[gl_VertexIndex];
@@ -33,20 +33,4 @@ void main() {
 	vec4 pos = pc.iblMatrices.proj * view * vec4(v.position, 1.0);
     
     gl_Position = pos.xyww;
-
-    out_color = vec4(v.position, 1.0f);
-    // switch(gl_ViewIndex) {
-    //     case 0:
-    //     case 1:
-    //     case 2:
-    //         out_color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-    //         break;
-    //     case 3:
-    //     case 4:
-    //     case 5:
-    //         out_color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
-    //         break;
-    //     default:
-    //         out_color = vec4(0.0f, 0.0f, 1.0f, 1.0f);
-    // }
 }

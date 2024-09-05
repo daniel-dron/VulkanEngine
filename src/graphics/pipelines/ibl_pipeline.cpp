@@ -113,7 +113,21 @@ void EquiToCubePipeline::init( GfxDevice& gfx, const std::string& shader ) {
 	vkDestroyShaderModule( gfx.device, vert_shader, nullptr );
 
 	cube_mesh = gfx.mesh_codex.addMesh( gfx, mesh );
-	auto& gpu_mesh = gfx.mesh_codex.getMesh( cube_mesh );
+
+	gpu_matrices = gfx.allocate( sizeof( Matrices ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Matrices EquiToRect data" );
+}
+
+void EquiToCubePipeline::cleanup( GfxDevice& gfx ) {
+	vkDestroyPipelineLayout( gfx.device, layout, nullptr );
+	vkDestroyPipeline( gfx.device, pipeline, NULL );
+	gfx.free( gpu_matrices );
+}
+
+void EquiToCubePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID equirectangular, ImageID dst_cubemap ) {
+	ZoneScopedN( "EquiToCube Pass" );
+	START_LABEL( cmd, "EquiToCube Pass", vec4( 1.0f, 0.0f, 1.0f, 1.0f ) );
+
+	using namespace vkinit;
 
 	mat4 projection = glm::perspective( glm::radians( 90.0f ), 1.0f, 0.1f, 10.0f );
 	Matrices matrices = {
@@ -128,7 +142,6 @@ void EquiToCubePipeline::init( GfxDevice& gfx, const std::string& shader ) {
 		}
 	};
 
-	gpu_matrices = gfx.allocate( sizeof( Matrices ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Matrices EquiToRect data" );
 	Matrices* gpu_matrices_addr = nullptr;
 	vmaMapMemory( gfx.allocator, gpu_matrices.allocation, (void**)&gpu_matrices_addr );
 	memcpy( gpu_matrices_addr, &matrices, sizeof( Matrices ) );
@@ -141,23 +154,12 @@ void EquiToCubePipeline::init( GfxDevice& gfx, const std::string& shader ) {
 	};
 	auto gpu_matrices_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
 
+	auto& gpu_mesh = gfx.mesh_codex.getMesh( cube_mesh );
 	push_constants = {
 		.vertex_buffer_address = gpu_mesh.vertex_buffer_address,
-		.matrices = gpu_matrices_address
+		.matrices = gpu_matrices_address,
+		.skybox = equirectangular
 	};
-}
-
-void EquiToCubePipeline::cleanup( GfxDevice& gfx ) {
-	vkDestroyPipelineLayout( gfx.device, layout, nullptr );
-	vkDestroyPipeline( gfx.device, pipeline, NULL );
-	gfx.free( gpu_matrices );
-}
-
-void EquiToCubePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID equirectangular, ImageID dst_cubemap ) const {
-	ZoneScopedN( "EquiToCube Pass" );
-	START_LABEL( cmd, "EquiToCube Pass", vec4( 1.0f, 0.0f, 1.0f, 1.0f ) );
-
-	using namespace vkinit;
 
 	auto& cubemap = gfx.image_codex.getImage( dst_cubemap );
 	VkClearValue clear_value = { 0.0f, 0.0f ,0.0f, 1.0f };

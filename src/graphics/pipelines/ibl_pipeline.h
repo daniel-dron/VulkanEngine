@@ -7,7 +7,7 @@ public:
 	void init( GfxDevice& gfx, const std::string& shader );
 	void cleanup( GfxDevice& gfx );
 
-	void draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID equirectangular, ImageID dst_cubemap ) const;
+	void draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID equirectangular, ImageID dst_cubemap );
 private:
 	VkPipeline pipeline;
 	VkPipelineLayout layout;
@@ -15,6 +15,7 @@ private:
 	struct PushConstants {
 		VkDeviceAddress vertex_buffer_address;
 		VkDeviceAddress matrices;
+		uint32_t skybox;
 	};
 
 	struct Matrices {

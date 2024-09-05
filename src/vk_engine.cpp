@@ -370,7 +370,7 @@ void VulkanEngine::pbrPass( VkCommandBuffer cmd ) const {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	pbr_pipeline.draw( *gfx, cmd, scene_data, gfx->swapchain.getCurrentFrame( ).gbuffer );
+	pbr_pipeline.draw( *gfx, cmd, scene_data, gfx->swapchain.getCurrentFrame( ).gbuffer, ibl.getIrradianceImage( ) );
 
 	vkCmdEndRendering( cmd );
 

@@ -15,6 +15,7 @@ layout( push_constant ) uniform constants {
     uint normal_tex;
     uint position_tex;
     uint pbr_tex;
+    uint irradiance_map;
 } pc;
 
 layout (location = 0) in vec2 in_uvs;
@@ -60,7 +61,7 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-} 
+}
 
 void main() {
     vec3 albedo = sampleTexture2DLinear(pc.albedo_tex, in_uvs).rgb;
@@ -72,6 +73,9 @@ void main() {
 
     float roughness = pbr_values.g;
     float metallic = pbr_values.b;
+
+    vec3 F0 = vec3(0.04); // non metallic is always 0.04f
+    F0      = mix(F0, albedo, metallic);
 
     vec3 Lo = vec3(0.0f);
     for (int i = 0; i < pc.scene.number_of_lights; i++) {
@@ -85,9 +89,6 @@ void main() {
 
         // ---------
         // Cook Torrance BRDF
-
-        vec3 F0 = vec3(0.04); // non metallic is always 0.04f
-        F0      = mix(F0, albedo, metallic);
         vec3 F  = fresnelSchlick(max(dot(halfway, view_dir), 0.0), F0);
 
         float NDF = DistributionGGX(normal, halfway, roughness);
@@ -107,7 +108,13 @@ void main() {
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
-    vec3 ambient = vec3(0.03) * albedo;
+    // ambient lighting (we now use IBL as the ambient term)
+    vec3 kS = fresnelSchlick(max(dot(normal, view_dir), 0.0), F0);
+    vec3 kD = 1.0 - kS;
+    kD *= 1.0 - metallic;	  
+    vec3 irradiance = sampleTextureCubeLinear(pc.irradiance_map, normal).rgb;
+    vec3 diffuse      = irradiance * albedo;
+    vec3 ambient = kD * diffuse;
     vec3 color = ambient + Lo;
 
     color = color / (color + vec3(1.0));
