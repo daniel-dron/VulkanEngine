@@ -63,60 +63,78 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+{
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}   
+
+vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, vec3 normal, vec3 view_dir) {
+    vec3 N = normal;
+    vec3 V = view_dir;
+
+    vec3 position = sampleTexture2DNearest(pc.position_tex, in_uvs).rgb;
+
+	// interpolate surface reflection between 0.04 (minimum) and the albedo value
+	// in relation to the metallic factor of the material
+	vec3 F0 = vec3(0.04); 
+	F0      = mix(F0, albedo, metallic);
+
+    vec3 Lo = vec3(0.0f);
+    for (int i = 0; i < pc.scene.number_of_lights; i++) {
+        PointLight light = pc.scene.pointLights[i];
+        vec3 L = normalize(light.position - position);
+        vec3 H = normalize(V + L);
+
+        float distance = length(light.position - position);
+        float attenuation = 1.0f / (distance * distance);
+        vec3 radiance = light.color.rgb * attenuation;
+
+        vec3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
+
+		float NDF = DistributionGGX(N, H, roughness);
+        float G   = GeometrySmith(N, V, L, roughness);
+
+        vec3 numerator    = NDF * G * F;
+        // add 0.0001 to the denominator to prevent divide by zero
+        float denominator = 4.0f * max(dot(N, V), 0.0f) * max(dot(N, L), 0.0f) + 0.0001f;
+        vec3 specular     = numerator / denominator;
+
+        vec3 kS = F;
+        vec3 kD = vec3(1.0f) - kS;
+
+        kD *= 1.0f - metallic;
+
+        float NdotL = max(dot(N, L), 0.0f);
+        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
+    }
+
+    //vec3 kS = fresnelSchlick(max(dot(N, V), 0.0f), F0);
+    vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+    const float MAX_REFLECTION_LOD = 4.0;
+
+    vec3 kS = F;
+    vec3 kD = 1.0f - kS;
+    kD *= 1.0f - metallic;
+    vec3 irradiance = sampleTextureCubeLinear(pc.irradiance_map, normal).rgb;
+    vec3 diffuse = irradiance * albedo;
+    vec3 ambient = (kD * diffuse) * ao;
+    vec3 color = ambient + Lo + emissive;
+
+    return color;
+}
+
 void main() {
-    vec3 albedo = sampleTexture2DLinear(pc.albedo_tex, in_uvs).rgb;
-    vec3 normal = sampleTexture2DLinear(pc.normal_tex, in_uvs).rgb;
-    vec3 position = sampleTexture2DLinear(pc.position_tex, in_uvs).rgb;
-    vec4 pbr_values = sampleTexture2DLinear(pc.pbr_tex, in_uvs);
+    vec3 albedo = sampleTexture2DNearest(pc.albedo_tex, in_uvs).rgb;
+    vec3 normal = sampleTexture2DNearest(pc.normal_tex, in_uvs).rgb;
+    vec3 position = sampleTexture2DNearest(pc.position_tex, in_uvs).rgb;
+    vec4 pbr_values = sampleTexture2DNearest(pc.pbr_tex, in_uvs);
     
     vec3 view_dir = normalize(pc.scene.camera_position - position);
 
     float roughness = pbr_values.g;
     float metallic = pbr_values.b;
 
-    vec3 F0 = vec3(0.04); // non metallic is always 0.04f
-    F0      = mix(F0, albedo, metallic);
-
-    vec3 Lo = vec3(0.0f);
-    for (int i = 0; i < pc.scene.number_of_lights; i++) {
-        PointLight light = pc.scene.pointLights[i];
-        vec3 light_dir = normalize(light.position - position);
-        vec3 halfway = normalize(light_dir + view_dir);
-
-        float distance = length(light.position - position);
-        float attenuation = 1.0f / (distance * distance);
-        vec3 radiance = light.color.rgb * attenuation;
-
-        // ---------
-        // Cook Torrance BRDF
-        vec3 F  = fresnelSchlick(max(dot(halfway, view_dir), 0.0), F0);
-
-        float NDF = DistributionGGX(normal, halfway, roughness);
-
-        float G   = GeometrySmith(normal, view_dir, light_dir, roughness);
-
-        vec3 numerator    = NDF * G * F;
-        float denominator = 4.0 * max(dot(normal, view_dir), 0.0) * max(dot(normal, light_dir), 0.0)  + 0.0001;
-        vec3 specular     = numerator / denominator;
-
-        vec3 kS = F;
-        vec3 kD = vec3(1.0) - kS;
-        
-        kD *= 1.0 - metallic;
-
-        float NdotL = max(dot(normal, light_dir), 0.0);
-        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
-    }
-
-    // ambient lighting (we now use IBL as the ambient term)
-    vec3 kS = fresnelSchlick(max(dot(normal, view_dir), 0.0), F0);
-    vec3 kD = 1.0 - kS;
-    kD *= 1.0 - metallic;	  
-    vec3 irradiance = sampleTextureCubeLinear(pc.irradiance_map, normal).rgb;
-    vec3 diffuse      = irradiance * albedo;
-    vec3 ambient = kD * diffuse;
-    vec3 color = ambient + Lo;
-
+    vec3 color = pbr(albedo, vec3(0.0f, 0.0f, 0.0f), metallic, roughness, 1.0f, normal, view_dir);
     color = color / (color + vec3(1.0));
 
     out_color = vec4(color, 1.0f);

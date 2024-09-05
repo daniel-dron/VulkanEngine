@@ -246,7 +246,7 @@ void VulkanEngine::draw( ) {
 	vkutil::transition_image( cmd, depth.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
 	if ( gfx->swapchain.frame_number == 0 ) {
-		ibl.init( *gfx, cmd, "../../assets/texture/ibls/zwartkops_straight_sunset_4k.hdr" );
+		ibl.init( *gfx, cmd, "../../assets/texture/ibls/lonely_road_afternoon_puresky_4k.hdr" );
 	}
 
 	gbufferPass( cmd );
@@ -410,7 +410,7 @@ void VulkanEngine::skyboxPass( VkCommandBuffer cmd ) const {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	skybox_pipeline.draw( *gfx, cmd, ibl.getIrradianceImage( ), scene_data );
+	skybox_pipeline.draw( *gfx, cmd, ibl.getSkyboxImage( ), scene_data );
 
 	vkCmdEndRendering( cmd );
 
@@ -471,7 +471,7 @@ void VulkanEngine::initImages( ) {
 }
 
 void VulkanEngine::initScene( ) {
-	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
+	auto scene = GltfLoader::load( *gfx, "../../assets/shield_8mb.glb" );
 	scenes["sponza"] = std::move( scene );
 
 	// init camera
