@@ -8,9 +8,9 @@ void Scene::Node::propagateMatrix( ) {
 		parent_transform = glm::mat4( 1.0f );
 	} else {
 		parent_transform = parent.lock( )->transform;
+		
+		this->transform = parent_transform * this->transform;
 	}
-
-	this->transform = parent_transform * this->transform;
 
 	for ( auto& child : this->children ) {
 		child->propagateMatrix( );

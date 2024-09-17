@@ -44,7 +44,7 @@ const glm::mat4& Transform3D::asMatrix( ) const {
 	}
 
 	matrix = glm::translate( mat4( 1.0f ), position );
-	matrix *= glm::mat4_cast( heading );
+	matrix *= glm::mat4_cast( glm::normalize( heading ) );
 	matrix = glm::scale( matrix, scale );
 
 	is_dirty = false;
