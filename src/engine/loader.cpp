@@ -241,7 +241,7 @@ static MaterialID loadMaterial( GfxDevice& gfx, fastgltf::Asset& asset, fastgltf
 
 	auto imageOrDefault = [&]( fastgltf::Optional<size_t> image_index ) {
 		if ( !image_index.has_value( ) ) {
-			return gfx.image_codex.getChekboardImageId( );
+			return gfx.image_codex.getBlackImageId( );
 		}
 
 		return image_ids.at( image_index.value( ) );
@@ -260,7 +260,6 @@ static MaterialID loadMaterial( GfxDevice& gfx, fastgltf::Asset& asset, fastgltf
 		auto idx = asset.textures[gltf_material.pbrData.metallicRoughnessTexture.value( ).textureIndex].imageIndex;
 		material.metal_roughness_id = imageOrDefault( idx );
 	}
-
 
 	// ----------
 	// Normal Texture
