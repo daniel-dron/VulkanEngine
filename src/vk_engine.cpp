@@ -471,15 +471,15 @@ void VulkanEngine::initImages( ) {
 }
 
 void VulkanEngine::initScene( ) {
-	auto scene = GltfLoader::load( *gfx, "../../assets/untitled.glb" );
-	scenes["sponza"] = std::move( scene );
+	//auto scene = GltfLoader::load( *gfx, "../../assets/untitled.glb" );
+	//scenes["sponza"] = std::move( scene );
 
 	// init camera
-	fps_controller =
-		std::make_unique<FirstPersonFlyingController>( &camera, 0.1f, 5.0f );
+	camera = std::make_unique<Camera>(vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, 1920.0f, 1080.0f );
+
+	fps_controller = std::make_unique<FirstPersonFlyingController>( camera.get( ), 0.1f, 5.0f );
 	camera_controller = fps_controller.get( );
-	camera.transform.setPosition( { 0.225f, 0.138f, -0.920 } );
-	camera.rotate_by( { 6.5f, 32.0f, 0.0f } );
+
 
 	scene_data.ambient_light_color = vec3( 1.0f, 1.0f, 1.0f );
 	scene_data.ambient_light_factor = 1.0f;
@@ -673,7 +673,7 @@ void VulkanEngine::run( ) {
 			ImGui::End( );
 
 			if ( ImGui::Begin( "Scene" ) ) {
-				drawNodeHierarchy( scenes["sponza"]->top_nodes[0] );
+				//drawNodeHierarchy( scenes["sponza"]->top_nodes[0] );
 			}
 			ImGui::End( );
 
@@ -719,7 +719,7 @@ void VulkanEngine::run( ) {
 				}
 
 				ImGui::SeparatorText( "Camera 3D" );
-				camera.draw_debug( );
+				camera->drawDebug( );
 
 				ImGui::SeparatorText( "Camera Controller" );
 				camera_controller->draw_debug( );
@@ -819,7 +819,7 @@ static void createDrawCommands( GfxDevice& gfx, const Scene& scene, const Scene:
 				.index_buffer = mesh.index_buffer.buffer,
 				.index_count = mesh.index_count,
 				.vertex_buffer_address = mesh.vertex_buffer_address,
-				.world_from_local = node.transform.asMatrix( ),
+				.world_from_local = node.transform.model,
 				.material_id = scene.materials[mesh_asset.materials[i]]
 			};
 			draw_commands.push_back( mdc );
@@ -838,15 +838,17 @@ void VulkanEngine::updateScene( ) {
 	auto start = std::chrono::system_clock::now( );
 
 	draw_commands.clear( );
-	auto scene = scenes["sponza"].get( );
-	createDrawCommands( *gfx.get( ), *scene, *(scenes["sponza"]->top_nodes[0].get( )), draw_commands );
+	//auto scene = scenes["sponza"].get( );
+	//scene->top_nodes[0]->propagateMatrix( );
+	//createDrawCommands( *gfx.get( ), *scene, *(scenes["sponza"]->top_nodes[0].get( )), draw_commands );
 
 	// camera
-	scene_data.view = camera.get_view_matrix( );
-	scene_data.proj = glm::perspective( glm::radians( 70.f ),
-		(float)window_extent.width / (float)window_extent.height, 0.1f, 10000.0f );
+	scene_data.view = camera->getViewMatrix( );
+	//scene_data.proj = glm::perspective( glm::radians( 70.f ),
+		//(float)window_extent.width / (float)window_extent.height, 0.1f, 10000.0f );
+	scene_data.proj = camera->getProjectionMatrix( );
 	scene_data.viewproj = scene_data.proj * scene_data.view;
-	scene_data.camera_position = camera.transform.getPosition( );
+	scene_data.camera_position = camera->getPosition( );
 
 	// point lights
 	scene_data.number_of_lights = static_cast<int>(point_lights.size( ));

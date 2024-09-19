@@ -11,5 +11,5 @@ namespace fastgltf {
 
 class GltfLoader {
 public:
-	static std::unique_ptr<Scene> load( GfxDevice& gfx, const std::string& path );
+	//static std::unique_ptr<Scene> load( GfxDevice& gfx, const std::string& path );
 };

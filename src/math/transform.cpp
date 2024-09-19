@@ -62,7 +62,7 @@ void Transform3D::drawDebug( const std::string& label ) {
 
 	ImGui::Text( "Position" );
 	if ( ImGui::DragFloat3( "##Position", &position[0], 0.1f ) ) {
-		is_dirty = true; 
+		is_dirty = true;
 	}
 
 	ImGui::Text( "Rotation" );
@@ -80,6 +80,32 @@ void Transform3D::drawDebug( const std::string& label ) {
 	if ( ImGui::DragFloat3( "##Scale", &scale[0], 0.1f ) ) {
 		is_dirty = true;
 	}
+
+	ImGui::PopID( );
+}
+
+mat4 Transform::asMatrix( ) const {
+	const glm::mat4 rot_x = glm::rotate( glm::mat4( 1.0f ), glm::radians( euler.x ), glm::vec3( 1.0f, 0.0f, 0.0f ) );
+	const glm::mat4 rot_y = glm::rotate( glm::mat4( 1.0f ), glm::radians( euler.y ), glm::vec3( 0.0f, 1.0f, 0.0f ) );
+	const glm::mat4 rot_z = glm::rotate( glm::mat4( 1.0f ), glm::radians( euler.z ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
+
+	const glm::mat4 roationMatrix = rot_y * rot_x * rot_z;
+
+	return glm::translate( glm::mat4( 1.0f ), position ) * roationMatrix * glm::scale( glm::mat4( 1.0f ), scale );
+}
+
+void Transform::drawDebug( const std::string& label ) {
+	ImGui::PushID( label.c_str( ) );
+	ImGui::Text( "%s", label.c_str( ) );
+
+	ImGui::Text( "Position" );
+	ImGui::DragFloat3( "##Position", &position[0], 0.1f );
+
+	ImGui::Text( "Rotation" );
+	ImGui::DragFloat3( "##Rotation", &euler[0], 0.1f );
+
+	ImGui::Text( "Scale" );
+	ImGui::DragFloat3( "##Scale", &scale[0], 0.1f );
 
 	ImGui::PopID( );
 }

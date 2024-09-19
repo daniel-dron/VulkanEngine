@@ -101,7 +101,8 @@ public:
 	std::vector<MeshDrawCommand> draw_commands;
 
 	std::unordered_map<std::string, std::unique_ptr<Scene>> scenes;
-	Camera3D camera;
+	//Camera3D camera;
+	std::unique_ptr<Camera> camera;
 	std::unique_ptr<FirstPersonFlyingController> fps_controller;
 	CameraController* camera_controller;
 

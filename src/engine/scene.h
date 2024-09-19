@@ -13,7 +13,8 @@ struct Scene {
 		int mesh_index = -1;
 		std::string name;
 
-		Transform3D transform;
+		//Transform3D transform_3d;
+		Transform transform;
 
 		std::weak_ptr<Node> parent;
 		std::vector<std::shared_ptr<Node>> children;

@@ -2,17 +2,13 @@
 #include <imgui.h>
 
 void Scene::Node::propagateMatrix( ) {
-	Transform3D parent_transform;
-
-	if ( this->parent.lock( ) == nullptr ) {
-		parent_transform = glm::mat4( 1.0f );
+	if ( this->parent.lock( ) != nullptr ) {
+		transform.model = parent.lock( )->transform.model * transform.asMatrix( );
 	} else {
-		parent_transform = parent.lock( )->transform;
-		
-		this->transform = parent_transform * this->transform;
+		transform.model = transform.asMatrix( );
 	}
 
-	for ( auto& child : this->children ) {
-		child->propagateMatrix( );
+	for ( auto&& node : children ) {
+		node->propagateMatrix( );
 	}
 }

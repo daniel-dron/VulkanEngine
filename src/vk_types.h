@@ -47,7 +47,7 @@
             return std::unexpected(result.error())
 
 
-const glm::vec3 GlobalUp{ 0.0f, -1.0f, 0.0f };
+const glm::vec3 GlobalUp{ 0.0f, 1.0f, 0.0f };
 const glm::vec3 GlobalRight{ 1.0f, 0.0f, 0.0f };
 const glm::vec3 GlobalFront{ 0.0f, 0.0f, 1.0f };
 
