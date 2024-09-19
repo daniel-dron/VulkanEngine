@@ -87,6 +87,11 @@ file(GLOB SRC_IMGUIZMO
   imguizmo/GraphEditor.h
 )
 
+file(GLOB SRC_UTILS
+  utils/workers.cpp
+  utils/workers.h
+)
+
 # Add source to this project's executable.
 add_executable (engine 
 	${SRC_SRC}
@@ -96,6 +101,7 @@ add_executable (engine
 	${SRC_MATH}
 	${SRC_ENGINE}
 	${SRC_IMGUIZMO}
+  ${SRC_UTILS}
 )
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -108,6 +114,7 @@ source_group("camera" FILES ${SRC_CAMERA})
 source_group("math" FILES ${SRC_MATH})
 source_group("engine" FILES ${SRC_ENGINE})
 source_group("imguizmo" FILES ${SRC_IMGUIZMO})
+source_group("utils" FILES ${SRC_UTILS})
 
 target_compile_definitions(engine PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 target_include_directories(engine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

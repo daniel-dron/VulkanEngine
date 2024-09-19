@@ -131,7 +131,7 @@ void Camera::updateVectors( ) {
 }
 
 void Camera::updateMatrices( ) {
-	view_matrix = glm::lookAtRH( position, position + front, up );
+	view_matrix = glm::lookAt( position, position + front, up );
 	projection_matrix = glm::perspective( glm::radians( fov ), aspect_ratio, near_plane, far_plane );
 
 	dirty_matrices = false;

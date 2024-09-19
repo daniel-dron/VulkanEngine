@@ -1,4 +1,12 @@
 #include "loader.h"
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
+#include <assimp/texture.h>
+#include <graphics/material_codex.h>
+#include <vk_engine.h>
+#include <utils/workers.h>
+#include <stb_image.h>
 //
 //#include <assimp/Importer.hpp>
 //
@@ -408,3 +416,154 @@
 //
 //	return scene_ptr;
 //}
+
+static std::vector<Material> loadMaterials( const GfxDevice& gfx, const aiScene* scene ) {
+	const auto n_materials = scene->mNumMaterials;
+
+	std::vector<Material> materials;
+	materials.reserve( n_materials );
+
+	fmt::println( "Loading {} materials", n_materials );
+
+	for ( auto i = 0; i < n_materials; i++ ) {
+		Material material;
+		auto ai_material = scene->mMaterials[i];
+
+		material.name = ai_material->GetName( ).C_Str( );
+
+		aiColor4D base_diffuse_color{};
+		ai_material->Get( AI_MATKEY_COLOR_DIFFUSE, base_diffuse_color );
+		material.base_color = { base_diffuse_color.r, base_diffuse_color.g, base_diffuse_color.b, base_diffuse_color.a };
+
+		float metalness_factor;
+		ai_material->Get( AI_MATKEY_METALLIC_FACTOR, metalness_factor );
+		material.metalness_factor = metalness_factor;
+
+		float roughness_factor;
+		ai_material->Get( AI_MATKEY_ROUGHNESS_FACTOR, roughness_factor );
+		material.roughness_factor = roughness_factor;
+
+		aiString diffuse_path;
+		if ( aiReturn_SUCCESS == ai_material->GetTexture( aiTextureType_DIFFUSE, 0, &diffuse_path ) ||
+			aiReturn_SUCCESS == ai_material->GetTexture( aiTextureType_BASE_COLOR, 0, &diffuse_path ) ) {
+			auto r = scene->GetEmbeddedTextureAndIndex( diffuse_path.C_Str( ) );
+			material.color_id = r.second;
+		} else {
+			material.color_id = ImageCodex::INVALID_IMAGE_ID;
+		}
+
+		aiString metal_roughness_path;
+		if ( aiReturn_SUCCESS == ai_material->GetTexture( aiTextureType_METALNESS, 0, &metal_roughness_path ) ||
+			aiReturn_SUCCESS == ai_material->GetTexture( aiTextureType_SPECULAR, 0, &metal_roughness_path ) ) {
+			auto r = scene->GetEmbeddedTextureAndIndex( metal_roughness_path.C_Str( ) );
+			material.metal_roughness_id = r.second;
+		} else {
+			material.metal_roughness_id = ImageCodex::INVALID_IMAGE_ID;
+		}
+
+		aiString normal_path;
+		if ( aiReturn_SUCCESS == ai_material->GetTexture( aiTextureType_NORMALS, 0, &normal_path ) ) {
+			auto r = scene->GetEmbeddedTextureAndIndex( normal_path.C_Str( ) );
+			material.normal_id = r.second;
+		} else {
+			material.normal_id = ImageCodex::INVALID_IMAGE_ID;
+		}
+
+		materials.push_back( material );
+	}
+
+	return materials;
+}
+
+static std::vector<ImageID> loadImages( GfxDevice& gfx, const aiScene* scene ) {
+	std::vector<ImageID> images;
+	images.resize( scene->mNumTextures );
+
+	WorkerPool pool(20);
+	std::mutex gfx_mutex;
+
+	for ( auto i = 0; i < scene->mNumTextures; i++ ) {
+		std::string name = scene->mTextures[i]->mFilename.C_Str( );
+		auto r = scene->GetEmbeddedTextureAndIndex( name.c_str( ) );
+
+		pool.work( [&gfx, &gfx_mutex, &images, r, name, i]( ) {
+			size_t size = r.first->mWidth;
+			if ( r.first->mHeight > 0 ) {
+				size = static_cast<unsigned long long>(r.first->mWidth) * r.first->mHeight * sizeof( aiTexel );
+			}
+
+			int width, height, channels;
+			unsigned char* data = stbi_load_from_memory( (stbi_uc*)r.first->pcData, size, &width, &height, &channels, 4 );
+
+			if ( data ) {
+				VkExtent3D size = {
+					.width = (uint32_t)(width),
+					.height = (uint32_t)(height),
+					.depth = 1
+				};
+
+				{
+					std::lock_guard<std::mutex> lock( gfx_mutex );
+					images[i] = gfx.image_codex.loadImageFromData( name, data, size, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true );
+				}
+
+				stbi_image_free( data );
+			} else {
+				fmt::println( "Failed to load image {}\n\t{}", name, stbi_failure_reason( ) );
+			}
+
+			fmt::println( "Loaded Texture: {} {}", i, name );
+		} );
+	}
+
+	return images;
+}
+
+void processMaterials( std::vector<Material>& preprocessed_materials, std::vector <ImageID> images, GfxDevice& gfx, const aiScene* ai_scene ) {
+	for ( auto& material : preprocessed_materials ) {
+		if ( material.color_id != ImageCodex::INVALID_IMAGE_ID ) {
+			auto texture = ai_scene->mTextures[material.color_id];
+			auto t = gfx.image_codex.getImage( images.at( material.color_id ) );
+			assert( strcmp( texture->mFilename.C_Str( ), t.info.debug_name.c_str( ) ) == 0 && "missmatched texture" );
+
+			material.color_id = images.at( material.color_id );
+		}
+
+		if ( material.metal_roughness_id != ImageCodex::INVALID_IMAGE_ID ) {
+			auto texture = ai_scene->mTextures[material.metal_roughness_id];
+			auto t = gfx.image_codex.getImage( images.at(material.metal_roughness_id) );
+			assert( strcmp( texture->mFilename.C_Str( ), t.info.debug_name.c_str( ) ) == 0 && "missmatched texture" );
+
+			material.metal_roughness_id = images.at( material.metal_roughness_id );
+		}
+
+		if ( material.normal_id != ImageCodex::INVALID_IMAGE_ID ) {
+			auto texture = ai_scene->mTextures[material.normal_id];
+			auto t = gfx.image_codex.getImage( images.at(material.normal_id) );
+			assert( strcmp( texture->mFilename.C_Str( ), t.info.debug_name.c_str( ) ) == 0 && "missmatched texture" );
+
+			material.normal_id = images.at( material.normal_id );
+		}
+	}
+}
+
+std::unique_ptr<Scene> GltfLoader::load( GfxDevice& gfx, const std::string& path ) {
+	auto scene_ptr = std::make_unique<Scene>( );
+	auto& scene = *scene_ptr;
+
+	scene.name = path;
+
+	Assimp::Importer importer;
+	const auto ai_scene = importer.ReadFile( path, aiProcess_Triangulate | aiProcess_CalcTangentSpace );
+
+	fmt::println( "Loading materials..." );
+	std::vector<Material> preprocessed_materials = loadMaterials( gfx, ai_scene );
+
+	fmt::println( "Loading images..." );
+	std::vector<ImageID> images = loadImages( gfx, ai_scene );
+
+	fmt::println( "Matching materials..." );
+	processMaterials( preprocessed_materials, images, gfx, ai_scene );
+
+	return std::move( scene_ptr );
+}

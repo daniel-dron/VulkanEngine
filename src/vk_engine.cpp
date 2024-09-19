@@ -471,8 +471,8 @@ void VulkanEngine::initImages( ) {
 }
 
 void VulkanEngine::initScene( ) {
-	//auto scene = GltfLoader::load( *gfx, "../../assets/untitled.glb" );
-	//scenes["sponza"] = std::move( scene );
+	auto scene = GltfLoader::load( *gfx, "../../assets/untitled.glb" );
+	scenes["sponza"] = std::move( scene );
 
 	// init camera
 	camera = std::make_unique<Camera>(vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, 1920.0f, 1080.0f );
