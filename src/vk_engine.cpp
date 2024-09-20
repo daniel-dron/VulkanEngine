@@ -39,6 +39,7 @@
 #include "imguizmo/ImGuizmo.h"
 #include "tracy/TracyClient.cpp"
 #include "tracy/tracy/Tracy.hpp"
+#include <graphics/pipelines/compute_pipeline.h>
 
 #include <engine/loader.h>
 
@@ -245,7 +246,7 @@ void VulkanEngine::draw( ) {
 
 	vkutil::transition_image( cmd, depth.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
-	if ( gfx->swapchain.frame_number == 0 ) {
+	if ( gfx->swapchain.frame_number == 1 ) {
 		ibl.init( *gfx, cmd, "../../assets/texture/ibls/lonely_road_afternoon_puresky_4k.hdr" );
 	}
 
@@ -370,7 +371,8 @@ void VulkanEngine::pbrPass( VkCommandBuffer cmd ) const {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	pbr_pipeline.draw( *gfx, cmd, scene_data, gfx->swapchain.getCurrentFrame( ).gbuffer, ibl.getIrradianceImage( ) );
+	//pbr_pipeline.draw( *gfx, cmd, scene_data, gfx->swapchain.getCurrentFrame( ).gbuffer, ibl.getIrradianceImage( ) );
+	pbr_pipeline.draw( *gfx, cmd, scene_data, gfx->swapchain.getCurrentFrame( ).gbuffer, gfx->image_codex.getWhiteImageId( ) );
 
 	vkCmdEndRendering( cmd );
 
@@ -410,7 +412,7 @@ void VulkanEngine::skyboxPass( VkCommandBuffer cmd ) const {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	skybox_pipeline.draw( *gfx, cmd, ibl.getSkyboxImage( ), scene_data );
+	skybox_pipeline.draw( *gfx, cmd, ibl.getSkybox( ), scene_data );
 
 	vkCmdEndRendering( cmd );
 

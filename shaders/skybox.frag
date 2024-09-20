@@ -18,9 +18,7 @@ vec2 SampleSphericalMap(vec3 v) {
 }
 
 void main( ) {
-    // vec3 color = sampleTextureCubeLinear(pc.skybox_texture, in_pos).rgb;
-    vec2 uvs = SampleSphericalMap(normalize(in_pos));
-    vec3 color = sampleTexture2DLinear(pc.skybox_texture, fract(uvs)).rgb;
+    vec3 color = sampleTextureCubeLinear(pc.skybox_texture, in_pos).rgb;
     color = color / (color + vec3(1.0f));
 
     out_color.rgb = color;

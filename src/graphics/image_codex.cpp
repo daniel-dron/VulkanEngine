@@ -307,12 +307,68 @@ ImageID ImageCodex::createCubemap( const std::string& name, VkExtent3D extent, V
 	};
 	VK_CHECK( vkCreateImageView( gfx->device, &view_info, nullptr, &image.view ) );
 
+	gfx->execute( [&]( VkCommandBuffer cmd ) {
+		vkutil::transition_image( cmd, image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, false );
+	} );
+
 	ImageID image_id = images.size( );
 	image.id = image_id;
 
 	bindless_registry.addImage( *gfx, image_id, image.view );
 	images.push_back( std::move( image ) );
 
+	return image_id;
+}
+
+ImageID ImageCodex::createEmptyImage( const std::string& name, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, bool mipmapped ) {
+	GpuImage image;
+	// ----------
+	// data
+	image.extent = extent;
+	image.format = format;
+	image.usage = usage;
+	image.mipmapped = mipmapped;
+	image.info.debug_name = name;
+	// ----------
+	// allocate image
+	auto create_info = vkinit::image_create_info( format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, image.extent );
+	if ( mipmapped ) {
+		create_info.mipLevels = static_cast<uint32_t>(std::floor( std::log2( std::max( image.extent.width, image.extent.height ) ) )) + 1;
+	}
+
+	VmaAllocationCreateInfo alloc_info = {
+		.usage = VMA_MEMORY_USAGE_GPU_ONLY,
+		.requiredFlags = VkMemoryPropertyFlags( VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT )
+	};
+	VK_CHECK( vmaCreateImage( gfx->allocator, &create_info, &alloc_info, &image.image, &image.allocation, nullptr ) );
+#ifdef ENABLE_DEBUG_UTILS
+	const VkDebugUtilsObjectNameInfoEXT obj = {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+		.pNext = nullptr,
+		.objectType = VkObjectType::VK_OBJECT_TYPE_IMAGE,
+		.objectHandle = (uint64_t)image.image,
+		.pObjectName = name.c_str( )
+	};
+	vkSetDebugUtilsObjectNameEXT( gfx->device, &obj );
+#endif
+	// if the format is for depth, use the correct aspect
+	VkImageAspectFlags aspect = format == VK_FORMAT_D32_SFLOAT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+	auto depth = aspect & VK_IMAGE_ASPECT_DEPTH_BIT;
+	auto view_info = vkinit::imageview_create_info( format, image.image, aspect );
+	view_info.subresourceRange.levelCount = create_info.mipLevels;
+	VK_CHECK( vkCreateImageView( gfx->device, &view_info, nullptr, &image.view ) );
+
+	// ----------
+	// Initialize image layout
+	gfx->execute( [&]( VkCommandBuffer cmd ) {
+		VkImageLayout finalLayout = depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		vkutil::transition_image( cmd, image.image, VK_IMAGE_LAYOUT_UNDEFINED, finalLayout, depth );
+	} );
+
+	ImageID image_id = images.size( );
+	image.id = image_id;
+	bindless_registry.addImage( *gfx, image_id, image.view );
+	images.push_back( std::move( image ) );
 	return image_id;
 }
 

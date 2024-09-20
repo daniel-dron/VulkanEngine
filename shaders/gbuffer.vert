@@ -9,7 +9,8 @@
 
 layout (location = 0) out vec2 out_uvs;
 layout (location = 1) out vec3 out_frag_pos;
-layout (location = 2) out mat3 out_tbn;
+layout (location = 2) out vec3 out_normal;
+layout (location = 3) out mat3 out_tbn;
 
 void main() 
 {
@@ -24,9 +25,10 @@ void main()
 	out_uvs.y = v.uv_y;
 	out_frag_pos = vec4(pc.model * position).xyz;
 
-	vec3 out_normal = normalize(vec3(pc.model * vec4(v.normal, 0.0f)));
-	vec3 tangent = normalize(vec3(pc.model * vec4(v.tangent.rgb, 0.0f)));
-	vec3 bitangent = cross(out_normal, tangent);
+	vec3 T = normalize(vec3(pc.model * vec4(v.tangent, 0.0)));
+    vec3 B = normalize(vec3(pc.model * vec4(v.bitangent, 0.0)));
+    vec3 N = normalize(vec3(pc.model * vec4(v.normal, 0.0)));
+    out_tbn = mat3(T, B, N);
 
-	out_tbn = mat3(tangent, bitangent, out_normal);
+	out_normal = mat3(transpose(inverse(pc.model))) * v.normal;
 }

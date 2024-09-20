@@ -2,6 +2,7 @@
 
 #include <vk_pipelines.h>
 #include <vk_initializers.h>
+#include "compute_pipeline.h"
 
 using namespace vkinit;
 using namespace vkutil;
@@ -47,8 +48,8 @@ SkyboxPipeline::Result<> SkyboxPipeline::init( GfxDevice& gfx ) {
 	builder.set_polygon_mode( VK_POLYGON_MODE_FILL );
 	builder.set_cull_mode( VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE );
 	builder.set_multisampling_none( );
-	builder.disable_blending( );	
-	builder.enable_depthtest(false, VK_COMPARE_OP_LESS_OR_EQUAL );
+	builder.disable_blending( );
+	builder.enable_depthtest( false, VK_COMPARE_OP_LESS_OR_EQUAL );
 
 	auto& color = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).color );
 	auto& depth = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).depth );
