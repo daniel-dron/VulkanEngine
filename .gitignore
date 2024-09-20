@@ -9,6 +9,9 @@ CMakeFiles/
 cmake_install.cmake
 Makefile
 
+assets/
+third_party/
+
 # Compiled Object files
 *.slo
 *.lo
