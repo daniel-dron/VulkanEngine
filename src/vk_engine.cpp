@@ -475,7 +475,7 @@ void VulkanEngine::initScene( ) {
 	scenes["sponza"] = std::move( scene );
 
 	// init camera
-	camera = std::make_unique<Camera>(vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, 1920.0f, 1080.0f );
+	camera = std::make_unique<Camera>( vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, 1920.0f, 1080.0f );
 
 	fps_controller = std::make_unique<FirstPersonFlyingController>( camera.get( ), 0.1f, 5.0f );
 	camera_controller = fps_controller.get( );
@@ -808,23 +808,20 @@ void VulkanEngine::drawImgui( VkCommandBuffer cmd, VkImageView target_image_view
 }
 
 static void createDrawCommands( GfxDevice& gfx, const Scene& scene, const Scene::Node& node, std::vector<MeshDrawCommand>& draw_commands ) {
-	if ( node.mesh_index != -1 ) {
-		auto& mesh_asset = scene.meshes[node.mesh_index];
+	if ( !node.mesh_ids.empty( ) ) {
+		for ( auto mesh_id : node.mesh_ids ) {
+			auto& mesh_asset = scene.meshes[mesh_id];
 
-		size_t i = 0;
-		for ( auto& primitive : mesh_asset.primitives ) {
-			auto& mesh = gfx.mesh_codex.getMesh( primitive );
+			auto& mesh = gfx.mesh_codex.getMesh( mesh_asset.mesh );
 
 			MeshDrawCommand mdc = {
 				.index_buffer = mesh.index_buffer.buffer,
 				.index_count = mesh.index_count,
 				.vertex_buffer_address = mesh.vertex_buffer_address,
-				.world_from_local = node.transform.model,
-				.material_id = scene.materials[mesh_asset.materials[i]]
+				.world_from_local = node.getTransformMatrix( ),
+				.material_id = scene.materials[mesh_asset.material]
 			};
 			draw_commands.push_back( mdc );
-
-			i++;
 		}
 	}
 
@@ -838,9 +835,8 @@ void VulkanEngine::updateScene( ) {
 	auto start = std::chrono::system_clock::now( );
 
 	draw_commands.clear( );
-	//auto scene = scenes["sponza"].get( );
-	//scene->top_nodes[0]->propagateMatrix( );
-	//createDrawCommands( *gfx.get( ), *scene, *(scenes["sponza"]->top_nodes[0].get( )), draw_commands );
+	auto scene = scenes["sponza"].get( );
+	createDrawCommands( *gfx.get( ), *scene, *(scenes["sponza"]->top_nodes[0].get( )), draw_commands );
 
 	// camera
 	scene_data.view = camera->getViewMatrix( );

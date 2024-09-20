@@ -2,6 +2,7 @@
 
 #include <glm/gtx/matrix_decompose.hpp>
 #include <imgui.h>
+#include <glm/gtx/euler_angles.hpp>
 
 Transform3D::Transform3D( const mat4& matrix ) {
 	vec3 scale;
@@ -85,13 +86,10 @@ void Transform3D::drawDebug( const std::string& label ) {
 }
 
 mat4 Transform::asMatrix( ) const {
-	const glm::mat4 rot_x = glm::rotate( glm::mat4( 1.0f ), glm::radians( euler.x ), glm::vec3( 1.0f, 0.0f, 0.0f ) );
-	const glm::mat4 rot_y = glm::rotate( glm::mat4( 1.0f ), glm::radians( euler.y ), glm::vec3( 0.0f, 1.0f, 0.0f ) );
-	const glm::mat4 rot_z = glm::rotate( glm::mat4( 1.0f ), glm::radians( euler.z ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
-
-	const glm::mat4 roationMatrix = rot_y * rot_x * rot_z;
-
-	return glm::translate( glm::mat4( 1.0f ), position ) * roationMatrix * glm::scale( glm::mat4( 1.0f ), scale );
+	mat4 trans = glm::translate( mat4( 1.0f ), position );
+	mat4 rot = glm::eulerAngleXYZ( euler.x, euler.y, euler.z );
+	mat4 s = glm::scale( mat4( 1.0f ), scale );
+	return trans * rot * s;
 }
 
 void Transform::drawDebug( const std::string& label ) {

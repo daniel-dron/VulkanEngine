@@ -18,7 +18,10 @@ struct Mesh {
 		float uv_x;
 		vec3 normal;
 		float uv_y;
-		vec4 tangent;
+		vec3 tangent;
+		float pad;
+		vec3 bitangent;
+		float pad2;
 	};
 
 	std::vector<Vertex> vertices;

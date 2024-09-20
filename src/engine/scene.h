@@ -5,21 +5,22 @@
 
 struct Scene {
 	struct MeshAsset {
-		std::vector<MeshID> primitives;
-		std::vector<size_t> materials;
+		MeshID mesh;
+		size_t material;
 	};
 
 	struct Node {
-		int mesh_index = -1;
+		std::vector<int> mesh_ids;
+
 		std::string name;
 
-		//Transform3D transform_3d;
 		Transform transform;
 
 		std::weak_ptr<Node> parent;
 		std::vector<std::shared_ptr<Node>> children;
-
-		void propagateMatrix( );
+	
+		void setTransform( const mat4& new_transform );
+		mat4 getTransformMatrix( ) const;
 	};
 
 	std::vector<MaterialID> materials;

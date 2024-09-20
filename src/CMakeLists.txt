@@ -117,6 +117,7 @@ source_group("imguizmo" FILES ${SRC_IMGUIZMO})
 source_group("utils" FILES ${SRC_UTILS})
 
 target_compile_definitions(engine PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
+target_compile_definitions(engine PUBLIC GLM_FORCE_RIGHT_HANDED)
 target_include_directories(engine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_link_libraries(engine PUBLIC vma glm Vulkan::Vulkan fmt::fmt stb_image SDL2::SDL2 vkbootstrap imgui assimp)

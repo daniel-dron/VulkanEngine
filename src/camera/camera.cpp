@@ -45,7 +45,7 @@ void FirstPersonFlyingController::update( float deltaTime ) {
 
 	auto rel = EG_INPUT.get_mouse_rel( );
 	float delta_yaw = static_cast<float>(rel.first) * sensitivity;
-	float delta_pitch = static_cast<float>(rel.second) * sensitivity;
+	float delta_pitch = -static_cast<float>(rel.second) * sensitivity;
 	camera->rotate( delta_yaw, delta_pitch, 0.0f );
 }
 
@@ -133,6 +133,7 @@ void Camera::updateVectors( ) {
 void Camera::updateMatrices( ) {
 	view_matrix = glm::lookAt( position, position + front, up );
 	projection_matrix = glm::perspective( glm::radians( fov ), aspect_ratio, near_plane, far_plane );
+	projection_matrix[1][1] *= -1;
 
 	dirty_matrices = false;
 }

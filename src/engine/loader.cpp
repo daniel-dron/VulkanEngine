@@ -479,7 +479,7 @@ static std::vector<ImageID> loadImages( GfxDevice& gfx, const aiScene* scene ) {
 	std::vector<ImageID> images;
 	images.resize( scene->mNumTextures );
 
-	WorkerPool pool(20);
+	WorkerPool pool( 20 );
 	std::mutex gfx_mutex;
 
 	for ( auto i = 0; i < scene->mNumTextures; i++ ) {
@@ -503,6 +503,7 @@ static std::vector<ImageID> loadImages( GfxDevice& gfx, const aiScene* scene ) {
 				};
 
 				{
+					// TODO: use a staged pool for batched gpu loading
 					std::lock_guard<std::mutex> lock( gfx_mutex );
 					images[i] = gfx.image_codex.loadImageFromData( name, data, size, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true );
 				}
@@ -531,7 +532,7 @@ void processMaterials( std::vector<Material>& preprocessed_materials, std::vecto
 
 		if ( material.metal_roughness_id != ImageCodex::INVALID_IMAGE_ID ) {
 			auto texture = ai_scene->mTextures[material.metal_roughness_id];
-			auto t = gfx.image_codex.getImage( images.at(material.metal_roughness_id) );
+			auto t = gfx.image_codex.getImage( images.at( material.metal_roughness_id ) );
 			assert( strcmp( texture->mFilename.C_Str( ), t.info.debug_name.c_str( ) ) == 0 && "missmatched texture" );
 
 			material.metal_roughness_id = images.at( material.metal_roughness_id );
@@ -539,12 +540,130 @@ void processMaterials( std::vector<Material>& preprocessed_materials, std::vecto
 
 		if ( material.normal_id != ImageCodex::INVALID_IMAGE_ID ) {
 			auto texture = ai_scene->mTextures[material.normal_id];
-			auto t = gfx.image_codex.getImage( images.at(material.normal_id) );
+			auto t = gfx.image_codex.getImage( images.at( material.normal_id ) );
 			assert( strcmp( texture->mFilename.C_Str( ), t.info.debug_name.c_str( ) ) == 0 && "missmatched texture" );
 
 			material.normal_id = images.at( material.normal_id );
 		}
 	}
+}
+
+static MeshID loadMesh( GfxDevice& gfx, const aiScene* scene, aiMesh* ai_mesh ) {
+	Mesh mesh;
+	mesh.vertices.clear( );
+	mesh.indices.clear( );
+
+	mesh.vertices.reserve( ai_mesh->mNumVertices );
+	for ( auto i = 0; i < ai_mesh->mNumVertices; i++ ) {
+		Mesh::Vertex vertex{};
+		vertex.position = { ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z };
+
+		vertex.normal = { ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z };
+
+		vertex.uv_x = ai_mesh->mTextureCoords[0][i].x;
+		vertex.uv_y = ai_mesh->mTextureCoords[0][i].y;
+
+		vertex.tangent = { ai_mesh->mTangents[i].x, ai_mesh->mTangents[i].y, ai_mesh->mTangents[i].z };
+		vertex.bitangent = { ai_mesh->mBitangents[i].x, ai_mesh->mBitangents[i].y, ai_mesh->mBitangents[i].z };
+		mesh.vertices.push_back( vertex );
+	}
+
+	mesh.indices.reserve( ai_mesh->mNumFaces * 3 );
+	for ( auto i = 0; i < ai_mesh->mNumFaces; i++ ) {
+		auto face = ai_mesh->mFaces[i];
+		mesh.indices.push_back( face.mIndices[0] );
+		mesh.indices.push_back( face.mIndices[1] );
+		mesh.indices.push_back( face.mIndices[2] );
+	}
+
+	return gfx.mesh_codex.addMesh( gfx, mesh );
+}
+
+static std::vector<MeshID> loadMeshes( GfxDevice& gfx, const aiScene* scene ) {
+	std::vector<MeshID> mesh_assets;
+
+	for ( auto i = 0; i < scene->mNumMeshes; i++ ) {
+		auto mesh = loadMesh( gfx, scene, scene->mMeshes[i] );
+		mesh_assets.push_back( mesh );
+	}
+
+	return mesh_assets;
+}
+
+static std::vector<MaterialID> uploadMaterials( GfxDevice& gfx, const std::vector<Material>& materials ) {
+	std::vector<MaterialID> gpu_materials;
+
+	for ( auto& material : materials ) {
+		gpu_materials.push_back( gfx.material_codex.addMaterial( gfx, material ) );
+	}
+
+	return gpu_materials;
+}
+
+static std::vector<Scene::MeshAsset> matchMaterialMeshes( const aiScene* scene, const std::vector<MeshID>& meshes, const std::vector<MaterialID>& materials ) {
+	std::vector<Scene::MeshAsset> mesh_assets;
+
+	for ( auto i = 0; i < scene->mNumMeshes; i++ ) {
+		auto mat_idx = materials[scene->mMeshes[i]->mMaterialIndex];
+		mesh_assets.push_back( { meshes.at( i ), mat_idx } );
+	}
+
+	return mesh_assets;
+}
+
+inline glm::mat4 assimpToGLM( const aiMatrix4x4& from ) {
+	glm::mat4 to{};
+	to[0][0] = from.a1;
+	to[1][0] = from.a2;
+	to[2][0] = from.a3;
+	to[3][0] = from.a4;
+	to[0][1] = from.b1;
+	to[1][1] = from.b2;
+	to[2][1] = from.b3;
+	to[3][1] = from.b4;
+	to[0][2] = from.c1;
+	to[1][2] = from.c2;
+	to[2][2] = from.c3;
+	to[3][2] = from.c4;
+	to[0][3] = from.d1;
+	to[1][3] = from.d2;
+	to[2][3] = from.d3;
+	to[3][3] = from.d4;
+	return to;
+}
+
+static std::shared_ptr<Scene::Node> loadNode( const aiNode* node ) {
+	auto scene_node = std::make_shared<Scene::Node>( );
+
+	auto transform = assimpToGLM( node->mTransformation );
+	if ( node->mTransformation == aiMatrix4x4( ) ) {
+		transform = glm::identity<mat4>( );
+	}
+
+	scene_node->setTransform( transform );
+
+	if ( node->mNumMeshes == 0 ) {
+		scene_node->mesh_ids.clear( );
+	} else {
+		for ( auto i = 0; i < node->mNumMeshes; i++ ) {
+			auto mesh = node->mMeshes[i];
+			scene_node->mesh_ids.push_back( mesh );
+		}
+	}
+
+	for ( auto i = 0; i < node->mNumChildren; i++ ) {
+		auto child = loadNode( node->mChildren[i] );
+		child->parent = scene_node;
+		scene_node->children.push_back( child );
+	}
+
+	return scene_node;
+}
+
+static void loadHierarchy( const aiScene* ai_scene, Scene& scene ) {
+	auto root_node = ai_scene->mRootNode;
+
+	scene.top_nodes.push_back( loadNode( root_node ) );
 }
 
 std::unique_ptr<Scene> GltfLoader::load( GfxDevice& gfx, const std::string& path ) {
@@ -554,16 +673,27 @@ std::unique_ptr<Scene> GltfLoader::load( GfxDevice& gfx, const std::string& path
 	scene.name = path;
 
 	Assimp::Importer importer;
-	const auto ai_scene = importer.ReadFile( path, aiProcess_Triangulate | aiProcess_CalcTangentSpace );
+	const auto ai_scene = importer.ReadFile( path, aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_FlipUVs | aiProcess_FlipWindingOrder );
+
+	fmt::println( "Loading meshes..." );
+	std::vector<MeshID> meshes = loadMeshes( gfx, ai_scene );
 
 	fmt::println( "Loading materials..." );
-	std::vector<Material> preprocessed_materials = loadMaterials( gfx, ai_scene );
+	std::vector<Material> materials = loadMaterials( gfx, ai_scene );
 
 	fmt::println( "Loading images..." );
 	std::vector<ImageID> images = loadImages( gfx, ai_scene );
 
 	fmt::println( "Matching materials..." );
-	processMaterials( preprocessed_materials, images, gfx, ai_scene );
+	processMaterials( materials, images, gfx, ai_scene );
+
+	auto gpu_materials = uploadMaterials( gfx, materials );
+	scene.materials = gpu_materials;
+
+	auto mesh_assets = matchMaterialMeshes( ai_scene, meshes, gpu_materials );
+	scene.meshes = mesh_assets;
+
+	loadHierarchy( ai_scene, scene );
 
 	return std::move( scene_ptr );
 }
