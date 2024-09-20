@@ -246,7 +246,7 @@ void VulkanEngine::draw( ) {
 
 	vkutil::transition_image( cmd, depth.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
-	if ( gfx->swapchain.frame_number == 1 ) {
+	if ( gfx->swapchain.frame_number == 0 ) {
 		ibl.init( *gfx, cmd, "../../assets/texture/ibls/lonely_road_afternoon_puresky_4k.hdr" );
 	}
 

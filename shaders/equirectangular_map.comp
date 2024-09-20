@@ -1,27 +1,15 @@
 #version 450
-#extension GL_EXT_nonuniform_qualifier : enable
+
+#extension GL_GOOGLE_include_directive : require
+#include "bindless.glsl"
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
-layout (set = 0, binding = 0) uniform texture2D textures[];
-layout (set = 0, binding = 0) uniform texture2DMS texturesMS[];
-layout (set = 0, binding = 0) uniform textureCube textureCubes[];
-layout (set = 0, binding = 0) uniform texture2DArray textureArrays[];
-layout (set = 0, binding = 1) uniform sampler samplers[];
-
 layout (set = 1, binding = 0, rgba32f) uniform imageCube outputCubemap;
-
-#define NEAREST_SAMPLER_ID 0
-#define LINEAR_SAMPLER_ID  1
-#define SHADOW_SAMPLER_ID  2
 
 layout (push_constant) uniform PushConstant {
     int inputTextureID;
 } pc;
-
-vec4 sampleTexture2DNearest(uint texID, vec2 uv) {
-    return texture(nonuniformEXT(sampler2D(textures[texID], samplers[NEAREST_SAMPLER_ID])), uv);
-}
 
 const float PI = 3.14159265359;
 

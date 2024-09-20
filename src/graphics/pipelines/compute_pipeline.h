@@ -80,7 +80,6 @@ public:
 	}
 
 	void cleanup( GfxDevice& gfx ) {
-		vkFreeDescriptorSets( gfx.device, descriptor_pool, 1, &output_set );
 		vkDestroyDescriptorPool( gfx.device, descriptor_pool, nullptr );
 		
 		vkDestroyDescriptorSetLayout( gfx.device, output_layout, nullptr );
