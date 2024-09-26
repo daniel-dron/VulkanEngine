@@ -1,0 +1,142 @@
+#version 450
+
+#extension GL_GOOGLE_include_directive : require
+#include "bindless.glsl"
+
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout (set = 1, binding = 0, rgba32f) uniform imageCube outputCubemap;
+
+layout (push_constant) uniform PushConstant {
+    int inputTextureID;
+} pc;
+
+const float PI = 3.14159265359;
+
+vec3 getCubeMapTexCoord() {
+    ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 dims = imageSize(outputCubemap);
+    vec2 texCoord = vec2(pixelCoords) / vec2(dims);
+    texCoord = texCoord * 2.0 - 1.0; // -1..1 range
+
+    uint faceIndex = gl_GlobalInvocationID.z;
+
+    switch(faceIndex) {
+        case 0: return vec3(1.0, -texCoord.y, -texCoord.x);
+        case 1: return vec3(-1.0, -texCoord.y, texCoord.x);
+        case 2: return vec3(texCoord.x, 1.0, texCoord.y);    // Top (+Y)
+        case 3: return vec3(texCoord.x, -1.0, -texCoord.y);  // Bottom (-Y)
+        case 4: return vec3(texCoord.x, -texCoord.y, 1.0);
+        case 5: return vec3(-texCoord.x, -texCoord.y, -1.0);
+    }
+
+    return vec3(0.0);
+}
+
+void main() {
+    vec3 normal = normalize(getCubeMapTexCoord());
+
+    vec3 irradiance = vec3(0.0);
+
+    // Handle degenerate cases near poles (normal close to Y-axis)
+    vec3 right = abs(normal.y) == 1.0 ? vec3(1.0, 0.0, 0.0) : normalize(cross(vec3(0.0, 1.0, 0.0), normal));
+    vec3 up = normalize(cross(normal, right));
+
+    float sampleDelta = 0.01;  // Increased sample count for better precision
+    float nrSamples = 0.0;
+
+    for(float phi = 0.0; phi < 2.0 * PI; phi += sampleDelta) {
+        for(float theta = 0.0; theta < 0.5 * PI; theta += sampleDelta) {
+            vec3 tangentSample = vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+            vec3 sampleVec = tangentSample.x * right + tangentSample.y * up + tangentSample.z * normal;
+
+            irradiance += sampleTextureCubeLinear(pc.inputTextureID, sampleVec).rgb * cos(theta) * sin(theta);
+            nrSamples++;
+        }
+    }
+
+    irradiance = PI * irradiance * (1.0 / nrSamples);
+
+    imageStore(outputCubemap, ivec3(gl_GlobalInvocationID), vec4(irradiance, 1.0));
+}
+
+// #version 450
+
+// #extension GL_GOOGLE_include_directive : require
+// #include "bindless.glsl"
+
+// layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+// layout (set = 1, binding = 0, rgba32f) uniform imageCube outputCubemap;
+
+// layout (push_constant) uniform PushConstant {
+//     int inputTextureID;
+// } pc;
+
+// const float PI = 3.14159265359;
+// const float INV_PI = 1.0 / PI;
+
+// vec3 getCubeMapTexCoord() {
+//     ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+//     ivec2 dims = imageSize(outputCubemap);
+//     vec2 texCoord = vec2(pixelCoords) / vec2(dims);
+//     texCoord = texCoord * 2.0 - 1.0; // -1..1 range
+
+//     uint faceIndex = gl_GlobalInvocationID.z;
+
+//     switch(faceIndex) {
+//         case 0: return vec3(1.0, -texCoord.y, -texCoord.x);  // +X face
+//         case 1: return vec3(-1.0, -texCoord.y, texCoord.x);  // -X face
+//         case 2: return vec3(texCoord.x, 1.0, texCoord.y);    // +Y face (Top)
+//         case 3: return vec3(texCoord.x, -1.0, -texCoord.y);  // -Y face (Bottom)
+//         case 4: return vec3(texCoord.x, -texCoord.y, 1.0);   // +Z face
+//         case 5: return vec3(-texCoord.x, -texCoord.y, -1.0); // -Z face
+//     }
+
+//     return vec3(0.0);
+// }
+
+// // Cosine-weighted hemisphere sampling around the normal
+// vec3 cosineWeightedSample(float u1, float u2) {
+//     float r = sqrt(u1);
+//     float theta = 2.0 * PI * u2;
+//     float x = r * cos(theta);
+//     float y = r * sin(theta);
+//     float z = sqrt(1.0 - u1);
+
+//     return vec3(x, y, z);  // Local tangent space direction
+// }
+
+// void main() {
+//     vec3 normal = normalize(getCubeMapTexCoord());
+
+//     // Handle poles where the normal is close to Y-axis
+//     vec3 right = abs(normal.y) == 1.0 ? vec3(1.0, 0.0, 0.0) : normalize(cross(vec3(0.0, 1.0, 0.0), normal));
+//     vec3 up = normalize(cross(normal, right));
+
+//     vec3 irradiance = vec3(0.0);
+//     float nrSamples = 0.0;
+    
+//     // Number of samples to take
+//     int sampleCount = 64;  // Adjustable, tradeoff between quality and performance
+
+//     for (int i = 0; i < sampleCount; i++) {
+//         // Generate random values u1 and u2 for sampling
+//         float u1 = float(i) / float(sampleCount);  // Regular stratification (avoid randomness for now)
+//         float u2 = fract(sin(float(i) * 12.9898 + 78.233) * 43758.5453);  // Generate pseudo-random number
+
+//         // Generate a cosine-weighted direction in tangent space
+//         vec3 tangentSample = cosineWeightedSample(u1, u2);
+
+//         // Convert to world space
+//         vec3 sampleVec = tangentSample.x * right + tangentSample.y * up + tangentSample.z * normal;
+
+//         // Accumulate irradiance using sampleVec for cubemap lookup
+//         irradiance += sampleTextureCubeLinear(pc.inputTextureID, sampleVec).rgb * tangentSample.z;  // Weight by cosine (z)
+//         nrSamples++;
+//     }
+
+//     irradiance = irradiance * (PI * 1.0 / nrSamples);
+
+//     imageStore(outputCubemap, ivec3(gl_GlobalInvocationID), vec4(irradiance, 1.0));
+// }

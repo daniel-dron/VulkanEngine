@@ -24,7 +24,7 @@ void main() {
         discard;
     }
 
-	vec3 norm = sampleTexture2DNearest(material.normal_tex, in_uvs).rgb;
+	vec3 norm = sampleTexture2DLinear(material.normal_tex, in_uvs).rgb;
 	norm = normalize(norm * 2.0f - 1.0f);
 	norm = normalize(in_tbn * norm);
     out_normal = vec4(norm, 1.0f);
@@ -32,7 +32,7 @@ void main() {
     out_position = vec4(in_frag_pos, 1.0f);
 
     vec4 pbr_factors = material.metal_roughness_factors;
-    vec4 pbr_sample = sampleTexture2DNearest(material.metal_roughness_tex, in_uvs);
+    vec4 pbr_sample = sampleTexture2DLinear(material.metal_roughness_tex, in_uvs);
 
     out_pbr = pbr_sample;
     out_pbr.g = out_pbr.g * pbr_factors.g;

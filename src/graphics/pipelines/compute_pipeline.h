@@ -94,3 +94,32 @@ public:
 	VkDescriptorSet output_set;
 	VkDescriptorPool descriptor_pool;
 };
+
+class BindlessCompute {
+public:
+	void addDescriptorSetLayout( uint32_t binding, VkDescriptorType type );
+	void addPushConstantRange( uint32_t size );
+	void build( GfxDevice& gfx, VkShaderModule shader, const std::string& name );
+
+	void createDescriptorPool( GfxDevice& gfx, const std::vector<VkDescriptorPoolSize>& pool, uint32_t max_sets );
+	VkDescriptorSet allocateDescriptorSet( GfxDevice& gfx );
+
+	void bind( VkCommandBuffer cmd ) const;
+	void bindDescriptorSet( VkCommandBuffer cmd, VkDescriptorSet set, uint32_t index ) const;
+	void pushConstants( VkCommandBuffer cmd, uint32_t size, const void* value ) const;
+	void dispatch( VkCommandBuffer cmd, uint32_t group_count_x, uint32_t group_count_y, uint32_t group_count_z ) const;
+
+	void cleanup( GfxDevice& gfx );
+private:
+
+	VkPipelineLayout layout = VK_NULL_HANDLE;
+	VkPipeline pipeline = VK_NULL_HANDLE;
+
+	VkDescriptorPool descriptor_pool;
+	DescriptorAllocatorGrowable descriptor_allocator;
+	VkDescriptorSetLayout descriptor_layout;
+	std::vector<VkPushConstantRange> push_constant_ranges;
+
+	// building
+	DescriptorLayoutBuilder layout_builder;
+};

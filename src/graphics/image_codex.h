@@ -22,7 +22,7 @@ public:
 	ImageID loadCubemapFromData( const std::vector<std::string>& paths, const std::vector<unsigned char*> datas, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
 
 	ImageID createEmptyImage( const std::string& name, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false );
-	ImageID createCubemap( const std::string& name, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage );
+	ImageID createCubemap( const std::string& name, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, int mipmaps = 0 );
 
 	VkDescriptorSetLayout getBindlessLayout( ) const;
 	VkDescriptorSet getBindlessSet( ) const;

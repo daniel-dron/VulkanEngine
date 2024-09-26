@@ -1,7 +1,6 @@
 ﻿#include <vk_descriptors.h>
 
-void DescriptorLayoutBuilder::add_binding( uint32_t binding,
-	VkDescriptorType type ) {
+void DescriptorLayoutBuilder::add_binding( uint32_t binding, VkDescriptorType type ) {
 	VkDescriptorSetLayoutBinding newbind{};
 	newbind.binding = binding;
 	newbind.descriptorType = type;
@@ -12,9 +11,7 @@ void DescriptorLayoutBuilder::add_binding( uint32_t binding,
 
 void DescriptorLayoutBuilder::clear( ) { bindings.clear( ); }
 
-VkDescriptorSetLayout DescriptorLayoutBuilder::build(
-	VkDevice device, VkShaderStageFlags shaderStages, void* pNext,
-	VkDescriptorSetLayoutCreateFlags flags ) {
+VkDescriptorSetLayout DescriptorLayoutBuilder::build( VkDevice device, VkShaderStageFlags shaderStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags ) {
 	for ( auto& b : bindings ) {
 		b.stageFlags |= shaderStages;
 	}
@@ -208,18 +205,15 @@ void DescriptorWriter::write_buffer( int binding, VkBuffer buffer, size_t size,
 	writes.push_back( write );
 }
 
-void DescriptorWriter::write_image( int binding, VkImageView image,
-	VkSampler sampler, VkImageLayout layout,
-	VkDescriptorType type ) {
-	VkDescriptorImageInfo& info = imageInfos.emplace_back( VkDescriptorImageInfo{
-		.sampler = sampler, .imageView = image, .imageLayout = layout } );
+void DescriptorWriter::write_image( int binding, VkImageView image, VkSampler sampler, VkImageLayout layout, VkDescriptorType type ) {
+	VkDescriptorImageInfo& info = imageInfos.emplace_back(
+		VkDescriptorImageInfo{ .sampler = sampler, .imageView = image, .imageLayout = layout }
+	);
 
-	VkWriteDescriptorSet write = { .sType =
-									  VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+	VkWriteDescriptorSet write = { .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
 
 	write.dstBinding = binding;
-	write.dstSet =
-		VK_NULL_HANDLE;  // left empty for now until we need to write it
+	write.dstSet = VK_NULL_HANDLE;
 	write.descriptorCount = 1;
 	write.descriptorType = type;
 	write.pImageInfo = &info;
@@ -238,6 +232,5 @@ void DescriptorWriter::update_set( VkDevice device, VkDescriptorSet set ) {
 		write.dstSet = set;
 	}
 
-	vkUpdateDescriptorSets( device, (uint32_t)writes.size( ), writes.data( ), 0,
-		nullptr );
+	vkUpdateDescriptorSets( device, (uint32_t)writes.size( ), writes.data( ), 0, nullptr );
 }

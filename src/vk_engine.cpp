@@ -246,8 +246,7 @@ void VulkanEngine::draw( ) {
 
 	vkutil::transition_image( cmd, depth.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
-	if ( gfx->swapchain.frame_number == 0 ) {
-		ibl.init( *gfx, cmd, "../../assets/texture/ibls/lonely_road_afternoon_puresky_4k.hdr" );
+	if ( gfx->swapchain.frame_number == 5 ) {
 	}
 
 	gbufferPass( cmd );
@@ -371,8 +370,7 @@ void VulkanEngine::pbrPass( VkCommandBuffer cmd ) const {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	//pbr_pipeline.draw( *gfx, cmd, scene_data, gfx->swapchain.getCurrentFrame( ).gbuffer, ibl.getIrradianceImage( ) );
-	pbr_pipeline.draw( *gfx, cmd, scene_data, gfx->swapchain.getCurrentFrame( ).gbuffer, gfx->image_codex.getWhiteImageId( ) );
+	pbr_pipeline.draw( *gfx, cmd, scene_data, gfx->swapchain.getCurrentFrame( ).gbuffer, ibl.getIrradiance( ), ibl.getRadiance( ), ibl.getBRDF( ) );
 
 	vkCmdEndRendering( cmd );
 
@@ -412,7 +410,11 @@ void VulkanEngine::skyboxPass( VkCommandBuffer cmd ) const {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	skybox_pipeline.draw( *gfx, cmd, ibl.getSkybox( ), scene_data );
+	if ( renderer_options.render_irradiance_instead_skybox ) {
+		skybox_pipeline.draw( *gfx, cmd, ibl.getRadiance( ), scene_data );
+	} else {
+		skybox_pipeline.draw( *gfx, cmd, ibl.getSkybox( ), scene_data );
+	}
 
 	vkCmdEndRendering( cmd );
 
@@ -473,6 +475,8 @@ void VulkanEngine::initImages( ) {
 }
 
 void VulkanEngine::initScene( ) {
+	ibl.init( *gfx, "../../assets/texture/ibls/wildflower_field_4k.hdr" );
+
 	auto scene = GltfLoader::load( *gfx, "../../assets/untitled.glb" );
 	scenes["sponza"] = std::move( scene );
 
@@ -703,6 +707,7 @@ void VulkanEngine::run( ) {
 				ImGui::SliderFloat( "Render Scale", &render_scale, 0.3f, 1.f );
 				ImGui::Checkbox( "Wireframe", &renderer_options.wireframe );
 				ImGui::Checkbox( "Frustum Culling", &renderer_options.frustum );
+				ImGui::Checkbox( "Render Irradiance Map", &renderer_options.render_irradiance_instead_skybox );
 				if ( ImGui::Checkbox( "VSync", &renderer_options.vsync ) ) {
 					if ( renderer_options.vsync ) {
 						gfx->swapchain.present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
@@ -715,6 +720,10 @@ void VulkanEngine::run( ) {
 			}
 
 			if ( ImGui::Begin( "Settings" ) ) {
+				if ( ibl.getBRDF( ) != ImageCodex::INVALID_IMAGE_ID ) {
+					ImGui::Image( (ImTextureID)(ibl.getBRDF( )), ImVec2{ 100, 100 } );
+				}
+
 				ImGui::SeparatorText( "Scene Node" );
 				if ( selected_node ) {
 					selected_node->transform.drawDebug( selected_node->name );
@@ -842,8 +851,6 @@ void VulkanEngine::updateScene( ) {
 
 	// camera
 	scene_data.view = camera->getViewMatrix( );
-	//scene_data.proj = glm::perspective( glm::radians( 70.f ),
-		//(float)window_extent.width / (float)window_extent.height, 0.1f, 10000.0f );
 	scene_data.proj = camera->getProjectionMatrix( );
 	scene_data.viewproj = scene_data.proj * scene_data.view;
 	scene_data.camera_position = camera->getPosition( );

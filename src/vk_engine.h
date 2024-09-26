@@ -32,6 +32,7 @@ struct RendererOptions {
 	bool wireframe = false;
 	bool frustum = false;
 	bool vsync = true;
+	bool render_irradiance_instead_skybox = true;
 };
 
 /// @brief This is the main Vulkan Engine class

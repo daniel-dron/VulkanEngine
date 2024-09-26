@@ -16,33 +16,23 @@ Swapchain::Result<> Swapchain::init( GfxDevice* gfx, uint32_t width, uint32_t he
 
 	RETURN_IF_ERROR( create( width, height ) );
 
-	const VkCommandPoolCreateInfo command_pool_info =
-		vkinit::command_pool_create_info(
-			gfx->graphics_queue_family,
-			VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
+	const VkCommandPoolCreateInfo command_pool_info = vkinit::command_pool_create_info( gfx->graphics_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
 	for ( int i = 0; i < FRAME_OVERLAP; i++ ) {
-		VK_CHECK( vkCreateCommandPool( gfx->device, &command_pool_info, nullptr,
-			&frames[i].pool ) );
+		VK_CHECK( vkCreateCommandPool( gfx->device, &command_pool_info, nullptr, &frames[i].pool ) );
 
 		// default command buffer that will be used for rendering
-		VkCommandBufferAllocateInfo cmd_alloc_info =
-			vkinit::command_buffer_allocate_info( frames[i].pool, 1 );
-		VK_CHECK( vkAllocateCommandBuffers( gfx->device, &cmd_alloc_info,
-			&frames[i].command_buffer ) );
+		VkCommandBufferAllocateInfo cmd_alloc_info = vkinit::command_buffer_allocate_info( frames[i].pool, 1 );
+		VK_CHECK( vkAllocateCommandBuffers( gfx->device, &cmd_alloc_info, &frames[i].command_buffer ) );
 	}
 
-	auto fenceCreateInfo =
-		vkinit::fence_create_info( VK_FENCE_CREATE_SIGNALED_BIT );
+	auto fenceCreateInfo = vkinit::fence_create_info( VK_FENCE_CREATE_SIGNALED_BIT );
 	auto semaphoreCreateInfo = vkinit::semaphore_create_info( );
 
 	for ( int i = 0; i < FRAME_OVERLAP; i++ ) {
-		VK_CHECK( vkCreateFence( gfx->device, &fenceCreateInfo, nullptr,
-			&frames[i].fence ) );
+		VK_CHECK( vkCreateFence( gfx->device, &fenceCreateInfo, nullptr, &frames[i].fence ) );
 
-		VK_CHECK( vkCreateSemaphore( gfx->device, &semaphoreCreateInfo, nullptr,
-			&frames[i].render_semaphore ) );
-		VK_CHECK( vkCreateSemaphore( gfx->device, &semaphoreCreateInfo, nullptr,
-			&frames[i].swapchain_semaphore ) );
+		VK_CHECK( vkCreateSemaphore( gfx->device, &semaphoreCreateInfo, nullptr, &frames[i].render_semaphore ) );
+		VK_CHECK( vkCreateSemaphore( gfx->device, &semaphoreCreateInfo, nullptr, &frames[i].swapchain_semaphore ) );
 	}
 
 	return {};

@@ -5,6 +5,7 @@
 struct GpuImage {
 	VkImage image;
 	VkImageView view;
+	std::vector<VkImageView> mip_views;
 	VmaAllocation allocation;
 	VkExtent3D extent;
 	VkFormat format;

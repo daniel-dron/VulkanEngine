@@ -18,12 +18,12 @@ vec3 getSampleDirection(ivec3 cubeCoord, ivec2 cubeSize) {
     vec3 dir;
     
     switch(cubeCoord.z) {
-        case 0: dir = vec3(1.0, -uv.y, -uv.x); break;  // Positive X
-        case 1: dir = vec3(-1.0, -uv.y, uv.x); break;  // Negative X
-        case 2: dir = vec3(uv.x, 1.0, uv.y); break;    // Positive Y
-        case 3: dir = vec3(uv.x, -1.0, -uv.y); break;  // Negative Y
-        case 4: dir = vec3(uv.x, -uv.y, 1.0); break;   // Positive Z
-        case 5: dir = vec3(-uv.x, -uv.y, -1.0); break; // Negative Z
+        case 0: dir = vec3(1.0, uv.y, -uv.x); break;  // Positive X
+        case 1: dir = vec3(-1.0, uv.y, uv.x); break;  // Negative X
+        case 2: dir = vec3(uv.x, -1.0, uv.y); break;    // Positive Y
+        case 3: dir = vec3(uv.x, 1.0, -uv.y); break;  // Negative Y
+        case 4: dir = vec3(uv.x, uv.y, 1.0); break;   // Positive Z
+        case 5: dir = vec3(-uv.x, uv.y, -1.0); break; // Negative Z
     }
     
     return normalize(dir);

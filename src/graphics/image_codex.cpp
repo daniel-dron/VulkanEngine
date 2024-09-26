@@ -16,6 +16,13 @@ void ImageCodex::init( GfxDevice* gfx ) {
 void ImageCodex::cleanup( ) {
 	for ( auto& img : images ) {
 		vkDestroyImageView( gfx->device, img.view, nullptr );
+
+		for ( auto view : img.mip_views ) {
+			if ( view ) {
+				vkDestroyImageView( gfx->device, view, nullptr );
+			}
+		}
+
 		vmaDestroyImage( gfx->allocator, img.image, img.allocation );
 	}
 
@@ -250,16 +257,19 @@ ImageID ImageCodex::loadCubemapFromData( const std::vector<std::string>& paths, 
 	return image_id;
 }
 
-ImageID ImageCodex::createCubemap( const std::string& name, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage ) {
+ImageID ImageCodex::createCubemap( const std::string& name, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, int mipmaps ) {
 	GpuImage image;
-
 	image.cubemap = true;
 	image.extent = extent;
 	image.usage = usage;
-	image.mipmapped = false;
+	image.mipmapped = mipmaps != 0;
 	image.info.debug_name = name;
 
-	// ---------
+	// Calculate the number of mip levels if not specified
+	if ( mipmaps == 0 ) {
+		mipmaps = static_cast<int>(std::floor( std::log2( std::max( extent.width, extent.height ) ) )) + 1;
+	}
+
 	// Allocate image
 	VkImageCreateInfo create_info = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -268,7 +278,7 @@ ImageID ImageCodex::createCubemap( const std::string& name, VkExtent3D extent, V
 		.imageType = VK_IMAGE_TYPE_2D,
 		.format = format,
 		.extent = extent,
-		.mipLevels = 1,
+		.mipLevels = static_cast<uint32_t>(mipmaps),
 		.arrayLayers = 6,
 		.samples = VK_SAMPLE_COUNT_1_BIT,
 		.tiling = VK_IMAGE_TILING_OPTIMAL,
@@ -280,6 +290,7 @@ ImageID ImageCodex::createCubemap( const std::string& name, VkExtent3D extent, V
 		.requiredFlags = VkMemoryPropertyFlags( VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT )
 	};
 	VK_CHECK( vmaCreateImage( gfx->allocator, &create_info, &alloc_info, &image.image, &image.allocation, nullptr ) );
+
 #ifdef ENABLE_DEBUG_UTILS
 	const VkDebugUtilsObjectNameInfoEXT obj = {
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
@@ -291,21 +302,43 @@ ImageID ImageCodex::createCubemap( const std::string& name, VkExtent3D extent, V
 	vkSetDebugUtilsObjectNameEXT( gfx->device, &obj );
 #endif
 
+	// Create the main cubemap view
 	VkImageViewCreateInfo view_info = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 		.pNext = nullptr,
 		.image = image.image,
 		.viewType = VK_IMAGE_VIEW_TYPE_CUBE,
 		.format = format,
-		.subresourceRange = VkImageSubresourceRange {
+		.subresourceRange = {
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.baseMipLevel = 0,
-			.levelCount = create_info.mipLevels,
+			.levelCount = static_cast<uint32_t>(mipmaps),
 			.baseArrayLayer = 0,
 			.layerCount = 6
 		},
 	};
 	VK_CHECK( vkCreateImageView( gfx->device, &view_info, nullptr, &image.view ) );
+
+	// Create views for individual mip levels
+	for ( int i = 0; i < mipmaps; i++ ) {
+		VkImageView view;
+		VkImageViewCreateInfo mip_view_info = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.pNext = nullptr,
+			.image = image.image,
+			.viewType = VK_IMAGE_VIEW_TYPE_CUBE,
+			.format = format,
+			.subresourceRange = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = static_cast<uint32_t>(i),
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 6
+			},
+		};
+		VK_CHECK( vkCreateImageView( gfx->device, &mip_view_info, nullptr, &view ) );
+		image.mip_views.push_back( view );
+	}
 
 	gfx->execute( [&]( VkCommandBuffer cmd ) {
 		vkutil::transition_image( cmd, image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, false );
@@ -313,10 +346,8 @@ ImageID ImageCodex::createCubemap( const std::string& name, VkExtent3D extent, V
 
 	ImageID image_id = images.size( );
 	image.id = image_id;
-
 	bindless_registry.addImage( *gfx, image_id, image.view );
 	images.push_back( std::move( image ) );
-
 	return image_id;
 }
 

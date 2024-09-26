@@ -157,6 +157,8 @@ void GfxDevice::cleanup( ) {
 	image_codex.cleanup( );
 	mesh_codex.cleanup( *this );
 	executor.cleanup( );
+	vkFreeCommandBuffers( device, compute_command_pool, 1, &compute_command );
+	vkDestroyCommandPool( device, compute_command_pool, nullptr );
 	vmaDestroyAllocator( allocator );
 	vkDestroySurfaceKHR( instance, surface, nullptr );
 	vkDestroyDevice( device, nullptr );
@@ -223,7 +225,7 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 		.set_minimum_version( 1, 3 )
 		.set_required_features_13( features_13 )
 		.set_required_features_12( features_12 )
-		.set_required_features_11 ( features_11 )
+		.set_required_features_11( features_11 )
 		.set_required_features( features )
 		.add_required_extension( "VK_EXT_descriptor_indexing" )
 		.add_required_extension( "VK_KHR_synchronization2" )
@@ -263,6 +265,13 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 	// Queue
 	graphics_queue = bs_device.get_queue( QueueType::graphics ).value( );
 	graphics_queue_family = bs_device.get_queue_index( QueueType::graphics ).value( );
+
+	compute_queue = bs_device.get_queue( QueueType::compute ).value( );
+	compute_queue_family = bs_device.get_queue_index( QueueType::compute ).value( );
+	const VkCommandPoolCreateInfo command_pool_info = vkinit::command_pool_create_info( compute_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
+	VK_CHECK( vkCreateCommandPool( device, &command_pool_info, nullptr, &compute_command_pool ) );
+	VkCommandBufferAllocateInfo cmd_alloc_info = vkinit::command_buffer_allocate_info( compute_command_pool, 1 );
+	VK_CHECK( vkAllocateCommandBuffers( device, &cmd_alloc_info, &compute_command ) );
 
 	return {};
 }

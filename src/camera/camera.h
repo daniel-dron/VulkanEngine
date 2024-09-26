@@ -46,8 +46,8 @@ private:
 
 	float aspect_ratio = 0.0f;
 
-	float near_plane = 0.001f;
-	float far_plane = 1000.0f;
+	float near_plane = 0.01f;
+	float far_plane = 200.0f;
 
 	bool dirty_matrices = true;
 };

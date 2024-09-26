@@ -92,6 +92,12 @@ public:
 	VkQueue graphics_queue;
 	uint32_t graphics_queue_family;
 
+	// TODO: implement a command buffer manager (list of commands to get pulled/pushed)
+	VkQueue compute_queue;
+	uint32_t compute_queue_family;
+	VkCommandPool compute_command_pool;
+	VkCommandBuffer compute_command;
+
 	ImmediateExecutor executor;
 	VmaAllocator allocator;
 

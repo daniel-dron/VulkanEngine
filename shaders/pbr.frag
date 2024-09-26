@@ -16,6 +16,8 @@ layout( push_constant ) uniform constants {
     uint position_tex;
     uint pbr_tex;
     uint irradiance_map;
+    uint radiance_map;
+    uint brdf_lut;
 } pc;
 
 layout (location = 0) in vec2 in_uvs;
@@ -66,13 +68,18 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}   
+}
+
+vec4 sampleTextureCubeLinearLod(uint texID, vec3 p, float lod) {
+    return textureLod(nonuniformEXT(samplerCube(textureCubes[texID], samplers[LINEAR_SAMPLER_ID])), p, lod);
+}
 
 vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, vec3 normal, vec3 view_dir) {
     vec3 N = normal;
     vec3 V = view_dir;
+    vec3 R = reflect(-V, N); 
 
-    vec3 position = sampleTexture2DNearest(pc.position_tex, in_uvs).rgb;
+    vec3 position = sampleTexture2DLinear(pc.position_tex, in_uvs).rgb;
 
 	// interpolate surface reflection between 0.04 (minimum) and the albedo value
 	// in relation to the metallic factor of the material
@@ -110,24 +117,29 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
 
     //vec3 kS = fresnelSchlick(max(dot(N, V), 0.0f), F0);
     vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
-    const float MAX_REFLECTION_LOD = 4.0;
-
     vec3 kS = F;
     vec3 kD = 1.0f - kS;
     kD *= 1.0f - metallic;
     vec3 irradiance = sampleTextureCubeLinear(pc.irradiance_map, normal).rgb;
     vec3 diffuse = irradiance * albedo;
-    vec3 ambient = (kD * diffuse) * ao;
+
+    // sample both the pre-filter map and the BRDF lut and combine them together as per the Split-Sum approximation to get the IBL specular part.
+    const float MAX_REFLECTION_LOD = 4.0;
+    vec3 radiance = sampleTextureCubeLinearLod(pc.radiance_map, R, roughness * MAX_REFLECTION_LOD).rgb;
+    vec2 brdf  = sampleTexture2DLinear(pc.brdf_lut, vec2(max(dot(N, V), 0.0), roughness)).rg;
+    vec3 specular = radiance * (F * brdf.x + brdf.y);
+
+    vec3 ambient = (kD * diffuse + specular) * ao;
     vec3 color = ambient + Lo + emissive;
 
     return color;
 }
 
 void main() {
-    vec3 albedo = sampleTexture2DNearest(pc.albedo_tex, in_uvs).rgb;
-    vec3 normal = sampleTexture2DNearest(pc.normal_tex, in_uvs).rgb;
-    vec3 position = sampleTexture2DNearest(pc.position_tex, in_uvs).rgb;
-    vec4 pbr_values = sampleTexture2DNearest(pc.pbr_tex, in_uvs);
+    vec3 albedo = sampleTexture2DLinear(pc.albedo_tex, in_uvs).rgb;
+    vec3 normal = sampleTexture2DLinear(pc.normal_tex, in_uvs).rgb;
+    vec3 position = sampleTexture2DLinear(pc.position_tex, in_uvs).rgb;
+    vec4 pbr_values = sampleTexture2DLinear(pc.pbr_tex, in_uvs);
     
     vec3 view_dir = normalize(pc.scene.camera_position - position);
 

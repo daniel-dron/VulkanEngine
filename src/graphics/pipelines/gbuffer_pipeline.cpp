@@ -48,7 +48,7 @@ GBufferPipeline::Result<> GBufferPipeline::init( GfxDevice& gfx ) {
 	builder.set_cull_mode( VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE );
 	builder.set_multisampling_none( );
 	builder.disable_blending( );
-	builder.enable_depthtest( true, VK_COMPARE_OP_LESS_OR_EQUAL );
+	builder.enable_depthtest( true, VK_COMPARE_OP_LESS );
 
 	auto& gbuffer = gfx.swapchain.getCurrentFrame( ).gbuffer;
 	auto& albedo = gfx.image_codex.getImage( gbuffer.albedo );
