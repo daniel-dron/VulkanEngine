@@ -151,6 +151,11 @@ void BindlessRegistry::initSamplers( GfxDevice& gfx ) {
 			.magFilter = VK_FILTER_LINEAR,
 			.minFilter = VK_FILTER_LINEAR,
 			.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+			.mipLodBias = 0.0f,
+			.anisotropyEnable = VK_TRUE,
+			.maxAnisotropy = 16.0f,
+			.minLod = 0.0f,
+			.maxLod = 10.0f
 		};
 		VK_CHECK( vkCreateSampler( gfx.device, &create_info, nullptr, &linear_sampler ) );
 		addSampler( gfx, linear_sampler_id, linear_sampler );

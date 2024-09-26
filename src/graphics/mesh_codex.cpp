@@ -25,6 +25,7 @@ const GpuMesh& MeshCodex::getMesh( MeshID id ) const {
 
 GpuMesh MeshCodex::uploadMesh( GfxDevice& gfx, const Mesh& mesh ) {
 	GpuMesh gpu_mesh{};
+	gpu_mesh.aabb = mesh.aabb;
 
 	const size_t vertex_buffer_size = mesh.vertices.size( ) * sizeof( Mesh::Vertex );
 	const size_t index_buffer_size = mesh.indices.size( ) * sizeof( uint32_t );

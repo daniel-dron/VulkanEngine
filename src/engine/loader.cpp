@@ -167,6 +167,11 @@ static MeshID loadMesh( GfxDevice& gfx, const aiScene* scene, aiMesh* ai_mesh ) 
 		mesh.indices.push_back( face.mIndices[2] );
 	}
 
+	mesh.aabb = {
+		.min = vec3{ai_mesh->mAABB.mMin.x, ai_mesh->mAABB.mMin.y, ai_mesh->mAABB.mMin.z },
+		.max = vec3{ai_mesh->mAABB.mMax.x, ai_mesh->mAABB.mMax.y, ai_mesh->mAABB.mMax.z },
+	};
+
 	return gfx.mesh_codex.addMesh( gfx, mesh );
 }
 
@@ -257,6 +262,28 @@ static void loadHierarchy( const aiScene* ai_scene, Scene& scene ) {
 	scene.top_nodes.push_back( loadNode( root_node ) );
 }
 
+static void loadCameras( const aiScene* ai_scene, Scene& scene ) {
+	if ( !ai_scene->HasCameras( ) ) {
+		return;
+	}
+
+	for ( unsigned int i = 0; i < ai_scene->mNumCameras; ++i ) {
+		auto ai_camera = ai_scene->mCameras[i];
+
+		auto position = vec3( ai_camera->mPosition.x, ai_camera->mPosition.y, ai_camera->mPosition.z );
+		glm::vec3 look_at( ai_camera->mLookAt.x, ai_camera->mLookAt.y, ai_camera->mLookAt.z );
+		glm::vec3 direction = glm::normalize( look_at - position );
+
+		float yaw = atan2( direction.z, direction.x );
+		float pitch = asin( direction.y );
+		yaw = glm::degrees( yaw );
+		pitch = glm::degrees( pitch );
+
+		Camera camera = { position, yaw, pitch, 0, 0 };
+		scene.cameras.push_back( camera );
+	}
+}
+
 std::unique_ptr<Scene> GltfLoader::load( GfxDevice& gfx, const std::string& path ) {
 	auto scene_ptr = std::make_unique<Scene>( );
 	auto& scene = *scene_ptr;
@@ -264,7 +291,10 @@ std::unique_ptr<Scene> GltfLoader::load( GfxDevice& gfx, const std::string& path
 	scene.name = path;
 
 	Assimp::Importer importer;
-	const auto ai_scene = importer.ReadFile( path, aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_FlipUVs | aiProcess_FlipWindingOrder );
+	const auto ai_scene = importer.ReadFile( path,
+		aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_FlipUVs |
+		aiProcess_FlipWindingOrder | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph |
+		aiProcess_GenBoundingBoxes );
 
 	fmt::println( "Loading meshes..." );
 	std::vector<MeshID> meshes = loadMeshes( gfx, ai_scene );
@@ -285,6 +315,8 @@ std::unique_ptr<Scene> GltfLoader::load( GfxDevice& gfx, const std::string& path
 	scene.meshes = mesh_assets;
 
 	loadHierarchy( ai_scene, scene );
+
+	loadCameras( ai_scene, scene );
 
 	return std::move( scene_ptr );
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vk_types.h>
+#include <camera/camera.h>
 #include <math/transform.h>
 
 struct Scene {
@@ -26,6 +27,7 @@ struct Scene {
 	std::vector<MaterialID> materials;
 	std::vector<MeshAsset> meshes;
 	std::vector<std::shared_ptr<Node>> top_nodes;
+	std::vector<Camera> cameras;
 
 	std::string name;
 };

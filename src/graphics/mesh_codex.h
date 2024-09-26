@@ -4,9 +4,16 @@
 
 class GfxDevice;
 
+struct AABB {
+	vec3 min;
+	vec3 max;
+};
+
 struct GpuMesh {
 	GpuBuffer index_buffer;
 	GpuBuffer vertex_buffer;
+
+	AABB aabb;
 
 	uint32_t index_count;
 	VkDeviceAddress vertex_buffer_address;
@@ -26,6 +33,8 @@ struct Mesh {
 
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
+
+	AABB aabb;
 };
 
 class MeshCodex {

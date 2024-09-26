@@ -411,7 +411,7 @@ void VulkanEngine::skyboxPass( VkCommandBuffer cmd ) const {
 	}
 
 	if ( renderer_options.render_irradiance_instead_skybox ) {
-		skybox_pipeline.draw( *gfx, cmd, ibl.getRadiance( ), scene_data );
+		skybox_pipeline.draw( *gfx, cmd, ibl.getIrradiance( ), scene_data );
 	} else {
 		skybox_pipeline.draw( *gfx, cmd, ibl.getSkybox( ), scene_data );
 	}
@@ -475,13 +475,19 @@ void VulkanEngine::initImages( ) {
 }
 
 void VulkanEngine::initScene( ) {
-	ibl.init( *gfx, "../../assets/texture/ibls/wildflower_field_4k.hdr" );
+	ibl.init( *gfx, "../../assets/texture/ibls/bell_park_pier_4k.hdr" );
 
 	auto scene = GltfLoader::load( *gfx, "../../assets/untitled.glb" );
 	scenes["sponza"] = std::move( scene );
 
 	// init camera
-	camera = std::make_unique<Camera>( vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, 1920.0f, 1080.0f );
+	if ( scenes["sponza"]->cameras.empty( ) ) {
+		camera = std::make_unique<Camera>( vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, 1920.0f, 1080.0f );
+	} else {
+		auto& c = scenes["sponza"]->cameras[0];
+		camera = std::make_unique<Camera>( c );
+		camera->setAspectRatio( 1920, 1080 );
+	}
 
 	fps_controller = std::make_unique<FirstPersonFlyingController>( camera.get( ), 0.1f, 5.0f );
 	camera_controller = fps_controller.get( );
