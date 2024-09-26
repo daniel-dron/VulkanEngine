@@ -136,36 +136,6 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
     return color;
 }
 
-vec3 aces(vec3 color) {
-	color *= 0.6;
-	float a = 2.51;
-	float b = 0.03;
-	float c = 2.43;
-	float d = 0.59;
-	float e = 0.14;
-	return clamp((color * (a * color + b)) / (color * (c * color + d) + e), 0.0,
-		   1.0);
-}
-
-vec3 neutral(vec3 color) {
-  const float startCompression = 0.8 - 0.04;
-  const float desaturation = 0.15;
-
-  float x = min(color.r, min(color.g, color.b));
-  float offset = x < 0.08 ? x - 6.25 * x * x : 0.04;
-  color -= offset;
-
-  float peak = max(color.r, max(color.g, color.b));
-  if (peak < startCompression) return color;
-
-  const float d = 1.0 - startCompression;
-  float newPeak = 1.0 - d * d / (peak + d - startCompression);
-  color *= newPeak / peak;
-
-  float g = 1.0 - 1.0 / (desaturation * (peak - newPeak) + 1.0);
-  return mix(color, vec3(newPeak), g);
-}
-
 void main() {
     vec3 albedo = sampleTexture2DLinear(pc.albedo_tex, in_uvs).rgb;
     vec3 normal = sampleTexture2DLinear(pc.normal_tex, in_uvs).rgb;
@@ -178,8 +148,7 @@ void main() {
     float metallic = pbr_values.b;
 
     vec3 color = pbr(albedo, vec3(0.0f, 0.0f, 0.0f), metallic, roughness, 1.0f, normal, view_dir);
-    
-    color = neutral(color);    
+    // color = neutral(color);
 
     out_color = vec4(color, 1.0f);
 }

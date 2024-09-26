@@ -185,6 +185,9 @@ void VulkanEngine::cleanup( ) {
 		gbuffer_pipeline.cleanup( *gfx );
 		imgui_pipeline.cleanup( *gfx );
 		skybox_pipeline.cleanup( *gfx );
+
+		post_process_pipeline.cleanup( *gfx );
+
 		ibl.clean( *gfx );
 
 		main_deletion_queue.flush( );
@@ -221,7 +224,7 @@ void VulkanEngine::draw( ) {
 		VK_CHECK( vkResetFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence ) );
 	}
 
-	auto& color = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
+	auto& color = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).hdr_color );
 
 	auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
 
@@ -252,6 +255,7 @@ void VulkanEngine::draw( ) {
 	gbufferPass( cmd );
 	pbrPass( cmd );
 	skyboxPass( cmd );
+	postProcessPass( cmd );
 
 	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
 	drawImgui( cmd, gfx->swapchain.views[swapchainImageIndex] );
@@ -352,7 +356,7 @@ void VulkanEngine::pbrPass( VkCommandBuffer cmd ) const {
 	using namespace vkinit;
 
 	{
-		auto& image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
+		auto& image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).hdr_color );
 
 		VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 0.0f };
 		VkRenderingAttachmentInfo color_attachment = attachment_info( image.view, &clear_color );
@@ -384,7 +388,7 @@ void VulkanEngine::skyboxPass( VkCommandBuffer cmd ) const {
 	using namespace vkinit;
 
 	{
-		auto& image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).color );
+		auto& image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).hdr_color );
 		auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
 
 		VkRenderingAttachmentInfo color_attachment = attachment_info( image.view, nullptr );
@@ -421,6 +425,23 @@ void VulkanEngine::skyboxPass( VkCommandBuffer cmd ) const {
 	END_LABEL( cmd );
 }
 
+void VulkanEngine::postProcessPass( VkCommandBuffer cmd ) const {
+	auto bindless = gfx->getBindlessSet( );
+	auto& output = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).post_process_image );
+
+	pp_config.hdr = gfx->swapchain.getCurrentFrame( ).hdr_color;
+
+	vkutil::transition_image( cmd, output.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
+
+	post_process_pipeline.bind( cmd );
+	post_process_pipeline.bindDescriptorSet( cmd, bindless, 0 );
+	post_process_pipeline.bindDescriptorSet( cmd, post_process_set, 1 );
+	post_process_pipeline.pushConstants( cmd, sizeof( PostProcessConfig ), &pp_config );
+	post_process_pipeline.dispatch( cmd, (output.extent.width + 15) / 16, (output.extent.height + 15) / 16, 6 );
+
+	vkutil::transition_image( cmd, output.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+}
+
 void VulkanEngine::initDefaultData( ) {
 	initImages( );
 
@@ -434,6 +455,25 @@ void VulkanEngine::initDefaultData( ) {
 	wireframe_pipeline.init( *gfx );
 	gbuffer_pipeline.init( *gfx );
 	skybox_pipeline.init( *gfx );
+
+	// post process pipeline
+	VkShaderModule post_process_shader;
+	vkutil::load_shader_module( "../../shaders/post_process.comp.spv", gfx->device, &post_process_shader );
+
+	post_process_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+	post_process_pipeline.addPushConstantRange( sizeof( PostProcessConfig ) );
+	post_process_pipeline.build( *gfx, post_process_shader, "post process compute" );
+	post_process_pipeline.createDescriptorPool( *gfx, { {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1} }, 1 );
+	post_process_set = post_process_pipeline.allocateDescriptorSet( *gfx );
+
+	// TODO: this everyframe for more than one inflight frame
+	DescriptorWriter writer;
+	auto& out_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).post_process_image );
+	writer.write_image( 0, out_image.view, nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+	writer.update_set( gfx->device, post_process_set );
+
+	vkDestroyShaderModule( gfx->device, post_process_shader, nullptr );
+
 }
 
 void VulkanEngine::initImages( ) {
@@ -475,9 +515,9 @@ void VulkanEngine::initImages( ) {
 }
 
 void VulkanEngine::initScene( ) {
-	ibl.init( *gfx, "../../assets/texture/ibls/bell_park_pier_4k.hdr" );
+	ibl.init( *gfx, "../../assets/texture/ibls/hotel_rooftop_balcony_4k.hdr" );
 
-	auto scene = GltfLoader::load( *gfx, "../../assets/untitled.glb" );
+	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
 	scenes["sponza"] = std::move( scene );
 
 	// init camera
@@ -609,7 +649,7 @@ static void drawSceneHierarchy( Scene::Node& node ) {
 void VulkanEngine::run( ) {
 	bool bQuit = false;
 
-	static ImageID selected_set = gfx->swapchain.getCurrentFrame( ).color;
+	static ImageID selected_set = gfx->swapchain.getCurrentFrame( ).post_process_image;
 	static int selected_set_n = 0;
 
 	// main loop
@@ -695,7 +735,7 @@ void VulkanEngine::run( ) {
 			if ( ImGui::BeginPopup( "Viewport Context" ) ) {
 				ImGui::SeparatorText( "GBuffer" );
 				if ( ImGui::RadioButton( "PBR Pass", &selected_set_n, 0 ) ) {
-					selected_set = gfx->swapchain.getCurrentFrame( ).color;
+					selected_set = gfx->swapchain.getCurrentFrame( ).post_process_image;
 				}
 				if ( ImGui::RadioButton( "Albedo", &selected_set_n, 1 ) ) {
 					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.albedo;
@@ -709,8 +749,13 @@ void VulkanEngine::run( ) {
 				if ( ImGui::RadioButton( "PBR", &selected_set_n, 4 ) ) {
 					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.pbr;
 				}
+				if ( ImGui::RadioButton( "HDR", &selected_set_n, 5 ) ) {
+					selected_set = gfx->swapchain.getCurrentFrame( ).hdr_color;
+				}
 				ImGui::Separator( );
 				ImGui::SliderFloat( "Render Scale", &render_scale, 0.3f, 1.f );
+				ImGui::DragFloat( "Exposure", &pp_config.exposure, 0.01f, 0.01f, 10.0f );
+				ImGui::DragFloat( "Gamma", &pp_config.gamma, 0.01f, 0.01f, 10.0f );
 				ImGui::Checkbox( "Wireframe", &renderer_options.wireframe );
 				ImGui::Checkbox( "Frustum Culling", &renderer_options.frustum );
 				ImGui::Checkbox( "Render Irradiance Map", &renderer_options.render_irradiance_instead_skybox );

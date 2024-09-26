@@ -50,7 +50,7 @@ WireframePipeline::Result<> WireframePipeline::init( GfxDevice& gfx ) {
 	builder.disable_blending( );
 	builder.enable_depthtest( true, VK_COMPARE_OP_GREATER_OR_EQUAL );
 
-	auto& color = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).color );
+	auto& color = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).hdr_color );
 	auto& depth = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).depth );
 	builder.set_color_attachment_format( color.format );
 	builder.set_depth_format( depth.format );
@@ -94,7 +94,7 @@ DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const st
 	auto bindless_set = gfx.getBindlessSet( );
 	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &bindless_set, 0, nullptr );
 
-	auto& target_image = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).color );
+	auto& target_image = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).hdr_color );
 
 	VkViewport viewport = {
 		.x = 0,

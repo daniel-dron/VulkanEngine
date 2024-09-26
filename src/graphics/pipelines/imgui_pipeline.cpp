@@ -163,7 +163,7 @@ void ImGuiPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImDrawData* draw_
 	auto bindless_set = gfx.getBindlessSet( );
 	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &bindless_set, 0, nullptr );
 
-	auto& target_image = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).color );
+	auto& target_image = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).hdr_color );
 	VkViewport viewport = {
 		.x = 0,
 		.y = 0,

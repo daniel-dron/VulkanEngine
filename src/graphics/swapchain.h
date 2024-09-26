@@ -28,7 +28,8 @@ public:
 		VkSemaphore render_semaphore;
 		VkFence fence;
 		DeletionQueue deletion_queue;
-		ImageID color;
+		ImageID hdr_color;
+		ImageID post_process_image;
 		ImageID depth;
 		GBuffer gbuffer;
 	};

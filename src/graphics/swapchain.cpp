@@ -152,8 +152,11 @@ void Swapchain::createFrameImages( ) {
 	for ( auto& frame : frames ) {
 		std::vector<unsigned char> empty_image_data;
 		empty_image_data.resize( extent.width * extent.height * 8, 0 );
-		frame.color = gfx->image_codex.loadImageFromData( "main draw image", empty_image_data.data( ), draw_image_extent,
+		frame.hdr_color = gfx->image_codex.loadImageFromData( "hdr image pbr", empty_image_data.data( ), draw_image_extent,
 			VK_FORMAT_R16G16B16A16_SFLOAT, draw_image_usages, false );
+
+		frame.post_process_image = gfx->image_codex.createEmptyImage( "post process", draw_image_extent,
+			VK_FORMAT_R8G8B8A8_SRGB, draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
 
 		empty_image_data.resize( extent.width * extent.height * 4, 0 );
 		frame.depth = gfx->image_codex.loadImageFromData( "main depth image", empty_image_data.data( ), draw_image_extent,

@@ -82,6 +82,15 @@ public:
 	ImGuiPipeline imgui_pipeline;
 	SkyboxPipeline skybox_pipeline;
 
+	struct PostProcessConfig {
+		ImageID hdr;
+		float gamma = 2.2f;
+		float exposure = 1.0f;
+	};
+	mutable	PostProcessConfig pp_config;
+	BindlessCompute post_process_pipeline;
+	VkDescriptorSet post_process_set;
+
 
 	// ----------
 	// scene
@@ -124,6 +133,7 @@ private:
 	void gbufferPass( VkCommandBuffer cmd ) const;
 	void pbrPass( VkCommandBuffer cmd ) const;
 	void skyboxPass( VkCommandBuffer cmd ) const;
+	void postProcessPass( VkCommandBuffer cmd ) const;
 
 	void drawImgui( VkCommandBuffer cmd, VkImageView target_image_view );
 
