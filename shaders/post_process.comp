@@ -56,11 +56,11 @@ void main()
     // exposure
     color = vec3(1.0) - exp(-color * pc.exposure);
 
+    // tone mapper
+    color = aces(color);
+
     // gamma correction
     color = pow(color, vec3(1.0f / pc.gamma));
-
-    // tone mapper
-    color = neutral(color);
 
     imageStore(output_image, ivec2(gl_GlobalInvocationID), vec4(color, 1.0f));
 }

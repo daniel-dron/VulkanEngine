@@ -148,7 +148,6 @@ void main() {
     float metallic = pbr_values.b;
 
     vec3 color = pbr(albedo, vec3(0.0f, 0.0f, 0.0f), metallic, roughness, 1.0f, normal, view_dir);
-    // color = neutral(color);
 
     out_color = vec4(color, 1.0f);
 }
