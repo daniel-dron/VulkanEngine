@@ -66,7 +66,7 @@ void IBL::initComputes( GfxDevice& gfx ) {
 
 		DescriptorWriter writer;
 		auto& skybox_image = gfx.image_codex.getImage( skybox );
-		writer.write_image( 0, skybox_image.view, nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+		writer.write_image( 0, skybox_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		writer.update_set( gfx.device, equi_set );
 	}
 
@@ -81,7 +81,7 @@ void IBL::initComputes( GfxDevice& gfx ) {
 
 		DescriptorWriter writer;
 		auto& irradiance_image = gfx.image_codex.getImage( irradiance );
-		writer.write_image( 0, irradiance_image.view, nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+		writer.write_image( 0, irradiance_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		writer.update_set( gfx.device, irradiance_set );
 	}
 
@@ -99,7 +99,7 @@ void IBL::initComputes( GfxDevice& gfx ) {
 			radiance_sets[i] = radiance_pipeline.allocateDescriptorSet( gfx );
 
 			DescriptorWriter writer;
-			writer.write_image( 0, radiance_image.mip_views[i], nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+			writer.write_image( 0, radiance_image.GetMipView( i ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 			writer.update_set( gfx.device, radiance_sets[i] );
 		}
 	}
@@ -114,7 +114,7 @@ void IBL::initComputes( GfxDevice& gfx ) {
 
 		DescriptorWriter writer;
 		auto& brdf_image = gfx.image_codex.getImage( brdf );
-		writer.write_image( 0, brdf_image.view, nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+		writer.write_image( 0, brdf_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		writer.update_set( gfx.device, brdf_set );
 	}
 
@@ -147,7 +147,7 @@ void IBL::generateSkybox( GfxDevice& gfx, VkCommandBuffer cmd ) const {
 	equirectangular_pipeline.bindDescriptorSet( cmd, bindless, 0 );
 	equirectangular_pipeline.bindDescriptorSet( cmd, equi_set, 1 );
 	equirectangular_pipeline.pushConstants( cmd, sizeof( ImageID ), &input );
-	equirectangular_pipeline.dispatch( cmd, (output_image.extent.width + 15) / 16, (output_image.extent.height + 15) / 16, 6 );
+	equirectangular_pipeline.dispatch( cmd, (output_image.GetExtent( ).width + 15) / 16, (output_image.GetExtent( ).height + 15) / 16, 6 );
 }
 
 void IBL::generateIrradiance( GfxDevice& gfx, VkCommandBuffer cmd ) const {
@@ -160,7 +160,7 @@ void IBL::generateIrradiance( GfxDevice& gfx, VkCommandBuffer cmd ) const {
 	irradiance_pipeline.bindDescriptorSet( cmd, bindless, 0 );
 	irradiance_pipeline.bindDescriptorSet( cmd, irradiance_set, 1 );
 	irradiance_pipeline.pushConstants( cmd, sizeof( ImageID ), &input );
-	irradiance_pipeline.dispatch( cmd, (output_image.extent.width + 15) / 16, (output_image.extent.height + 15) / 16, 6 );
+	irradiance_pipeline.dispatch( cmd, (output_image.GetExtent( ).width + 15) / 16, (output_image.GetExtent( ).height + 15) / 16, 6 );
 }
 
 void IBL::generateRadiance( GfxDevice& gfx, VkCommandBuffer cmd ) const {
@@ -180,7 +180,7 @@ void IBL::generateRadiance( GfxDevice& gfx, VkCommandBuffer cmd ) const {
 	radiance_pipeline.bindDescriptorSet( cmd, bindless, 0 );
 
 	for ( auto mip = 0; mip < 6; mip++ ) {
-		uint32_t mipSize = output_image.extent.width >> mip;
+		uint32_t mipSize = output_image.GetExtent( ).width >> mip;
 		float roughness = (float)mip / (float)(6 - 1);
 
 		pc.mipmap = mip;
@@ -190,7 +190,7 @@ void IBL::generateRadiance( GfxDevice& gfx, VkCommandBuffer cmd ) const {
 
 		radiance_pipeline.bindDescriptorSet( cmd, set, 1 );
 		radiance_pipeline.pushConstants( cmd, sizeof( RadiancePushConstants ), &pc );
-		radiance_pipeline.dispatch( cmd, (output_image.extent.width + 15) / 16, (output_image.extent.height + 15) / 16, 6 );
+		radiance_pipeline.dispatch( cmd, (output_image.GetExtent( ).width + 15) / 16, (output_image.GetExtent( ).height + 15) / 16, 6 );
 	}
 }
 
@@ -202,5 +202,5 @@ void IBL::generateBrdf( GfxDevice& gfx, VkCommandBuffer cmd ) const {
 	brdf_pipeline.bind( cmd );
 	brdf_pipeline.bindDescriptorSet( cmd, bindless, 0 );
 	brdf_pipeline.bindDescriptorSet( cmd, brdf_set, 1 );
-	brdf_pipeline.dispatch( cmd, (output_image.extent.width + 15) / 16, (output_image.extent.height + 15) / 16, 1 );
+	brdf_pipeline.dispatch( cmd, (output_image.GetExtent( ).width + 15) / 16, (output_image.GetExtent( ).height + 15) / 16, 1 );
 }

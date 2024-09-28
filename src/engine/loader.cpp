@@ -115,24 +115,24 @@ void processMaterials( std::vector<Material>& preprocessed_materials, std::vecto
 	for ( auto& material : preprocessed_materials ) {
 		if ( material.color_id != ImageCodex::INVALID_IMAGE_ID ) {
 			auto texture = ai_scene->mTextures[material.color_id];
-			auto t = gfx.image_codex.getImage( images.at( material.color_id ) );
-			assert( strcmp( texture->mFilename.C_Str( ), t.info.debug_name.c_str( ) ) == 0 && "missmatched texture" );
+			auto& t = gfx.image_codex.getImage( images.at( material.color_id ) );
+			assert( strcmp( texture->mFilename.C_Str( ), t.GetName( ).c_str( ) ) == 0 && "missmatched texture" );
 
 			material.color_id = images.at( material.color_id );
 		}
 
 		if ( material.metal_roughness_id != ImageCodex::INVALID_IMAGE_ID ) {
 			auto texture = ai_scene->mTextures[material.metal_roughness_id];
-			auto t = gfx.image_codex.getImage( images.at( material.metal_roughness_id ) );
-			assert( strcmp( texture->mFilename.C_Str( ), t.info.debug_name.c_str( ) ) == 0 && "missmatched texture" );
+			auto& t = gfx.image_codex.getImage( images.at( material.metal_roughness_id ) );
+			assert( strcmp( texture->mFilename.C_Str( ), t.GetName( ).c_str( ) ) == 0 && "missmatched texture" );
 
 			material.metal_roughness_id = images.at( material.metal_roughness_id );
 		}
 
 		if ( material.normal_id != ImageCodex::INVALID_IMAGE_ID ) {
 			auto texture = ai_scene->mTextures[material.normal_id];
-			auto t = gfx.image_codex.getImage( images.at( material.normal_id ) );
-			assert( strcmp( texture->mFilename.C_Str( ), t.info.debug_name.c_str( ) ) == 0 && "missmatched texture" );
+			auto& t = gfx.image_codex.getImage( images.at( material.normal_id ) );
+			assert( strcmp( texture->mFilename.C_Str( ), t.GetName( ).c_str( ) ) == 0 && "missmatched texture" );
 
 			material.normal_id = images.at( material.normal_id );
 		}

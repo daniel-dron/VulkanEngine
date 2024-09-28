@@ -156,8 +156,6 @@ void ImGuiPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImDrawData* draw_
 		vertex_offset += cmd_list.VtxBuffer.Size;
 	}
 
-
-
 	vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
 
 	auto bindless_set = gfx.getBindlessSet( );
@@ -167,8 +165,8 @@ void ImGuiPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImDrawData* draw_
 	VkViewport viewport = {
 		.x = 0,
 		.y = 0,
-		.width = static_cast<float>(target_image.extent.width),
-		.height = static_cast<float>(target_image.extent.height),
+		.width = static_cast<float>(target_image.GetExtent( ).width),
+		.height = static_cast<float>(target_image.GetExtent( ).height),
 		.minDepth = 0.0f,
 		.maxDepth = 1.0f,
 	};
@@ -212,7 +210,7 @@ void ImGuiPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImDrawData* draw_
 
 			bool is_srgb = true;
 			const auto& texture = gfx.image_codex.getImage( texture_id );
-			if ( texture.format == VK_FORMAT_R8G8B8A8_SRGB || texture.format == VK_FORMAT_R16G16B16A16_SFLOAT ) {
+			if ( texture.GetFormat( ) == VK_FORMAT_R8G8B8A8_SRGB || texture.GetFormat( ) == VK_FORMAT_R16G16B16A16_SFLOAT ) {
 				is_srgb = false;
 			}
 

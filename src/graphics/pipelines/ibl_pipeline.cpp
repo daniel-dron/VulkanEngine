@@ -163,12 +163,12 @@ void EquiToCubePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID equi
 
 	auto& cubemap = gfx.image_codex.getImage( dst_cubemap );
 	VkClearValue clear_value = { 0.0f, 0.0f ,0.0f, 1.0f };
-	VkRenderingAttachmentInfo color_attachment = attachment_info( cubemap.view, &clear_value );
+	VkRenderingAttachmentInfo color_attachment = attachment_info( cubemap.GetBaseView( ), &clear_value );
 
 	VkRenderingInfo render_info = {
 		.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
 		.pNext = nullptr,
-		.renderArea = VkRect2D{ VkOffset2D{0, 0}, VkExtent2D{cubemap.extent.width, cubemap.extent.height}},
+		.renderArea = VkRect2D{ VkOffset2D{0, 0}, VkExtent2D{cubemap.GetExtent( ).width, cubemap.GetExtent( ).height}},
 		.layerCount = 1,
 		.viewMask = 0b111111,
 		.colorAttachmentCount = 1,
@@ -187,8 +187,8 @@ void EquiToCubePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID equi
 		VkViewport viewport = {
 			.x = 0,
 			.y = 0,
-			.width = static_cast<float>(cubemap.extent.width),
-			.height = static_cast<float>(cubemap.extent.height),
+			.width = static_cast<float>(cubemap.GetExtent( ).width),
+			.height = static_cast<float>(cubemap.GetExtent( ).height),
 			.minDepth = 0.0f,
 			.maxDepth = 1.0f,
 		};
@@ -200,8 +200,8 @@ void EquiToCubePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID equi
 				.y = 0
 			},
 			.extent = {
-				.width = cubemap.extent.width,
-				.height = cubemap.extent.height
+				.width = cubemap.GetExtent( ).width,
+				.height = cubemap.GetExtent( ).height
 			}
 		};
 		vkCmdSetScissor( cmd, 0, 1, &scissor );

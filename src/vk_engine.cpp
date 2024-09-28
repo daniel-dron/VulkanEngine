@@ -3,7 +3,6 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include <VkBootstrap.h>
-#include <vk_images.h>
 #include <vk_initializers.h>
 #include <vk_pipelines.h>
 #include <vk_types.h>
@@ -44,6 +43,15 @@
 #include <engine/loader.h>
 
 VulkanEngine* loaded_engine = nullptr;
+
+// TODO: move
+void GpuBuffer::Upload( GfxDevice& gfx, void* data, size_t size ) {
+	void* mapped_buffer = {};
+
+	vmaMapMemory( gfx.allocator, allocation, &mapped_buffer );
+	memcpy( mapped_buffer, data, size );
+	vmaUnmapMemory( gfx.allocator, allocation );
+}
 
 VulkanEngine& VulkanEngine::get( ) { return *loaded_engine; }
 
@@ -159,6 +167,70 @@ void VulkanEngine::initImgui( ) {
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	ImGui::StyleColorsDark( );
 
+	ImGuiStyle& style = ImGui::GetStyle( );
+	ImVec4* colors = style.Colors;
+
+	// Set up the color scheme
+	ImVec4 bgColor = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
+	ImVec4 textColor = ImVec4( 0.80f, 0.80f, 0.80f, 1.00f );
+	ImVec4 highlightColor = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+
+	// Background
+	colors[ImGuiCol_WindowBg] = bgColor;
+	colors[ImGuiCol_ChildBg] = bgColor;
+	colors[ImGuiCol_PopupBg] = bgColor;
+
+	// Text
+	colors[ImGuiCol_Text] = textColor;
+	colors[ImGuiCol_TextDisabled] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+
+	// Headers
+	colors[ImGuiCol_Header] = highlightColor;
+	colors[ImGuiCol_HeaderHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+	colors[ImGuiCol_HeaderActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+
+	// Buttons
+	colors[ImGuiCol_Button] = highlightColor;
+	colors[ImGuiCol_ButtonHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+	colors[ImGuiCol_ButtonActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+
+	// Frame background (for checkbox, radio button, plot, slider, text input)
+	colors[ImGuiCol_FrameBg] = ImVec4( 0.20f, 0.20f, 0.20f, 1.00f );
+	colors[ImGuiCol_FrameBgHovered] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+	colors[ImGuiCol_FrameBgActive] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+
+	// Tabs
+	colors[ImGuiCol_Tab] = highlightColor;
+	colors[ImGuiCol_TabHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+	colors[ImGuiCol_TabActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+
+	// Title
+	colors[ImGuiCol_TitleBg] = highlightColor;
+	colors[ImGuiCol_TitleBgActive] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+
+	// Borders
+	style.WindowBorderSize = 1.0f;
+	style.ChildBorderSize = 1.0f;
+	style.PopupBorderSize = 1.0f;
+	style.FrameBorderSize = 1.0f;
+	colors[ImGuiCol_Border] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+
+	// Rounding
+	style.WindowRounding = 0.0f;
+	style.ChildRounding = 0.0f;
+	style.FrameRounding = 0.0f;
+	style.PopupRounding = 0.0f;
+	style.ScrollbarRounding = 0.0f;
+	style.GrabRounding = 0.0f;
+	style.TabRounding = 0.0f;
+
+	// Alignment
+	style.WindowTitleAlign = ImVec2( 0.0f, 0.5f );
+
+	// Spacing
+	style.ItemSpacing = ImVec2( 8, 4 );
+	style.FramePadding = ImVec2( 4, 2 );
+
 	// add the destroy the imgui created structures
 	main_deletion_queue.pushFunction( [&, imguiPool]( ) {
 		ImGui_ImplVulkan_Shutdown( );
@@ -229,10 +301,10 @@ void VulkanEngine::draw( ) {
 	auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
 
 	draw_extent.height = static_cast<uint32_t>(
-		std::min( gfx->swapchain.extent.height, color.extent.height ) *
+		std::min( gfx->swapchain.extent.height, color.GetExtent( ).height ) *
 		render_scale);
 	draw_extent.width = static_cast<uint32_t>(
-		std::min( gfx->swapchain.extent.width, color.extent.width ) * render_scale);
+		std::min( gfx->swapchain.extent.width, color.GetExtent( ).width ) * render_scale);
 
 	//
 	// commands
@@ -247,7 +319,7 @@ void VulkanEngine::draw( ) {
 	auto cmdBeginInfo = vkinit::command_buffer_begin_info( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
 	VK_CHECK( vkBeginCommandBuffer( cmd, &cmdBeginInfo ) );
 
-	vkutil::transition_image( cmd, depth.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
+	depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
 	if ( gfx->swapchain.frame_number == 5 ) {
 	}
@@ -257,10 +329,10 @@ void VulkanEngine::draw( ) {
 	skyboxPass( cmd );
 	postProcessPass( cmd );
 
-	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
+	Image::TransitionLayout( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
 	drawImgui( cmd, gfx->swapchain.views[swapchainImageIndex] );
 
-	vkutil::transition_image( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
+	Image::TransitionLayout( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
 	VK_CHECK( vkEndCommandBuffer( cmd ) );
 
 	//
@@ -320,12 +392,12 @@ void VulkanEngine::gbufferPass( VkCommandBuffer cmd ) const {
 
 		VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
 		std::array<VkRenderingAttachmentInfo, 4> color_attachments = {
-			attachment_info( albedo.view, &clear_color ),
-			attachment_info( normal.view, &clear_color ),
-			attachment_info( position.view, &clear_color ),
-			attachment_info( pbr.view, &clear_color ),
+			attachment_info( albedo.GetBaseView( ), &clear_color ),
+			attachment_info( normal.GetBaseView( ), &clear_color ),
+			attachment_info( position.GetBaseView( ), &clear_color ),
+			attachment_info( pbr.GetBaseView( ), &clear_color ),
 		};
-		VkRenderingAttachmentInfo depth_attachment = depth_attachment_info( depth.view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+		VkRenderingAttachmentInfo depth_attachment = depth_attachment_info( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
 
 		VkRenderingInfo render_info = {
 			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -359,7 +431,7 @@ void VulkanEngine::pbrPass( VkCommandBuffer cmd ) const {
 		auto& image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).hdr_color );
 
 		VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 0.0f };
-		VkRenderingAttachmentInfo color_attachment = attachment_info( image.view, &clear_color );
+		VkRenderingAttachmentInfo color_attachment = attachment_info( image.GetBaseView( ), &clear_color );
 
 		VkRenderingInfo render_info = {
 			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -391,12 +463,12 @@ void VulkanEngine::skyboxPass( VkCommandBuffer cmd ) const {
 		auto& image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).hdr_color );
 		auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
 
-		VkRenderingAttachmentInfo color_attachment = attachment_info( image.view, nullptr );
+		VkRenderingAttachmentInfo color_attachment = attachment_info( image.GetBaseView( ), nullptr );
 
 		VkRenderingAttachmentInfo depth_attachment = {
 			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
 			.pNext = nullptr,
-			.imageView = depth.view,
+			.imageView = depth.GetBaseView( ),
 			.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
 			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -431,15 +503,15 @@ void VulkanEngine::postProcessPass( VkCommandBuffer cmd ) const {
 
 	pp_config.hdr = gfx->swapchain.getCurrentFrame( ).hdr_color;
 
-	vkutil::transition_image( cmd, output.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
+	output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
 
 	post_process_pipeline.bind( cmd );
 	post_process_pipeline.bindDescriptorSet( cmd, bindless, 0 );
 	post_process_pipeline.bindDescriptorSet( cmd, post_process_set, 1 );
 	post_process_pipeline.pushConstants( cmd, sizeof( PostProcessConfig ), &pp_config );
-	post_process_pipeline.dispatch( cmd, (output.extent.width + 15) / 16, (output.extent.height + 15) / 16, 6 );
+	post_process_pipeline.dispatch( cmd, (output.GetExtent( ).width + 15) / 16, (output.GetExtent( ).height + 15) / 16, 6 );
 
-	vkutil::transition_image( cmd, output.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+	output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 }
 
 void VulkanEngine::initDefaultData( ) {
@@ -469,7 +541,7 @@ void VulkanEngine::initDefaultData( ) {
 	// TODO: this everyframe for more than one inflight frame
 	DescriptorWriter writer;
 	auto& out_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).post_process_image );
-	writer.write_image( 0, out_image.view, nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+	writer.write_image( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 	writer.update_set( gfx->device, post_process_set );
 
 	vkDestroyShaderModule( gfx->device, post_process_shader, nullptr );
@@ -515,9 +587,9 @@ void VulkanEngine::initImages( ) {
 }
 
 void VulkanEngine::initScene( ) {
-	ibl.init( *gfx, "../../assets/texture/ibls/hotel_rooftop_balcony_4k.hdr" );
+	ibl.init( *gfx, "../../assets/texture/ibls/overcast_soil_puresky_4k.hdr" );
 
-	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
+	auto scene = GltfLoader::load( *gfx, "../../assets/untitled.glb" );
 	scenes["sponza"] = std::move( scene );
 
 	// init camera

@@ -30,7 +30,7 @@ WireframePipeline::Result<> WireframePipeline::init( GfxDevice& gfx ) {
 	};
 
 	auto bindless_layout = gfx.getBindlessLayout( );
-	VkDescriptorSetLayout layouts[] = { bindless_layout	};
+	VkDescriptorSetLayout layouts[] = { bindless_layout };
 
 	// ----------
 	// pipeline
@@ -52,8 +52,8 @@ WireframePipeline::Result<> WireframePipeline::init( GfxDevice& gfx ) {
 
 	auto& color = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).hdr_color );
 	auto& depth = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).depth );
-	builder.set_color_attachment_format( color.format );
-	builder.set_depth_format( depth.format );
+	builder.set_color_attachment_format( color.GetFormat( ) );
+	builder.set_depth_format( depth.GetFormat( ) );
 	builder._pipelineLayout = layout;
 	pipeline = builder.build_pipeline( gfx.device );
 
@@ -99,8 +99,8 @@ DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const st
 	VkViewport viewport = {
 		.x = 0,
 		.y = 0,
-		.width = static_cast<float>(target_image.extent.width),
-		.height = static_cast<float>(target_image.extent.height),
+		.width = static_cast<float>(target_image.GetExtent( ).width),
+		.height = static_cast<float>(target_image.GetExtent( ).height),
 		.minDepth = 0.0f,
 		.maxDepth = 1.0f,
 	};
@@ -112,8 +112,8 @@ DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const st
 			.y = 0
 		},
 		.extent = {
-			.width = target_image.extent.width,
-			.height = target_image.extent.height
+			.width = target_image.GetExtent( ).width,
+			.height = target_image.GetExtent( ).height
 		}
 	};
 	vkCmdSetScissor( cmd, 0, 1, &scissor );
@@ -130,7 +130,7 @@ DrawStats WireframePipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const st
 
 		PushConstants push_constants = {
 			.world_from_local = draw_command.world_from_local,
-			.scene_data_address	= gpu_scene_address,
+			.scene_data_address = gpu_scene_address,
 			.vertex_buffer_address = draw_command.vertex_buffer_address
 		};
 		vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( PushConstants ), &push_constants );

@@ -53,8 +53,8 @@ SkyboxPipeline::Result<> SkyboxPipeline::init( GfxDevice& gfx ) {
 
 	auto& color = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).hdr_color );
 	auto& depth = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).depth );
-	builder.set_color_attachment_format( color.format );
-	builder.set_depth_format( depth.format );
+	builder.set_color_attachment_format( color.GetFormat( ) );
+	builder.set_depth_format( depth.GetFormat( ) );
 	builder._pipelineLayout = layout;
 	pipeline = builder.build_pipeline( gfx.device );
 
@@ -152,8 +152,8 @@ void SkyboxPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID skybox_t
 	VkViewport viewport = {
 		.x = 0,
 		.y = 0,
-		.width = static_cast<float>(target_image.extent.width),
-		.height = static_cast<float>(target_image.extent.height),
+		.width = static_cast<float>(target_image.GetExtent( ).width),
+		.height = static_cast<float>(target_image.GetExtent( ).height),
 		.minDepth = 0.0f,
 		.maxDepth = 1.0f,
 	};
@@ -165,8 +165,8 @@ void SkyboxPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID skybox_t
 			.y = 0
 		},
 		.extent = {
-			.width = target_image.extent.width,
-			.height = target_image.extent.height
+			.width = target_image.GetExtent( ).width,
+			.height = target_image.GetExtent( ).height
 		}
 	};
 	vkCmdSetScissor( cmd, 0, 1, &scissor );

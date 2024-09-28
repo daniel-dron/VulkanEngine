@@ -4,8 +4,6 @@ file(GLOB SRC_SRC
   vk_types.h
   vk_initializers.cpp
   vk_initializers.h
-  vk_images.h
-  vk_images.cpp 
   vk_descriptors.h
   vk_descriptors.cpp
   vk_pipelines.h

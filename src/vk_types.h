@@ -76,11 +76,15 @@ struct DeletionQueue {
 	}
 };
 
+class GfxDevice;
+
 struct GpuBuffer {
 	VkBuffer buffer;
 	VmaAllocation allocation;
 	VmaAllocationInfo info;
 	std::string name;
+
+	void Upload( GfxDevice& gfx, void* data, size_t size );
 };
 
 struct EngineStats {

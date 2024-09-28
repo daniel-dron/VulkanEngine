@@ -214,10 +214,11 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 	};
 	VkPhysicalDeviceVulkan11Features features_11{
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
-		.multiview = true
+		.multiview = true,
 	};
 	VkPhysicalDeviceFeatures features{
 		.fillModeNonSolid = true,
+		.samplerAnisotropy = true
 	};
 
 	PhysicalDeviceSelector selector{ bs_instance };

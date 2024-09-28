@@ -58,13 +58,13 @@ GBufferPipeline::Result<> GBufferPipeline::init( GfxDevice& gfx ) {
 	auto& depth = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).depth );
 
 	std::array<VkFormat, 4> formats = {
-		albedo.format,
-		normal.format,
-		position.format,
-		pbr.format
+		albedo.GetFormat( ),
+		normal.GetFormat( ),
+		position.GetFormat( ),
+		pbr.GetFormat( )
 	};
 	builder.set_color_attachment_formats( formats.data( ), formats.size( ) );
-	builder.set_depth_format( depth.format );
+	builder.set_depth_format( depth.GetFormat( ) );
 	builder._pipelineLayout = layout;
 	pipeline = builder.build_pipeline( gfx.device );
 
@@ -111,8 +111,8 @@ DrawStats GBufferPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std:
 	VkViewport viewport = {
 		.x = 0,
 		.y = 0,
-		.width = static_cast<float>(target_image.extent.width),
-		.height = static_cast<float>(target_image.extent.height),
+		.width = static_cast<float>(target_image.GetExtent( ).width),
+		.height = static_cast<float>(target_image.GetExtent( ).height),
 		.minDepth = 0.0f,
 		.maxDepth = 1.0f,
 	};
@@ -124,8 +124,8 @@ DrawStats GBufferPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std:
 			.y = 0
 		},
 		.extent = {
-			.width = target_image.extent.width,
-			.height = target_image.extent.height
+			.width = target_image.GetExtent( ).width,
+			.height = target_image.GetExtent( ).height
 		}
 	};
 	vkCmdSetScissor( cmd, 0, 1, &scissor );

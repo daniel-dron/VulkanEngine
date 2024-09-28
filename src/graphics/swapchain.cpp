@@ -149,6 +149,7 @@ void Swapchain::createFrameImages( ) {
 	depth_image_usages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	depth_image_usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
+	// TODO: transition to correct layout ( check validation layers )
 	for ( auto& frame : frames ) {
 		std::vector<unsigned char> empty_image_data;
 		empty_image_data.resize( extent.width * extent.height * 8, 0 );
