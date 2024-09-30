@@ -2,7 +2,6 @@
 
 #include <vk_types.h>
 #include <graphics/image_codex.h>
-#include <graphics/pipelines/ibl_pipeline.h>
 #include <graphics/pipelines/compute_pipeline.h>
 
 class GfxDevice;

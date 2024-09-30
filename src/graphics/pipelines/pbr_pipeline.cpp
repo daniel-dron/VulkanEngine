@@ -8,21 +8,8 @@ using namespace vkutil;
 
 PbrPipeline::Result<> PbrPipeline::init( GfxDevice& gfx ) {
 
-	VkShaderModule frag_shader;
-	if ( !load_shader_module( "../../shaders/pbr.frag.spv", gfx.device, &frag_shader ) ) {
-		return std::unexpected( PipelineError{
-			.error = Error::ShaderLoadingFailed,
-			.message = "Failed to load mesh fragment shader!"
-			} );
-	}
-
-	VkShaderModule vert_shader;
-	if ( !load_shader_module( "../../shaders/fullscreen_tri.vert.spv", gfx.device, &vert_shader ) ) {
-		return std::unexpected( PipelineError{
-			.error = Error::ShaderLoadingFailed,
-			.message = "Failed to load mesh vertex shader!"
-			} );
-	}
+	auto& frag_shader = gfx.shader_storage->Get("pbr", T_FRAGMENT);
+	auto& vert_shader = gfx.shader_storage->Get("fullscreen_tri", T_VERTEX);
 
 	VkPushConstantRange range = {
 		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -44,7 +31,7 @@ PbrPipeline::Result<> PbrPipeline::init( GfxDevice& gfx ) {
 	VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &layout ) );
 
 	PipelineBuilder builder;
-	builder.set_shaders( vert_shader, frag_shader );
+	builder.set_shaders( vert_shader.handle, frag_shader.handle );
 	builder.set_input_topology( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
 	builder.set_polygon_mode( VK_POLYGON_MODE_FILL );
 	builder.set_cull_mode( VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE );
@@ -70,8 +57,6 @@ PbrPipeline::Result<> PbrPipeline::init( GfxDevice& gfx ) {
 	vkSetDebugUtilsObjectNameEXT( gfx.device, &obj );
 #endif
 
-	vkDestroyShaderModule( gfx.device, frag_shader, nullptr );
-	vkDestroyShaderModule( gfx.device, vert_shader, nullptr );
 	gpu_scene_data = gfx.allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 		VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data PBR Pipeline" );
 

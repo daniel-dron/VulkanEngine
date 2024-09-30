@@ -543,12 +543,11 @@ void VulkanEngine::initDefaultData( ) {
 	skybox_pipeline.init( *gfx );
 
 	// post process pipeline
-	VkShaderModule post_process_shader;
-	vkutil::load_shader_module( "../../shaders/post_process.comp.spv", gfx->device, &post_process_shader );
+	auto& post_process_shader = gfx->shader_storage->Get( "post_process", T_COMPUTE );
 
 	post_process_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 	post_process_pipeline.addPushConstantRange( sizeof( PostProcessConfig ) );
-	post_process_pipeline.build( *gfx, post_process_shader, "post process compute" );
+	post_process_pipeline.build( *gfx, post_process_shader.handle, "post process compute" );
 	post_process_set = gfx->AllocateSet( post_process_pipeline.GetLayout( ) );
 
 	// TODO: this everyframe for more than one inflight frame
@@ -556,8 +555,6 @@ void VulkanEngine::initDefaultData( ) {
 	auto& out_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).post_process_image );
 	writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 	writer.UpdateSet( gfx->device, post_process_set );
-
-	vkDestroyShaderModule( gfx->device, post_process_shader, nullptr );
 }
 
 void VulkanEngine::initImages( ) {

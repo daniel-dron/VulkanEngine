@@ -49,18 +49,17 @@ void IBL::clean( GfxDevice& gfx ) {
 }
 
 void IBL::initComputes( GfxDevice& gfx ) {
-	VkShaderModule equi_map, irradiance_shader, radiance_shader, brdf_shader;
-	vkutil::load_shader_module( "../../shaders/equirectangular_map.comp.spv", gfx.device, &equi_map );
-	vkutil::load_shader_module( "../../shaders/irradiance.comp.spv", gfx.device, &irradiance_shader );
-	vkutil::load_shader_module( "../../shaders/radiance.comp.spv", gfx.device, &radiance_shader );
-	vkutil::load_shader_module( "../../shaders/brdf.comp.spv", gfx.device, &brdf_shader );
+	auto& equirectangular_shader = gfx.shader_storage->Get( "equirectangular_map", T_COMPUTE );
+	auto& irradiance_shader = gfx.shader_storage->Get( "irradiance", T_COMPUTE );
+	auto& radiance_shader = gfx.shader_storage->Get( "radiance", T_COMPUTE );
+	auto& brdf_shader = gfx.shader_storage->Get( "brdf", T_COMPUTE );
 
 	// ----------
 	// Equirectangular to Cubemap
 	{
 		equirectangular_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		equirectangular_pipeline.addPushConstantRange( sizeof( ImageID ) );
-		equirectangular_pipeline.build( gfx, equi_map, "Equirectangular to Cubemap Pipeline" );
+		equirectangular_pipeline.build( gfx, equirectangular_shader.handle, "Equirectangular to Cubemap Pipeline" );
 		equi_set = gfx.AllocateSet( equirectangular_pipeline.GetLayout( ) );
 
 		DescriptorWriter writer;
@@ -74,7 +73,7 @@ void IBL::initComputes( GfxDevice& gfx ) {
 	{
 		irradiance_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		irradiance_pipeline.addPushConstantRange( sizeof( ImageID ) );
-		irradiance_pipeline.build( gfx, irradiance_shader, "Irradiance Compute" );
+		irradiance_pipeline.build( gfx, irradiance_shader.handle, "Irradiance Compute" );
 		irradiance_set = gfx.AllocateSet( irradiance_pipeline.GetLayout( ) );
 
 		DescriptorWriter writer;
@@ -88,7 +87,7 @@ void IBL::initComputes( GfxDevice& gfx ) {
 	{
 		radiance_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		radiance_pipeline.addPushConstantRange( sizeof( RadiancePushConstants ) );
-		radiance_pipeline.build( gfx, radiance_shader, "Radiance Compute" );
+		radiance_pipeline.build( gfx, radiance_shader.handle, "Radiance Compute" );
 
 		auto& radiance_image = gfx.image_codex.getImage( radiance );
 
@@ -105,7 +104,7 @@ void IBL::initComputes( GfxDevice& gfx ) {
 	// BRDF
 	{
 		brdf_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-		brdf_pipeline.build( gfx, brdf_shader, "BRDF Compute" );
+		brdf_pipeline.build( gfx, brdf_shader.handle, "BRDF Compute" );
 		brdf_set = gfx.AllocateSet( brdf_pipeline.GetLayout( ) );
 
 		DescriptorWriter writer;
@@ -114,11 +113,6 @@ void IBL::initComputes( GfxDevice& gfx ) {
 		writer.UpdateSet( gfx.device, brdf_set );
 	}
 
-
-	vkDestroyShaderModule( gfx.device, equi_map, nullptr );
-	vkDestroyShaderModule( gfx.device, irradiance_shader, nullptr );
-	vkDestroyShaderModule( gfx.device, radiance_shader, nullptr );
-	vkDestroyShaderModule( gfx.device, brdf_shader, nullptr );
 }
 
 void IBL::initTextures( GfxDevice& gfx ) {

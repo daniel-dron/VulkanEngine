@@ -34,6 +34,8 @@ file(GLOB SRC_GRAPHICS
   graphics/gbuffer.h
   graphics/ibl.h
   graphics/ibl.cpp
+  graphics/shader_storage.h
+  graphics/shader_storage.cpp
 )
 
 file (GLOB SRC_PIPELINES
@@ -48,8 +50,6 @@ file (GLOB SRC_PIPELINES
   graphics/pipelines/imgui_pipeline.cpp
   graphics/pipelines/skybox_pipeline.h
   graphics/pipelines/skybox_pipeline.cpp
-  graphics/pipelines/ibl_pipeline.h
-  graphics/pipelines/ibl_pipeline.cpp
   graphics/pipelines/compute_pipeline.h
   graphics/pipelines/compute_pipeline.cpp
 )

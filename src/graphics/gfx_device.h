@@ -8,7 +8,10 @@
 #include "mesh_codex.h"
 #include "swapchain.h"
 
+#include "shader_storage.h"
+
 class GfxDevice;
+class ShaderStorage;
 
 #ifdef ENABLE_DEBUG_UTILS
 #define START_LABEL(cmd, name, color) Debug::StartLabel(cmd, name, color)
@@ -114,6 +117,8 @@ public:
 	ImageCodex image_codex;
 	MaterialCodex material_codex;
 	MeshCodex mesh_codex;
+
+	std::unique_ptr<ShaderStorage> shader_storage;
 
 private:
 	Result<> initDevice( struct SDL_Window* window );

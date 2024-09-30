@@ -96,6 +96,8 @@ GfxDevice::Result<> GfxDevice::init( SDL_Window* window ) {
 
 	initDebugFunctions( );
 
+	shader_storage = std::make_unique<ShaderStorage>( this );
+
 	// descriptor pool
 	std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> ratios = {
 		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1.0f },
@@ -165,6 +167,7 @@ void GfxDevice::cleanup( ) {
 	mesh_codex.cleanup( *this );
 	executor.cleanup( );
 	set_pool.DestroyPools( device );
+	shader_storage->cleanup( );
 	vkFreeCommandBuffers( device, compute_command_pool, 1, &compute_command );
 	vkDestroyCommandPool( device, compute_command_pool, nullptr );
 	vmaDestroyAllocator( allocator );

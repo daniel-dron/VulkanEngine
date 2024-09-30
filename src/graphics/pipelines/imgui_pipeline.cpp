@@ -44,21 +44,8 @@ ImGuiPipeline::Result<> ImGuiPipeline::init( GfxDevice& gfx ) {
 	}
 
 
-	VkShaderModule frag_shader;
-	if ( !load_shader_module( "../../shaders/imgui.frag.spv", gfx.device, &frag_shader ) ) {
-		return std::unexpected( PipelineError{
-			.error = Error::ShaderLoadingFailed,
-			.message = "Failed to load imgui fragment shader!"
-			} );
-	}
-
-	VkShaderModule vert_shader;
-	if ( !load_shader_module( "../../shaders/imgui.vert.spv", gfx.device, &vert_shader ) ) {
-		return std::unexpected( PipelineError{
-			.error = Error::ShaderLoadingFailed,
-			.message = "Failed to load imgui vertex shader!"
-			} );
-	}
+	auto& frag_shader = gfx.shader_storage->Get("imgui", T_FRAGMENT);
+	auto& vert_shader = gfx.shader_storage->Get("imgui", T_VERTEX);
 
 	VkPushConstantRange range = {
 		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -80,7 +67,7 @@ ImGuiPipeline::Result<> ImGuiPipeline::init( GfxDevice& gfx ) {
 	VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &layout ) );
 
 	PipelineBuilder builder;
-	builder.set_shaders( vert_shader, frag_shader );
+	builder.set_shaders( vert_shader.handle, frag_shader.handle );
 	builder.set_input_topology( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
 	builder.set_polygon_mode( VK_POLYGON_MODE_FILL );
 	builder.set_cull_mode( VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE );
@@ -103,8 +90,6 @@ ImGuiPipeline::Result<> ImGuiPipeline::init( GfxDevice& gfx ) {
 	vkSetDebugUtilsObjectNameEXT( gfx.device, &obj );
 #endif
 
-	vkDestroyShaderModule( gfx.device, frag_shader, nullptr );
-	vkDestroyShaderModule( gfx.device, vert_shader, nullptr );
 	return {};
 }
 
