@@ -1,7 +1,7 @@
 #include "compute_pipeline.h"
 
 void BindlessCompute::addDescriptorSetLayout( uint32_t binding, VkDescriptorType type ) {
-	layout_builder.add_binding( binding, type );
+	layout_builder.AddBinding( binding, type );
 }
 
 void BindlessCompute::addPushConstantRange( uint32_t size ) {
@@ -15,7 +15,7 @@ void BindlessCompute::addPushConstantRange( uint32_t size ) {
 void BindlessCompute::build( GfxDevice& gfx, VkShaderModule shader, const std::string& name ) {
 	auto bindless_layout = gfx.getBindlessLayout( );
 
-	descriptor_layout = layout_builder.build( gfx.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr );
+	descriptor_layout = layout_builder.Build( gfx.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr );
 
 	VkDescriptorSetLayout layouts[] = { bindless_layout, descriptor_layout };
 
@@ -53,29 +53,6 @@ void BindlessCompute::build( GfxDevice& gfx, VkShaderModule shader, const std::s
 #endif
 }
 
-void BindlessCompute::createDescriptorPool( GfxDevice& gfx, const std::vector<VkDescriptorPoolSize>& pool, uint32_t max_sets ) {
-	VkDescriptorPoolCreateInfo pool_info{};
-	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.poolSizeCount = static_cast<uint32_t>(pool.size( ));
-	pool_info.pPoolSizes = pool.data( );
-	pool_info.maxSets = max_sets;
-
-	VK_CHECK( vkCreateDescriptorPool( gfx.device, &pool_info, nullptr, &descriptor_pool ) );
-}
-
-VkDescriptorSet BindlessCompute::allocateDescriptorSet( GfxDevice& gfx ) {
-	VkDescriptorSetAllocateInfo alloc_info{};
-	alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	alloc_info.descriptorPool = descriptor_pool;
-	alloc_info.descriptorSetCount = 1;
-	alloc_info.pSetLayouts = &descriptor_layout;
-
-	VkDescriptorSet descriptor_set;
-	VK_CHECK( vkAllocateDescriptorSets( gfx.device, &alloc_info, &descriptor_set ) );
-
-	return descriptor_set;
-}
-
 void BindlessCompute::cleanup( GfxDevice& gfx ) {
 	if ( pipeline != VK_NULL_HANDLE ) {
 		vkDestroyPipeline( gfx.device, pipeline, nullptr );
@@ -86,10 +63,6 @@ void BindlessCompute::cleanup( GfxDevice& gfx ) {
 
 	if ( layout != VK_NULL_HANDLE ) {
 		vkDestroyDescriptorSetLayout( gfx.device, descriptor_layout, nullptr );
-	}
-
-	if ( descriptor_pool != VK_NULL_HANDLE ) {
-		vkDestroyDescriptorPool( gfx.device, descriptor_pool, nullptr );
 	}
 }
 

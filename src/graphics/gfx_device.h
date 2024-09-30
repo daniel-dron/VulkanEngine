@@ -59,6 +59,9 @@ private:
 
 class GfxDevice {
 public:
+	using Ptr = GfxDevice*;
+	using Ref = std::shared_ptr<GfxDevice>;
+
 	enum class Error {
 		InstanceCreationFailed,
 		PhysicalDeviceSelectionFailed,
@@ -79,8 +82,12 @@ public:
 	void free( const GpuBuffer& buffer );
 	void cleanup( );
 
+	VkDescriptorSet AllocateSet( VkDescriptorSetLayout layout );
+
 	VkDescriptorSetLayout getBindlessLayout( ) const;
 	VkDescriptorSet getBindlessSet( ) const;
+
+	DescriptorAllocatorGrowable set_pool;
 
 	VkInstance instance;
 	VkPhysicalDevice chosen_gpu;

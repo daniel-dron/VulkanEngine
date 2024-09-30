@@ -3,7 +3,7 @@
 #include <array>
 #include <expected>
 
-#include "vk_descriptors.h"
+#include <graphics/descriptors.h>
 #include "gbuffer.h"
 
 class GfxDevice;

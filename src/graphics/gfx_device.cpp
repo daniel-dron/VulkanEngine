@@ -96,6 +96,13 @@ GfxDevice::Result<> GfxDevice::init( SDL_Window* window ) {
 
 	initDebugFunctions( );
 
+	// descriptor pool
+	std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> ratios = {
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1.0f },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1.0f }
+	};
+	set_pool.Init( device, 10, ratios );
+
 	executor.init( this );
 
 	image_codex.init( this );
@@ -157,6 +164,7 @@ void GfxDevice::cleanup( ) {
 	image_codex.cleanup( );
 	mesh_codex.cleanup( *this );
 	executor.cleanup( );
+	set_pool.DestroyPools( device );
 	vkFreeCommandBuffers( device, compute_command_pool, 1, &compute_command );
 	vkDestroyCommandPool( device, compute_command_pool, nullptr );
 	vmaDestroyAllocator( allocator );
@@ -164,6 +172,10 @@ void GfxDevice::cleanup( ) {
 	vkDestroyDevice( device, nullptr );
 	vkb::destroy_debug_utils_messenger( instance, debug_messenger );
 	vkDestroyInstance( instance, nullptr );
+}
+
+VkDescriptorSet GfxDevice::AllocateSet( VkDescriptorSetLayout layout ) {
+	return set_pool.Allocate( device, layout );
 }
 
 VkDescriptorSetLayout GfxDevice::getBindlessLayout( ) const {

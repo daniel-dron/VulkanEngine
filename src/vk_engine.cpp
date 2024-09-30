@@ -26,7 +26,7 @@
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
-#include "vk_descriptors.h"
+#include <graphics/descriptors.h>
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
@@ -170,52 +170,70 @@ void VulkanEngine::initImgui( ) {
 	ImGuiStyle& style = ImGui::GetStyle( );
 	ImVec4* colors = style.Colors;
 
-	// Set up the color scheme
-	ImVec4 bgColor = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
-	ImVec4 textColor = ImVec4( 0.80f, 0.80f, 0.80f, 1.00f );
-	ImVec4 highlightColor = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
-
-	// Background
-	colors[ImGuiCol_WindowBg] = bgColor;
-	colors[ImGuiCol_ChildBg] = bgColor;
-	colors[ImGuiCol_PopupBg] = bgColor;
-
-	// Text
-	colors[ImGuiCol_Text] = textColor;
+	colors[ImGuiCol_Text] = ImVec4( 0.80f, 0.80f, 0.80f, 1.00f );
 	colors[ImGuiCol_TextDisabled] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-
-	// Headers
-	colors[ImGuiCol_Header] = highlightColor;
-	colors[ImGuiCol_HeaderHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-	colors[ImGuiCol_HeaderActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-
-	// Buttons
-	colors[ImGuiCol_Button] = highlightColor;
-	colors[ImGuiCol_ButtonHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-	colors[ImGuiCol_ButtonActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-
-	// Frame background (for checkbox, radio button, plot, slider, text input)
+	colors[ImGuiCol_WindowBg] = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
+	colors[ImGuiCol_ChildBg] = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
+	colors[ImGuiCol_PopupBg] = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
+	colors[ImGuiCol_Border] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+	colors[ImGuiCol_BorderShadow] = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
 	colors[ImGuiCol_FrameBg] = ImVec4( 0.20f, 0.20f, 0.20f, 1.00f );
 	colors[ImGuiCol_FrameBgHovered] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
 	colors[ImGuiCol_FrameBgActive] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-
-	// Tabs
-	colors[ImGuiCol_Tab] = highlightColor;
-	colors[ImGuiCol_TabHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-	colors[ImGuiCol_TabActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-
-	// Title
-	colors[ImGuiCol_TitleBg] = highlightColor;
+	colors[ImGuiCol_TitleBg] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
 	colors[ImGuiCol_TitleBgActive] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+	colors[ImGuiCol_TitleBgCollapsed] = ImVec4( 0.00f, 0.00f, 0.00f, 0.51f );
+	colors[ImGuiCol_MenuBarBg] = ImVec4( 0.14f, 0.14f, 0.14f, 1.00f );
+	colors[ImGuiCol_ScrollbarBg] = ImVec4( 0.02f, 0.02f, 0.02f, 0.53f );
+	colors[ImGuiCol_ScrollbarGrab] = ImVec4( 0.31f, 0.31f, 0.31f, 1.00f );
+	colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4( 0.41f, 0.41f, 0.41f, 1.00f );
+	colors[ImGuiCol_ScrollbarGrabActive] = ImVec4( 0.51f, 0.51f, 0.51f, 1.00f );
+	colors[ImGuiCol_CheckMark] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+	colors[ImGuiCol_SliderGrab] = ImVec4( 0.88f, 0.24f, 0.24f, 1.00f );
+	colors[ImGuiCol_SliderGrabActive] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+	colors[ImGuiCol_Button] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+	colors[ImGuiCol_ButtonHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+	colors[ImGuiCol_ButtonActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+	colors[ImGuiCol_Header] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+	colors[ImGuiCol_HeaderHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+	colors[ImGuiCol_HeaderActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+	colors[ImGuiCol_Separator] = ImVec4( 0.43f, 0.43f, 0.50f, 0.50f );
+	colors[ImGuiCol_SeparatorHovered] = ImVec4( 0.75f, 0.10f, 0.10f, 0.78f );
+	colors[ImGuiCol_SeparatorActive] = ImVec4( 0.75f, 0.10f, 0.10f, 1.00f );
+	colors[ImGuiCol_ResizeGrip] = ImVec4( 0.98f, 0.26f, 0.26f, 0.20f );
+	colors[ImGuiCol_ResizeGripHovered] = ImVec4( 0.98f, 0.26f, 0.26f, 0.67f );
+	colors[ImGuiCol_ResizeGripActive] = ImVec4( 0.98f, 0.26f, 0.26f, 0.95f );
+	colors[ImGuiCol_TabHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+	colors[ImGuiCol_Tab] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+	colors[ImGuiCol_TabSelected] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+	colors[ImGuiCol_TabSelectedOverline] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+	colors[ImGuiCol_TabDimmed] = ImVec4( 0.07f, 0.10f, 0.15f, 0.97f );
+	colors[ImGuiCol_TabDimmedSelected] = ImVec4( 0.42f, 0.14f, 0.14f, 1.00f );
+	colors[ImGuiCol_TabDimmedSelectedOverline] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+	colors[ImGuiCol_DockingPreview] = ImVec4( 0.98f, 0.26f, 0.26f, 0.70f );
+	colors[ImGuiCol_DockingEmptyBg] = ImVec4( 0.20f, 0.20f, 0.20f, 1.00f );
+	colors[ImGuiCol_PlotLines] = ImVec4( 0.61f, 0.61f, 0.61f, 1.00f );
+	colors[ImGuiCol_PlotLinesHovered] = ImVec4( 1.00f, 0.43f, 0.35f, 1.00f );
+	colors[ImGuiCol_PlotHistogram] = ImVec4( 0.90f, 0.70f, 0.00f, 1.00f );
+	colors[ImGuiCol_PlotHistogramHovered] = ImVec4( 1.00f, 0.60f, 0.00f, 1.00f );
+	colors[ImGuiCol_TableHeaderBg] = ImVec4( 0.19f, 0.19f, 0.20f, 1.00f );
+	colors[ImGuiCol_TableBorderStrong] = ImVec4( 0.31f, 0.31f, 0.35f, 1.00f );
+	colors[ImGuiCol_TableBorderLight] = ImVec4( 0.23f, 0.23f, 0.25f, 1.00f );
+	colors[ImGuiCol_TableRowBg] = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
+	colors[ImGuiCol_TableRowBgAlt] = ImVec4( 1.00f, 1.00f, 1.00f, 0.06f );
+	colors[ImGuiCol_TextLink] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+	colors[ImGuiCol_TextSelectedBg] = ImVec4( 0.98f, 0.26f, 0.26f, 0.35f );
+	colors[ImGuiCol_DragDropTarget] = ImVec4( 1.00f, 1.00f, 0.00f, 0.90f );
+	colors[ImGuiCol_NavHighlight] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+	colors[ImGuiCol_NavWindowingHighlight] = ImVec4( 1.00f, 1.00f, 1.00f, 0.70f );
+	colors[ImGuiCol_NavWindowingDimBg] = ImVec4( 0.80f, 0.80f, 0.80f, 0.20f );
+	colors[ImGuiCol_ModalWindowDimBg] = ImVec4( 0.80f, 0.80f, 0.80f, 0.35f );
 
-	// Borders
+
 	style.WindowBorderSize = 1.0f;
 	style.ChildBorderSize = 1.0f;
 	style.PopupBorderSize = 1.0f;
 	style.FrameBorderSize = 1.0f;
-	colors[ImGuiCol_Border] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-
-	// Rounding
 	style.WindowRounding = 0.0f;
 	style.ChildRounding = 0.0f;
 	style.FrameRounding = 0.0f;
@@ -223,11 +241,7 @@ void VulkanEngine::initImgui( ) {
 	style.ScrollbarRounding = 0.0f;
 	style.GrabRounding = 0.0f;
 	style.TabRounding = 0.0f;
-
-	// Alignment
 	style.WindowTitleAlign = ImVec2( 0.0f, 0.5f );
-
-	// Spacing
 	style.ItemSpacing = ImVec2( 8, 4 );
 	style.FramePadding = ImVec2( 4, 2 );
 
@@ -535,17 +549,15 @@ void VulkanEngine::initDefaultData( ) {
 	post_process_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 	post_process_pipeline.addPushConstantRange( sizeof( PostProcessConfig ) );
 	post_process_pipeline.build( *gfx, post_process_shader, "post process compute" );
-	post_process_pipeline.createDescriptorPool( *gfx, { {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1} }, 1 );
-	post_process_set = post_process_pipeline.allocateDescriptorSet( *gfx );
+	post_process_set = gfx->AllocateSet( post_process_pipeline.GetLayout( ) );
 
 	// TODO: this everyframe for more than one inflight frame
 	DescriptorWriter writer;
 	auto& out_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).post_process_image );
-	writer.write_image( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-	writer.update_set( gfx->device, post_process_set );
+	writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+	writer.UpdateSet( gfx->device, post_process_set );
 
 	vkDestroyShaderModule( gfx->device, post_process_shader, nullptr );
-
 }
 
 void VulkanEngine::initImages( ) {
@@ -589,7 +601,7 @@ void VulkanEngine::initImages( ) {
 void VulkanEngine::initScene( ) {
 	ibl.init( *gfx, "../../assets/texture/ibls/overcast_soil_puresky_4k.hdr" );
 
-	auto scene = GltfLoader::load( *gfx, "../../assets/untitled.glb" );
+	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
 	scenes["sponza"] = std::move( scene );
 
 	// init camera
@@ -797,7 +809,7 @@ void VulkanEngine::run( ) {
 			ImGui::End( );
 
 			if ( ImGui::Begin( "Scene" ) ) {
-				//drawNodeHierarchy( scenes["sponza"]->top_nodes[0] );
+				drawNodeHierarchy( scenes["sponza"]->top_nodes[0] );
 			}
 			ImGui::End( );
 

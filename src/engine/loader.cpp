@@ -231,6 +231,8 @@ inline glm::mat4 assimpToGLM( const aiMatrix4x4& from ) {
 static std::shared_ptr<Scene::Node> loadNode( const aiNode* node ) {
 	auto scene_node = std::make_shared<Scene::Node>( );
 
+	scene_node->name = node->mName.C_Str( );
+
 	auto transform = assimpToGLM( node->mTransformation );
 	if ( node->mTransformation == aiMatrix4x4( ) ) {
 		transform = glm::identity<mat4>( );
@@ -293,8 +295,7 @@ std::unique_ptr<Scene> GltfLoader::load( GfxDevice& gfx, const std::string& path
 	Assimp::Importer importer;
 	const auto ai_scene = importer.ReadFile( path,
 		aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_FlipUVs |
-		aiProcess_FlipWindingOrder | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph |
-		aiProcess_GenBoundingBoxes );
+		aiProcess_FlipWindingOrder | aiProcess_GenBoundingBoxes );
 
 	fmt::println( "Loading meshes..." );
 	std::vector<MeshID> meshes = loadMeshes( gfx, ai_scene );

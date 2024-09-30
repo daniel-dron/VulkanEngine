@@ -4,8 +4,6 @@ file(GLOB SRC_SRC
   vk_types.h
   vk_initializers.cpp
   vk_initializers.h
-  vk_descriptors.h
-  vk_descriptors.cpp
   vk_pipelines.h
   vk_pipelines.cpp
   vk_engine.h
@@ -19,6 +17,8 @@ file(GLOB SRC_GRAPHICS
   graphics/gfx_device.cpp
   graphics/gpu_image.h
   graphics/gpu_image.cpp
+  graphics/descriptors.h
+  graphics/descriptors.cpp
   graphics/image_codex.h
   graphics/image_codex.cpp
   graphics/mesh_codex.h

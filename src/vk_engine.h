@@ -11,7 +11,7 @@
 #include <span>
 
 #include "camera/camera.h"
-#include "vk_descriptors.h"
+#include <graphics/descriptors.h>
 #include "graphics/light.h"
 #include <graphics/image_codex.h>
 #include <graphics/pipelines/pbr_pipeline.h>

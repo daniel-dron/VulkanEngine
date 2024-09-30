@@ -61,13 +61,12 @@ void IBL::initComputes( GfxDevice& gfx ) {
 		equirectangular_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		equirectangular_pipeline.addPushConstantRange( sizeof( ImageID ) );
 		equirectangular_pipeline.build( gfx, equi_map, "Equirectangular to Cubemap Pipeline" );
-		equirectangular_pipeline.createDescriptorPool( gfx, { {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1} }, 1 );
-		equi_set = equirectangular_pipeline.allocateDescriptorSet( gfx );
+		equi_set = gfx.AllocateSet( equirectangular_pipeline.GetLayout( ) );
 
 		DescriptorWriter writer;
 		auto& skybox_image = gfx.image_codex.getImage( skybox );
-		writer.write_image( 0, skybox_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-		writer.update_set( gfx.device, equi_set );
+		writer.WriteImage( 0, skybox_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+		writer.UpdateSet( gfx.device, equi_set );
 	}
 
 	// ----------
@@ -76,13 +75,12 @@ void IBL::initComputes( GfxDevice& gfx ) {
 		irradiance_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		irradiance_pipeline.addPushConstantRange( sizeof( ImageID ) );
 		irradiance_pipeline.build( gfx, irradiance_shader, "Irradiance Compute" );
-		irradiance_pipeline.createDescriptorPool( gfx, { {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1} }, 1 );
-		irradiance_set = irradiance_pipeline.allocateDescriptorSet( gfx );
+		irradiance_set = gfx.AllocateSet( irradiance_pipeline.GetLayout( ) );
 
 		DescriptorWriter writer;
 		auto& irradiance_image = gfx.image_codex.getImage( irradiance );
-		writer.write_image( 0, irradiance_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-		writer.update_set( gfx.device, irradiance_set );
+		writer.WriteImage( 0, irradiance_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+		writer.UpdateSet( gfx.device, irradiance_set );
 	}
 
 	// ----------
@@ -91,16 +89,15 @@ void IBL::initComputes( GfxDevice& gfx ) {
 		radiance_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		radiance_pipeline.addPushConstantRange( sizeof( RadiancePushConstants ) );
 		radiance_pipeline.build( gfx, radiance_shader, "Radiance Compute" );
-		radiance_pipeline.createDescriptorPool( gfx, { {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1} }, 6 );
 
 		auto& radiance_image = gfx.image_codex.getImage( radiance );
 
 		for ( auto i = 0; i < 6; i++ ) {
-			radiance_sets[i] = radiance_pipeline.allocateDescriptorSet( gfx );
+			radiance_sets[i] = gfx.AllocateSet( radiance_pipeline.GetLayout( ) );
 
 			DescriptorWriter writer;
-			writer.write_image( 0, radiance_image.GetMipView( i ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-			writer.update_set( gfx.device, radiance_sets[i] );
+			writer.WriteImage( 0, radiance_image.GetMipView( i ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+			writer.UpdateSet( gfx.device, radiance_sets[i] );
 		}
 	}
 
@@ -109,13 +106,12 @@ void IBL::initComputes( GfxDevice& gfx ) {
 	{
 		brdf_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		brdf_pipeline.build( gfx, brdf_shader, "BRDF Compute" );
-		brdf_pipeline.createDescriptorPool( gfx, { {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1} }, 1 );
-		brdf_set = brdf_pipeline.allocateDescriptorSet( gfx );
+		brdf_set = gfx.AllocateSet( brdf_pipeline.GetLayout( ) );
 
 		DescriptorWriter writer;
 		auto& brdf_image = gfx.image_codex.getImage( brdf );
-		writer.write_image( 0, brdf_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-		writer.update_set( gfx.device, brdf_set );
+		writer.WriteImage( 0, brdf_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+		writer.UpdateSet( gfx.device, brdf_set );
 	}
 
 
