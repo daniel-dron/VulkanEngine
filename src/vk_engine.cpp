@@ -922,6 +922,13 @@ void VulkanEngine::run( ) {
 		auto elapsed =
 			std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 		stats.frametime = elapsed.count( ) / 1000.f;
+
+		if ( timer >= 500.0f ) {
+			gfx->shader_storage->Reconstruct( );
+			timer = 0.0f;
+		}
+
+		timer += stats.frametime;
 	}
 }
 

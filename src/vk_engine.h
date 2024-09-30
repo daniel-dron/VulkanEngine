@@ -120,6 +120,8 @@ public:
 
 	void resizeSwapchain( uint32_t width, uint32_t height );
 
+	float timer = 0;
+
 private:
 	/// @brief Initializes SDL context and creates SDL window
 	void initSdl( );

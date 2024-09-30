@@ -10,6 +10,8 @@ public:
 	DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuSceneData& scene_data, const GBuffer& gbuffer, uint32_t irradiance_map, uint32_t radiance_map, uint32_t brdf_lut ) const;
 
 private:
+	void Reconstruct( GfxDevice& gfx );
+
 	struct PushConstants {
 		VkDeviceAddress scene_data_address;
 		uint32_t albedo_tex;

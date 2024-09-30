@@ -39,6 +39,27 @@ const Shader& ShaderStorage::Get( std::string name, ShaderType shader_type ) {
 	return shaders[path];
 }
 
+void ShaderStorage::Reconstruct( ) {
+	// TODO: file compilation will modify timestamp before it finishes compilation
+	// file code ends up being empty 
+
+	for ( auto& [key, shader] : shaders ) {
+		FILETIME timestamp = GetTimestamp( shader.name.c_str( ) );
+		if ( shader.low != timestamp.dwLowDateTime || shader.high != timestamp.dwHighDateTime ) {
+			vkDestroyShaderModule( gfx->device, shader.handle, nullptr );
+
+			auto handle = Shaders::LoadShaderModule( gfx->device, shader.name.c_str( ) );
+			shader.handle = handle;
+			shader.low = timestamp.dwLowDateTime;
+			shader.high = timestamp.dwHighDateTime;
+
+			fmt::println( "SHADER [{}] has been reloaded", shader.name.c_str( ) );
+
+			shader.NotifyReload( );
+		}
+	}
+}
+
 void ShaderStorage::Add( std::string path, ShaderType shader_type ) {
 	auto module = Shaders::LoadShaderModule( gfx->device, path.c_str( ) );
 	if ( module == VK_NULL_HANDLE ) {
@@ -47,6 +68,8 @@ void ShaderStorage::Add( std::string path, ShaderType shader_type ) {
 
 	FILETIME timestamp = GetTimestamp( path.c_str( ) );
 	shaders[path] = Shader( module, timestamp.dwLowDateTime, timestamp.dwHighDateTime, path );
+
+	fmt::println( "[SHADER STORAGE]: Added {} shader", shaders[path].name.c_str( ) );
 }
 
 VkShaderModule Shaders::LoadShaderModule( VkDevice device, const char* path ) {

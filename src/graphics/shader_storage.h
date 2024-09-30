@@ -8,6 +8,9 @@
 #define SHADER_COMP_EXT ".comp.spv"
 
 struct Shader {
+	using CallbackId = std::uint64_t;
+	using ReloadCallback = std::function<void( VkShaderModule module )>;
+
 	VkShaderModule handle = VK_NULL_HANDLE;
 	unsigned long low;
 	unsigned long high;
@@ -36,6 +39,27 @@ struct Shader {
 
 		return *this;
 	}
+
+	CallbackId RegisterReloadCallback( ReloadCallback callback ) const {
+		CallbackId id = next_callback++;
+		callbacks[id] = std::move( callback );
+		return id;
+	}
+
+	void UnregisterReloadCallback( CallbackId id ) const {
+		callbacks.erase( id );
+	}
+
+	void NotifyReload( ) const {
+		for ( const auto& [id, callback] : callbacks ) {
+			callback( handle );
+		}
+	}
+
+
+private:
+	mutable std::unordered_map<CallbackId, ReloadCallback> callbacks;
+	mutable CallbackId next_callback;
 };
 
 enum ShaderType {
@@ -50,6 +74,7 @@ public:
 	void cleanup( );
 
 	const Shader& Get( std::string name, ShaderType shader_type );
+	void Reconstruct( );
 private:
 	void Add( std::string name, ShaderType shader_type );
 
