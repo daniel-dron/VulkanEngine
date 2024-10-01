@@ -39,8 +39,8 @@ private:
 	mutable GpuBuffer gpu_ibl;
 
 	IBLSettings ibl = {
-		.irradiance_factor = 0.5f,
-		.radiance_factor = 0.5f,
+		.irradiance_factor = 0.05f,
+		.radiance_factor = 0.05f,
 		.brdf_factor = 1.0f
 	};
 };

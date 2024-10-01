@@ -793,8 +793,29 @@ void VulkanEngine::run( ) {
 
 			ImGui::ShowDemoWindow( );
 
+			// Push a style to remove the window padding
+			ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0, 0 ) );
 			if ( ImGui::Begin( "Viewport", 0, ImGuiWindowFlags_NoScrollbar ) ) {
-				ImGui::Image( (ImTextureID)(selected_set), ImGui::GetWindowContentRegionMax( ) );
+				ImVec2 viewport_size = ImGui::GetContentRegionAvail( );
+
+				float aspect_ratio = 16.0f / 9.0f;
+				ImVec2 image_size;
+
+				if ( viewport_size.x / viewport_size.y > aspect_ratio ) {
+					image_size.y = viewport_size.y;
+					image_size.x = image_size.y * aspect_ratio;
+				} else {
+					image_size.x = viewport_size.x;
+					image_size.y = image_size.x / aspect_ratio;
+				}
+
+				ImVec2 image_pos(
+					(viewport_size.x - image_size.x) * 0.5f,
+					(viewport_size.y - image_size.y) * 0.5f
+				);
+
+				ImGui::SetCursorPos( image_pos );
+				ImGui::Image( (ImTextureID)(selected_set), image_size );
 
 				// guizmos
 				if ( selected_node != nullptr ) {
@@ -808,7 +829,7 @@ void VulkanEngine::run( ) {
 
 					auto tc = selected_node->getTransformMatrix( );
 					ImGuizmo::Manipulate( glm::value_ptr( camera_view ), glm::value_ptr( camera_proj ), ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::WORLD, glm::value_ptr( tc ) );
-					
+
 					mat4 local_transform = tc;
 					if ( auto parent = selected_node->parent.lock( ) ) {
 						mat4 parent_world_inverse = glm::inverse( parent->getTransformMatrix( ) );
@@ -817,8 +838,13 @@ void VulkanEngine::run( ) {
 
 					selected_node->setTransform( local_transform );
 				}
+
+				gfx->DrawDebug( );
 			}
 			ImGui::End( );
+
+			// Pop the style change
+			ImGui::PopStyleVar( );
 
 			if ( ImGui::Begin( "Scene" ) ) {
 				drawNodeHierarchy( scenes["sponza"]->top_nodes[0] );
@@ -867,13 +893,24 @@ void VulkanEngine::run( ) {
 			}
 
 			if ( ImGui::Begin( "Settings" ) ) {
-				if ( ibl.getBRDF( ) != ImageCodex::INVALID_IMAGE_ID ) {
-					ImGui::Image( (ImTextureID)(ibl.getBRDF( )), ImVec2{ 100, 100 } );
-				}
+				//if ( ImGui::CollapsingHeader( "Node" ) ) {
+				//	ImGui::Indent( );
+				//	if ( selected_node ) {
+				//		if ( ImGui::Button( "Deselect" ) ) {
+				//			selected_node = nullptr;
+				//		}
 
-				ImGui::SeparatorText( "Scene Node" );
-				if ( selected_node ) {
-					selected_node->transform.drawDebug( selected_node->name );
+				//		if ( selected_node ) {
+				//			selected_node->transform.drawDebug( selected_node->name );
+				//		}
+				//	}
+				//	ImGui::Unindent( );
+				//}
+
+				if ( ImGui::CollapsingHeader( "GPU Info" ) ) {
+					ImGui::Indent( );
+					gfx->DrawDebug( );
+					ImGui::Unindent( );
 				}
 
 				if ( ImGui::CollapsingHeader( "Camera" ) ) {

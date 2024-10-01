@@ -4,6 +4,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 #include <vk_initializers.h>
+#include <imgui.h>
 
 using namespace vkb;
 
@@ -189,6 +190,48 @@ VkDescriptorSet GfxDevice::getBindlessSet( ) const {
 	return image_codex.getBindlessSet( );
 }
 
+void GfxDevice::DrawDebug( ) const {
+	auto props = device_properties.properties;
+	auto limits = props.limits;
+
+	ImGui::Text( "Device Name: %s", props.deviceName );
+	ImGui::Text( "Driver Version: %d.%d.%d",
+		VK_VERSION_MAJOR( props.driverVersion ),
+		VK_VERSION_MINOR( props.driverVersion ),
+		VK_VERSION_PATCH( props.driverVersion ) );
+
+	VkDeviceSize totalVRAM = 0;
+	VkDeviceSize totalSystemRAM = 0;
+	for ( uint32_t i = 0; i < mem_properties.memoryHeapCount; i++ ) {
+		if ( mem_properties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT ) {
+			totalVRAM += mem_properties.memoryHeaps[i].size;
+		} else {
+			totalSystemRAM += mem_properties.memoryHeaps[i].size;
+		}
+	}
+	ImGui::Text( "Total VRAM: %.2f GB", totalVRAM / (1024.0 * 1024.0 * 1024.0) );
+	ImGui::Text( "Total System RAM: %.2f GB", totalSystemRAM / (1024.0 * 1024.0 * 1024.0) );
+
+	ImGui::Text( "Max Uniform Buffer Range: %zu bytes", limits.maxUniformBufferRange );
+	ImGui::Text( "Max Storage Buffer Range: %zu bytes", limits.maxStorageBufferRange );
+	ImGui::Text( "Max Push Constants Size: %zu bytes", limits.maxPushConstantsSize );
+
+	ImGui::Text( "Max Compute Shared Memory Size: %zu bytes", limits.maxComputeSharedMemorySize );
+	ImGui::Text( "Max Compute Work Group Count: %d x %d x %d",
+		limits.maxComputeWorkGroupCount[0],
+		limits.maxComputeWorkGroupCount[1],
+		limits.maxComputeWorkGroupCount[2] );
+	ImGui::Text( "Max Compute Work Group Invocations: %d", limits.maxComputeWorkGroupInvocations );
+
+	ImGui::Text( "Max Framebuffer Width: %d", limits.maxFramebufferWidth );
+	ImGui::Text( "Max Framebuffer Height: %d", limits.maxFramebufferHeight );
+	ImGui::Text( "Max Image Dimension 2D: %d", limits.maxImageDimension2D );
+	ImGui::Text( "Max Image Array Layers: %d", limits.maxImageArrayLayers );
+
+	ImGui::Text( "Geometry Shader Support: %s", (props.limits.maxGeometryShaderInvocations > 0) ? "Yes" : "No" );
+	ImGui::Text( "Tessellation Shader Support: %s", (props.limits.maxTessellationGenerationLevel > 0) ? "Yes" : "No" );
+}
+
 GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 	// ----------
 	// Instance
@@ -258,6 +301,11 @@ GfxDevice::Result<> GfxDevice::initDevice( SDL_Window* window ) {
 	for ( const auto& ext : physical_device.get_available_extensions( ) ) {
 		fmt::println( "{}", ext.c_str( ) );
 	}
+
+	device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+	vkGetPhysicalDeviceProperties2( physical_device, &device_properties);
+
+	vkGetPhysicalDeviceMemoryProperties( chosen_gpu, &mem_properties);
 
 	// ----------
 	// Logical Device

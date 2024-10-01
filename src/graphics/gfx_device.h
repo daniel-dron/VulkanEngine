@@ -96,6 +96,9 @@ public:
 	VkPhysicalDevice chosen_gpu;
 	VkDevice device;
 
+	VkPhysicalDeviceProperties2 device_properties;
+	VkPhysicalDeviceMemoryProperties mem_properties;
+
 	VkDebugUtilsMessengerEXT debug_messenger;
 	std::unordered_map<std::string, uint64_t> allocation_counter;
 
@@ -119,6 +122,8 @@ public:
 	MeshCodex mesh_codex;
 
 	std::unique_ptr<ShaderStorage> shader_storage;
+
+	void DrawDebug( ) const;
 
 private:
 	Result<> initDevice( struct SDL_Window* window );
