@@ -289,7 +289,6 @@ void VulkanEngine::cleanup( ) {
 
 void VulkanEngine::draw( ) {
 	ZoneScopedN( "draw" );
-	updateScene( );
 
 	uint32_t swapchainImageIndex;
 	{
@@ -598,7 +597,7 @@ void VulkanEngine::initImages( ) {
 void VulkanEngine::initScene( ) {
 	ibl.init( *gfx, "../../assets/texture/ibls/overcast_soil_puresky_4k.hdr" );
 
-	auto scene = GltfLoader::load( *gfx, "../../assets/untitled.glb" );
+	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
 	scenes["sponza"] = std::move( scene );
 
 	// init camera
@@ -779,6 +778,8 @@ void VulkanEngine::run( ) {
 			continue;
 		}
 
+		updateScene( );
+
 		ImGui_ImplVulkan_NewFrame( );
 		ImGui_ImplSDL2_NewFrame( );
 		ImGuizmo::SetOrthographic( false );
@@ -794,6 +795,28 @@ void VulkanEngine::run( ) {
 
 			if ( ImGui::Begin( "Viewport", 0, ImGuiWindowFlags_NoScrollbar ) ) {
 				ImGui::Image( (ImTextureID)(selected_set), ImGui::GetWindowContentRegionMax( ) );
+
+				// guizmos
+				if ( selected_node != nullptr ) {
+					ImGuizmo::SetOrthographic( false );
+					ImGuizmo::SetDrawlist( );
+					ImGuizmo::SetRect( ImGui::GetWindowPos( ).x, ImGui::GetWindowPos( ).y, (float)ImGui::GetWindowWidth( ), (float)ImGui::GetWindowHeight( ) );
+
+					auto camera_view = scene_data.view;
+					auto camera_proj = scene_data.proj;
+					camera_proj[1][1] *= -1;
+
+					auto tc = selected_node->getTransformMatrix( );
+					ImGuizmo::Manipulate( glm::value_ptr( camera_view ), glm::value_ptr( camera_proj ), ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::WORLD, glm::value_ptr( tc ) );
+					
+					mat4 local_transform = tc;
+					if ( auto parent = selected_node->parent.lock( ) ) {
+						mat4 parent_world_inverse = glm::inverse( parent->getTransformMatrix( ) );
+						local_transform = parent_world_inverse * tc;
+					}
+
+					selected_node->setTransform( local_transform );
+				}
 			}
 			ImGui::End( );
 

@@ -138,7 +138,7 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
     vec3 specular = radiance * (F * brdf.x + brdf.y);
 
     vec3 ambient = (kD * diffuse + specular) * ao;
-    vec3 color = (ambient * 0.1f) + Lo + emissive;
+    vec3 color = (ambient) + Lo + emissive;
 
     return color;
 }
