@@ -3,6 +3,8 @@
 #include <vk_pipelines.h>
 #include <vk_initializers.h>
 
+#include <imgui.h>
+
 using namespace vkinit;
 using namespace vkutil;
 
@@ -10,15 +12,14 @@ PbrPipeline::Result<> PbrPipeline::init( GfxDevice& gfx ) {
 	auto& frag_shader = gfx.shader_storage->Get( "pbr", T_FRAGMENT );
 	auto& vert_shader = gfx.shader_storage->Get( "fullscreen_tri", T_VERTEX );
 
-	// TODO: this will register callback infinitely, decouple stuff
-	frag_shader.RegisterReloadCallback( [&]( VkShaderModule shader ) {
+	auto ReconstructShaderCallback = [&]( VkShaderModule shader ) {
 		VK_CHECK( vkWaitForFences( gfx.device, 1, &gfx.swapchain.getCurrentFrame( ).fence, true, 1000000000 ) );
 		cleanup( gfx );
 
-		fmt::println( "[PBR]: Reconstructing pipeline" );
-
 		Reconstruct( gfx );
-	} );
+	};
+
+	frag_shader.RegisterReloadCallback( ReconstructShaderCallback );
 
 	Reconstruct( gfx );
 
@@ -28,7 +29,9 @@ PbrPipeline::Result<> PbrPipeline::init( GfxDevice& gfx ) {
 void PbrPipeline::cleanup( GfxDevice& gfx ) {
 	vkDestroyPipelineLayout( gfx.device, layout, nullptr );
 	vkDestroyPipeline( gfx.device, pipeline, nullptr );
+	vkDestroyDescriptorSetLayout( gfx.device, ub_layout, nullptr );
 	gfx.free( gpu_scene_data );
+	gfx.free( gpu_ibl );
 }
 
 DrawStats PbrPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuSceneData& scene_data, const GBuffer& gbuffer, uint32_t irradiance_map, uint32_t radiance_map, uint32_t brdf_lut ) const {
@@ -44,6 +47,13 @@ DrawStats PbrPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuScene
 
 	auto bindless_set = gfx.getBindlessSet( );
 	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &bindless_set, 0, nullptr );
+
+	gpu_ibl.Upload( gfx, (void*)&ibl, sizeof( IBLSettings ) );
+
+	DescriptorWriter writer;
+	writer.WriteBuffer( 0, gpu_ibl.buffer, sizeof( IBLSettings ), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+	writer.UpdateSet( gfx.device, set );
+	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1, &set, 0, nullptr );
 
 	auto& target_image = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).hdr_color );
 
@@ -96,6 +106,16 @@ DrawStats PbrPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuScene
 	return stats;
 }
 
+void PbrPipeline::DrawDebug( ) {
+	if ( ImGui::CollapsingHeader( "IBL Settings" ) ) {
+		ImGui::Indent( );
+		ImGui::DragFloat( "Radiance", &ibl.radiance_factor, 0.01f, 0.0f, 1.0f );
+		ImGui::DragFloat( "Irradiance", &ibl.irradiance_factor, 0.01f, 0.0f, 1.0f );
+		ImGui::DragFloat( "BRDF", &ibl.brdf_factor, 0.01f, 0.0f, 1.0f );
+		ImGui::Unindent( );
+	}
+}
+
 void PbrPipeline::Reconstruct( GfxDevice& gfx ) {
 	auto& frag_shader = gfx.shader_storage->Get( "pbr", T_FRAGMENT );
 	auto& vert_shader = gfx.shader_storage->Get( "fullscreen_tri", T_VERTEX );
@@ -106,15 +126,21 @@ void PbrPipeline::Reconstruct( GfxDevice& gfx ) {
 		.size = sizeof( PushConstants )
 	};
 
+	DescriptorLayoutBuilder layout_builder;
+	layout_builder.AddBinding( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+	ub_layout = layout_builder.Build( gfx.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
+
+	set = gfx.set_pool.Allocate( gfx.device, ub_layout );
+
 	auto bindless_layout = gfx.getBindlessLayout( );
 
-	VkDescriptorSetLayout layouts[] = { bindless_layout };
+	VkDescriptorSetLayout layouts[] = { bindless_layout, ub_layout };
 
 	// ----------
 	// pipeline
 	VkPipelineLayoutCreateInfo layout_info = pipeline_layout_create_info( );
 	layout_info.pSetLayouts = layouts;
-	layout_info.setLayoutCount = 1;
+	layout_info.setLayoutCount = 2;
 	layout_info.pPushConstantRanges = &range;
 	layout_info.pushConstantRangeCount = 1;
 	VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &layout ) );
@@ -148,4 +174,6 @@ void PbrPipeline::Reconstruct( GfxDevice& gfx ) {
 
 	gpu_scene_data = gfx.allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 		VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data PBR Pipeline" );
+
+	gpu_ibl = gfx.allocate( sizeof( IBLSettings ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "IBL Settings" );
 }

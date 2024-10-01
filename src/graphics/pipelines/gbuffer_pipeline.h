@@ -16,5 +16,7 @@ private:
 		uint32_t material_id;
 	};
 
+	void Reconstruct( GfxDevice& gfx );
+
 	GpuBuffer gpu_scene_data;
 };

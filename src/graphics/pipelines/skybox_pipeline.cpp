@@ -11,52 +11,17 @@ SkyboxPipeline::Result<> SkyboxPipeline::init( GfxDevice& gfx ) {
 	auto& frag_shader = gfx.shader_storage->Get( "skybox", T_FRAGMENT );
 	auto& vert_shader = gfx.shader_storage->Get( "skybox", T_VERTEX);
 
-	VkPushConstantRange range = {
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-		.offset = 0,
-		.size = sizeof( PushConstants )
+	auto ReconstructShaderCallback = [&]( VkShaderModule shader ) {
+		VK_CHECK( vkWaitForFences( gfx.device, 1, &gfx.swapchain.getCurrentFrame( ).fence, true, 1000000000 ) );
+		cleanup( gfx );
+
+		Reconstruct( gfx );
 	};
 
-	auto bindless_layout = gfx.getBindlessLayout( );
-	VkDescriptorSetLayout layouts[] = { bindless_layout };
+	vert_shader.RegisterReloadCallback( ReconstructShaderCallback );
+	frag_shader.RegisterReloadCallback( ReconstructShaderCallback );
 
-	// ----------
-	// pipeline
-	VkPipelineLayoutCreateInfo layout_info = pipeline_layout_create_info( );
-	layout_info.pSetLayouts = layouts;
-	layout_info.setLayoutCount = 1;
-	layout_info.pPushConstantRanges = &range;
-	layout_info.pushConstantRangeCount = 1;
-	VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &layout ) );
-
-	PipelineBuilder builder;
-	builder.set_shaders( vert_shader.handle, frag_shader.handle );
-	builder.set_input_topology( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
-	builder.set_polygon_mode( VK_POLYGON_MODE_FILL );
-	builder.set_cull_mode( VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE );
-	builder.set_multisampling_none( );
-	builder.disable_blending( );
-	builder.enable_depthtest( false, VK_COMPARE_OP_LESS_OR_EQUAL );
-
-	auto& color = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).hdr_color );
-	auto& depth = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).depth );
-	builder.set_color_attachment_format( color.GetFormat( ) );
-	builder.set_depth_format( depth.GetFormat( ) );
-	builder._pipelineLayout = layout;
-	pipeline = builder.build_pipeline( gfx.device );
-
-#ifdef ENABLE_DEBUG_UTILS
-	const VkDebugUtilsObjectNameInfoEXT obj = {
-		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-		.pNext = nullptr,
-		.objectType = VkObjectType::VK_OBJECT_TYPE_PIPELINE,
-		.objectHandle = (uint64_t)pipeline,
-		.pObjectName = "Skybox Pipeline"
-	};
-	vkSetDebugUtilsObjectNameEXT( gfx.device, &obj );
-#endif
-
-	gpu_scene_data = gfx.allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data GBuffer Pipeline" );
+	Reconstruct( gfx );
 
 	// create cube mesh
 	createCubeMesh( gfx );
@@ -111,6 +76,58 @@ void SkyboxPipeline::createCubeMesh( GfxDevice& gfx ) {
 	};
 
 	cube_mesh = gfx.mesh_codex.addMesh( gfx, mesh );
+}
+
+void SkyboxPipeline::Reconstruct( GfxDevice& gfx ) {
+	auto& frag_shader = gfx.shader_storage->Get( "skybox", T_FRAGMENT );
+	auto& vert_shader = gfx.shader_storage->Get( "skybox", T_VERTEX);
+
+	VkPushConstantRange range = {
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+		.offset = 0,
+		.size = sizeof( PushConstants )
+	};
+
+	auto bindless_layout = gfx.getBindlessLayout( );
+	VkDescriptorSetLayout layouts[] = { bindless_layout };
+
+	// ----------
+	// pipeline
+	VkPipelineLayoutCreateInfo layout_info = pipeline_layout_create_info( );
+	layout_info.pSetLayouts = layouts;
+	layout_info.setLayoutCount = 1;
+	layout_info.pPushConstantRanges = &range;
+	layout_info.pushConstantRangeCount = 1;
+	VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &layout ) );
+
+	PipelineBuilder builder;
+	builder.set_shaders( vert_shader.handle, frag_shader.handle );
+	builder.set_input_topology( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
+	builder.set_polygon_mode( VK_POLYGON_MODE_FILL );
+	builder.set_cull_mode( VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE );
+	builder.set_multisampling_none( );
+	builder.disable_blending( );
+	builder.enable_depthtest( false, VK_COMPARE_OP_LESS_OR_EQUAL );
+
+	auto& color = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).hdr_color );
+	auto& depth = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).depth );
+	builder.set_color_attachment_format( color.GetFormat( ) );
+	builder.set_depth_format( depth.GetFormat( ) );
+	builder._pipelineLayout = layout;
+	pipeline = builder.build_pipeline( gfx.device );
+
+#ifdef ENABLE_DEBUG_UTILS
+	const VkDebugUtilsObjectNameInfoEXT obj = {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+		.pNext = nullptr,
+		.objectType = VkObjectType::VK_OBJECT_TYPE_PIPELINE,
+		.objectHandle = (uint64_t)pipeline,
+		.pObjectName = "Skybox Pipeline"
+	};
+	vkSetDebugUtilsObjectNameEXT( gfx.device, &obj );
+#endif
+
+	gpu_scene_data = gfx.allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data GBuffer Pipeline" );
 }
 
 void SkyboxPipeline::cleanup( GfxDevice& gfx ) {

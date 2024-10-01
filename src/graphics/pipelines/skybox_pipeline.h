@@ -18,6 +18,8 @@ private:
 
 	void createCubeMesh( GfxDevice& gfx );
 
+	void Reconstruct( GfxDevice& gfx );
+
 	MeshID cube_mesh;
 	GpuBuffer gpu_scene_data;
 };

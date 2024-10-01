@@ -189,8 +189,8 @@ void ImGuiPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, ImDrawData* draw_
 			}
 
 			auto texture_id = gfx.image_codex.getWhiteImageId( );
-			if ( im_cmd.TextureId != ImTextureID( ) ) {
-				texture_id = (ImageID)(im_cmd.TextureId);
+			if ( im_cmd.TextureId != 0 ) {
+				texture_id = (ImageID)(uint64_t)(im_cmd.TextureId);
 			}
 
 			bool is_srgb = true;

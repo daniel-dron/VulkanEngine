@@ -34,6 +34,7 @@ public:
 
 	BindlessRegistry bindless_registry;
 
+	void DrawDebug( );
 private:
 	void initDefaultImages( );
 

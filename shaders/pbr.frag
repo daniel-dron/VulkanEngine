@@ -9,6 +9,13 @@
 #include "input_structures.glsl"
 #include "scene.glsl"
 
+layout (set = 1, binding = 0) uniform IBL {
+    float irradiance_factor;
+    float radiance_factor;
+    float brdf_factor;
+    int pad;
+} ibl;
+
 layout( push_constant ) uniform constants {
     SceneBuffer scene;
     uint albedo_tex;
@@ -120,18 +127,18 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
     vec3 kS = F;
     vec3 kD = 1.0f - kS;
     kD *= 1.0f - metallic;
-    vec3 irradiance = sampleTextureCubeNearest(pc.irradiance_map, normal).rgb;
+    vec3 irradiance = sampleTextureCubeNearest(pc.irradiance_map, normal).rgb * ibl.irradiance_factor;
     vec3 diffuse = irradiance * albedo;
 
     // sample both the pre-filter map and the BRDF lut and combine them together as per the Split-Sum approximation to get the IBL specular part.
     const float MAX_REFLECTION_LOD = 4.0;
-    vec3 radiance = sampleTextureCubeLinearLod(pc.radiance_map, R, roughness * MAX_REFLECTION_LOD).rgb;
+    vec3 radiance = sampleTextureCubeLinearLod(pc.radiance_map, R, roughness * MAX_REFLECTION_LOD).rgb * ibl.radiance_factor;
     float rough = clamp(roughness, 0.01, 0.99);
-    vec2 brdf  = sampleTexture2DLinear(pc.brdf_lut, vec2(max(dot(N, V), 0.001f), rough)).rg;
+    vec2 brdf  = sampleTexture2DLinear(pc.brdf_lut, vec2(max(dot(N, V), 0.001f), rough)).rg * ibl.brdf_factor;
     vec3 specular = radiance * (F * brdf.x + brdf.y);
 
     vec3 ambient = (kD * diffuse + specular) * ao;
-    vec3 color = ambient + Lo + emissive;
+    vec3 color = (ambient * 0.1f) + Lo + emissive;
 
     return color;
 }
@@ -142,7 +149,7 @@ void main() {
     vec3 position = sampleTexture2DLinear(pc.position_tex, in_uvs).rgb;
     vec4 pbr_values = sampleTexture2DLinear(pc.pbr_tex, in_uvs);
     
-    vec3 view_dir = normalize(pc.scene.camera_position - position);
+    vec3 view_dir = normalize(pc.scene.camera_position.xyz - position);
 
     float roughness = pbr_values.g;
     float metallic = pbr_values.b;

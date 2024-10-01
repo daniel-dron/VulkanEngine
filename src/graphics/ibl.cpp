@@ -5,6 +5,7 @@
 
 #include <vk_pipelines.h>
 #include <graphics/pipelines/compute_pipeline.h>
+#include <imgui.h>
 
 void IBL::init( GfxDevice& gfx, const std::string& path ) {
 	hdr_texture = gfx.image_codex.loadHDRFromFile( path, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, false );

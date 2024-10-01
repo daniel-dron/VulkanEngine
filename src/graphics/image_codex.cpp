@@ -5,6 +5,8 @@
 #include "gfx_device.h"
 #include <vk_initializers.h>
 
+#include <imgui.h>
+
 void ImageCodex::init( GfxDevice* gfx ) {
 	this->gfx = gfx;
 	bindless_registry.init( *this->gfx );
@@ -185,6 +187,26 @@ VkDescriptorSetLayout ImageCodex::getBindlessLayout( ) const {
 
 VkDescriptorSet ImageCodex::getBindlessSet( ) const {
 	return bindless_registry.set;
+}
+
+void ImageCodex::DrawDebug( ) {
+	ImGui::Columns( 10 );
+	{
+		for ( int i = 1; i < images.size( ); i++ ) {
+			auto& image = images.at( i );
+			int column_width = ImGui::GetColumnWidth( );
+			ImGui::Image( (ImTextureID)(ImageID)i, ImVec2( column_width, column_width ) );
+			if ( ImGui::IsItemHovered( ) ) {
+				ImGui::BeginTooltip( );
+				ImGui::Text( "%s", image.GetName( ).c_str( ) );
+				ImGui::Separator( );
+				ImGui::Image( (ImTextureID)(ImageID)i, ImVec2( image.GetExtent( ).width, image.GetExtent( ).height ) );
+				ImGui::EndTooltip( );
+			}
+			ImGui::NextColumn( );
+		}
+	}
+	ImGui::Columns( 1 );
 }
 
 void ImageCodex::initDefaultImages( ) {

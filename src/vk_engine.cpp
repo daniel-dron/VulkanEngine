@@ -598,7 +598,7 @@ void VulkanEngine::initImages( ) {
 void VulkanEngine::initScene( ) {
 	ibl.init( *gfx, "../../assets/texture/ibls/overcast_soil_puresky_4k.hdr" );
 
-	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
+	auto scene = GltfLoader::load( *gfx, "../../assets/untitled.glb" );
 	scenes["sponza"] = std::move( scene );
 
 	// init camera
@@ -613,17 +613,9 @@ void VulkanEngine::initScene( ) {
 	fps_controller = std::make_unique<FirstPersonFlyingController>( camera.get( ), 0.1f, 5.0f );
 	camera_controller = fps_controller.get( );
 
-
-	scene_data.ambient_light_color = vec3( 1.0f, 1.0f, 1.0f );
-	scene_data.ambient_light_factor = 1.0f;
-
-	scene_data.fog_color = vec4( 1.0f, 0.0f, 0.0f, 1.0f );
-	scene_data.fog_end = 20.0f;
-	scene_data.fog_start = 1.0f;
-
 	PointLight light = {};
 	light.transform.setPosition( vec3( 0.0f, 2.0f, 0.0f ) );
-	light.color = vec4( 300.0f, 300.0f, 300.0f, 1000.0f );
+	light.color = vec4( 20.0f, 20, 20, 1000.0f );
 	light.diffuse = 0.1f;
 	light.specular = 1.0f;
 	light.radius = 10.0f;
@@ -861,43 +853,49 @@ void VulkanEngine::run( ) {
 					selected_node->transform.drawDebug( selected_node->name );
 				}
 
-				ImGui::SeparatorText( "Camera 3D" );
-				camera->drawDebug( );
+				if ( ImGui::CollapsingHeader( "Camera" ) ) {
+					ImGui::SeparatorText( "Camera 3D" );
+					camera->drawDebug( );
 
-				ImGui::SeparatorText( "Camera Controller" );
-				camera_controller->draw_debug( );
-
-				ImGui::SeparatorText( "Light" );
-				ImGui::ColorEdit3( "Ambient Color", &scene_data.ambient_light_color.x );
-				ImGui::DragFloat( "Ambient Diffuse", &scene_data.ambient_light_factor,
-					0.01f, 0.0f, 1.0f );
-
-				ImGui::SeparatorText( "Point Lights" );
-				for ( auto i = 0u; i < point_lights.size( ); i++ ) {
-					if ( ImGui::CollapsingHeader(
-						std::format( "Point Light {}", i ).c_str( ) ) ) {
-						ImGui::PushID( i );
-						auto flags = ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR;
-						ImGui::ColorEdit3( "Color", &point_lights.at( i ).color.x, flags );
-
-						auto pos = point_lights.at( i ).transform.getPosition( );
-						ImGui::DragFloat3( "Pos", &pos.x, 0.1f );
-						point_lights.at( i ).transform.setPosition( pos );
-
-						ImGui::DragFloat( "Diffuse", &point_lights.at( i ).diffuse, 0.01f,
-							0.0f, 1.0f );
-						ImGui::DragFloat( "Specular", &point_lights.at( i ).specular, 0.01f,
-							0.0f, 1.0f );
-						ImGui::DragFloat( "Radius", &point_lights.at( i ).radius, 0.1f );
-						ImGui::PopID( );
-					}
+					ImGui::SeparatorText( "Camera Controller" );
+					camera_controller->draw_debug( );
 				}
 
-				ImGui::SeparatorText( "Fog" );
-				ImGui::ColorEdit4( "Fog Color", &scene_data.fog_color.x );
-				ImGui::DragFloat( "Start", &scene_data.fog_start, 0.1f, 0.1f );
-				ImGui::DragFloat( "End", &scene_data.fog_end, 0.1f,
-					scene_data.fog_start + 0.1f );
+				if ( ImGui::CollapsingHeader( "Renderer" ) ) {
+					ImGui::Indent( );
+
+					pbr_pipeline.DrawDebug( );
+
+					ImGui::Unindent( );
+				}
+
+				if ( ImGui::CollapsingHeader( "Image Codex" ) ) {
+					ImGui::Indent( );
+					gfx->image_codex.DrawDebug( );
+					ImGui::Unindent( );
+				}
+
+				if ( ImGui::CollapsingHeader( "Point Lights" ) ) {
+					for ( auto i = 0u; i < point_lights.size( ); i++ ) {
+						if ( ImGui::CollapsingHeader(
+							std::format( "Point Light {}", i ).c_str( ) ) ) {
+							ImGui::PushID( i );
+							auto flags = ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR;
+							ImGui::ColorEdit3( "Color", &point_lights.at( i ).color.x, flags );
+
+							auto pos = point_lights.at( i ).transform.getPosition( );
+							ImGui::DragFloat3( "Pos", &pos.x, 0.1f );
+							point_lights.at( i ).transform.setPosition( pos );
+
+							ImGui::DragFloat( "Diffuse", &point_lights.at( i ).diffuse, 0.01f,
+								0.0f, 1.0f );
+							ImGui::DragFloat( "Specular", &point_lights.at( i ).specular, 0.01f,
+								0.0f, 1.0f );
+							ImGui::DragFloat( "Radius", &point_lights.at( i ).radius, 0.1f );
+							ImGui::PopID( );
+						}
+					}
+				}
 			}
 			ImGui::End( );
 
@@ -992,7 +990,7 @@ void VulkanEngine::updateScene( ) {
 	scene_data.view = camera->getViewMatrix( );
 	scene_data.proj = camera->getProjectionMatrix( );
 	scene_data.viewproj = scene_data.proj * scene_data.view;
-	scene_data.camera_position = camera->getPosition( );
+	scene_data.camera_position = vec4( camera->getPosition( ), 0.0f );
 
 	// point lights
 	scene_data.number_of_lights = static_cast<int>(point_lights.size( ));
