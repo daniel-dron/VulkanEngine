@@ -7,7 +7,7 @@ class PbrPipeline : public Pipeline {
 public:
 	virtual Result<> init( GfxDevice& gfx ) override;
 	virtual void cleanup( GfxDevice& gfx ) override;
-	DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuSceneData& scene_data, const GBuffer& gbuffer, uint32_t irradiance_map, uint32_t radiance_map, uint32_t brdf_lut ) const;
+	DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuSceneData& scene_data, const std::vector<GpuDirectionalLight>& directional_lights, const GBuffer& gbuffer, uint32_t irradiance_map, uint32_t radiance_map, uint32_t brdf_lut ) const;
 
 	void DrawDebug( );
 
@@ -37,6 +37,7 @@ private:
 
 	GpuBuffer gpu_scene_data;
 	mutable GpuBuffer gpu_ibl;
+	mutable GpuBuffer gpu_directional_lights;
 
 	IBLSettings ibl = {
 		.irradiance_factor = 0.05f,

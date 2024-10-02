@@ -10,6 +10,14 @@ struct PointLight {
 	int pad2;
 };
 
+struct DirectionalLight {
+	vec3 position;
+	int pad;
+	vec3 direction;
+	int pad1;
+	vec4 color;
+};
+
 layout (buffer_reference, scalar) readonly buffer SceneBuffer {
 	mat4 view;
 	mat4 proj;
@@ -22,5 +30,4 @@ layout (buffer_reference, scalar) readonly buffer SceneBuffer {
   	float fog_start;
     MaterialsBuffer materials;
 	int number_of_lights;
-	PointLight pointLights[10];
 } sceneBuffer;

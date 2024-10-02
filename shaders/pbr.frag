@@ -16,6 +16,10 @@ layout (set = 1, binding = 0) uniform IBL {
     int pad;
 } ibl;
 
+layout (set = 1, binding = 1) uniform DirectionalLights {
+    DirectionalLight lights[10];
+} directionalLights;
+
 layout( push_constant ) uniform constants {
     SceneBuffer scene;
     uint albedo_tex;
@@ -94,22 +98,48 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
 	F0      = mix(F0, albedo, metallic);
 
     vec3 Lo = vec3(0.0f);
+    // for (int i = 0; i < pc.scene.number_of_lights; i++) {
+    //     PointLight light = pc.scene.pointLights[i];
+    //     vec3 L = normalize(light.position - position);
+    //     vec3 H = normalize(V + L);
+
+    //     float distance = length(light.position - position);
+    //     float attenuation = 1.0f / (distance * distance);
+    //     vec3 radiance = light.color.rgb * attenuation;
+
+    //     vec3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
+
+	// 	float NDF = DistributionGGX(N, H, roughness);
+    //     float G   = GeometrySmith(N, V, L, roughness);
+
+    //     vec3 numerator    = NDF * G * F;
+    //     // add 0.0001 to the denominator to prevent divide by zero
+    //     float denominator = 4.0f * max(dot(N, V), 0.0f) * max(dot(N, L), 0.0f) + 0.0001f;
+    //     vec3 specular     = numerator / denominator;
+
+    //     vec3 kS = F;
+    //     vec3 kD = vec3(1.0f) - kS;
+
+    //     kD *= 1.0f - metallic;
+
+    //     float NdotL = max(dot(N, L), 0.0f);
+    //     Lo += (kD * albedo / PI + specular) * radiance * NdotL;
+    // }
+
     for (int i = 0; i < pc.scene.number_of_lights; i++) {
-        PointLight light = pc.scene.pointLights[i];
-        vec3 L = normalize(light.position - position);
+        DirectionalLight light = directionalLights.lights[i];
+        vec3 L = normalize(-light.direction);  // Note the negative sign
         vec3 H = normalize(V + L);
 
-        float distance = length(light.position - position);
-        float attenuation = 1.0f / (distance * distance);
-        vec3 radiance = light.color.rgb * attenuation;
+        // No attenuation for directional lights
+        vec3 radiance = light.color.rgb;
 
         vec3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
 
-		float NDF = DistributionGGX(N, H, roughness);
+        float NDF = DistributionGGX(N, H, roughness);
         float G   = GeometrySmith(N, V, L, roughness);
 
         vec3 numerator    = NDF * G * F;
-        // add 0.0001 to the denominator to prevent divide by zero
         float denominator = 4.0f * max(dot(N, V), 0.0f) * max(dot(N, L), 0.0f) + 0.0001f;
         vec3 specular     = numerator / denominator;
 

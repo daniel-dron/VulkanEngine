@@ -95,6 +95,8 @@ public:
 	// ----------
 	// scene
 	std::vector<PointLight> point_lights;
+	std::vector<DirectionalLight> directional_lights;
+	std::vector<GpuDirectionalLight> gpu_directional_lights;
 	GpuSceneData scene_data;
 	GpuBuffer gpu_scene_data;
 

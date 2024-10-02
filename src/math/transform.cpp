@@ -4,87 +4,6 @@
 #include <imgui.h>
 #include <glm/gtx/euler_angles.hpp>
 
-Transform3D::Transform3D( const mat4& matrix ) {
-	vec3 scale;
-	quat rotation;
-	vec3 translation;
-	vec3 skew;
-	vec4 perspective;
-	glm::decompose( matrix, scale, rotation, translation, skew, perspective );
-
-	this->position = translation;
-	this->heading = glm::conjugate( rotation );
-	this->scale = scale;
-	this->is_dirty = true;
-}
-
-void Transform3D::setPosition( const vec3& pos ) {
-	position = pos;
-	is_dirty = true;
-}
-void Transform3D::setHeading( const quat& h ) {
-	heading = h;
-	is_dirty = true;
-}
-void Transform3D::setScale( const vec3& s ) {
-	scale = s;
-	is_dirty = true;
-}
-
-const vec3& Transform3D::getPosition( ) const { return position; }
-const quat& Transform3D::getHeading( ) const { return heading; }
-const vec3& Transform3D::getScale( ) const { return scale; }
-
-vec3 Transform3D::getLocalUp( ) const { return heading * GlobalUp; }
-vec3 Transform3D::getLocalRight( ) const { return heading * GlobalRight; }
-vec3 Transform3D::getLocalFront( ) const { return heading * GlobalFront; }
-
-const glm::mat4& Transform3D::asMatrix( ) const {
-	if ( !is_dirty ) {
-		return matrix;
-	}
-
-	matrix = glm::translate( mat4( 1.0f ), position );
-	matrix *= glm::mat4_cast( glm::normalize( heading ) );
-	matrix = glm::scale( matrix, scale );
-
-	is_dirty = false;
-
-	return matrix;
-}
-
-Transform3D Transform3D::operator*( const Transform3D& rhs ) const {
-	return Transform3D( this->asMatrix( ) * rhs.asMatrix( ) );
-}
-
-void Transform3D::drawDebug( const std::string& label ) {
-	ImGui::PushID( label.c_str( ) );
-	ImGui::Text( "%s", label.c_str( ) );
-
-	ImGui::Text( "Position" );
-	if ( ImGui::DragFloat3( "##Position", &position[0], 0.1f ) ) {
-		is_dirty = true;
-	}
-
-	ImGui::Text( "Rotation" );
-	float headingEuler[3] = {
-		glm::degrees( glm::eulerAngles( heading ).x ),
-		glm::degrees( glm::eulerAngles( heading ).y ),
-		glm::degrees( glm::eulerAngles( heading ).z )
-	};
-	if ( ImGui::DragFloat3( "##Rotation", headingEuler, 0.1f ) ) {
-		heading = glm::quat( glm::radians( vec3( headingEuler[0], headingEuler[1], headingEuler[2] ) ) );
-		is_dirty = true;
-	}
-
-	ImGui::Text( "Scale" );
-	if ( ImGui::DragFloat3( "##Scale", &scale[0], 0.1f ) ) {
-		is_dirty = true;
-	}
-
-	ImGui::PopID( );
-}
-
 mat4 Transform::asMatrix( ) const {
 	mat4 trans = glm::translate( mat4( 1.0f ), position );
 	mat4 rot = glm::eulerAngleXYZ( euler.x, euler.y, euler.z );
@@ -106,4 +25,27 @@ void Transform::drawDebug( const std::string& label ) {
 	ImGui::DragFloat3( "##Scale", &scale[0], 0.1f );
 
 	ImGui::PopID( );
+}
+
+void Transform::DrawGizmo( ) {
+	//auto camera_view = scene_data.view;
+	//auto camera_proj = scene_data.proj;
+	//camera_proj[1][1] *= -1;
+
+	//auto& point_light = point_lights.at( 0 );
+	//mat4 tc = point_light.transform.asMatrix( );
+	//if ( ImGuizmo::Manipulate( glm::value_ptr( camera_view ), glm::value_ptr( camera_proj ), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr( tc ) ) ) {
+	//	vec3 skew{};
+	//	vec4 perspective{};
+	//	quat rotation{};
+	//	vec3 scale{};
+	//	vec3 position{};
+
+	//	glm::decompose( tc, scale, rotation, position, skew, perspective );
+	//	glm::extractEulerAngleXYZ( glm::mat4_cast( rotation ), rotation.x, rotation.y, rotation.z );
+	//	point_light.transform.position = position;
+	//	point_light.transform.model = tc;
+
+	//}
+
 }

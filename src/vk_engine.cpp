@@ -22,6 +22,9 @@
 #include "SDL_video.h"
 #include "fmt/core.h"
 #include "glm/ext/matrix_clip_space.hpp"
+#include "glm/gtx/orthonormalize.hpp"
+#include "glm/gtx/integer.hpp"
+#include "glm/gtx/matrix_decompose.hpp"
 #include "glm/packing.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -41,6 +44,8 @@
 #include <graphics/pipelines/compute_pipeline.h>
 
 #include <engine/loader.h>
+#include <glm/gtx/euler_angles.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 VulkanEngine* loaded_engine = nullptr;
 
@@ -459,7 +464,7 @@ void VulkanEngine::pbrPass( VkCommandBuffer cmd ) const {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	pbr_pipeline.draw( *gfx, cmd, scene_data, gfx->swapchain.getCurrentFrame( ).gbuffer, ibl.getIrradiance( ), ibl.getRadiance( ), ibl.getBRDF( ) );
+	pbr_pipeline.draw( *gfx, cmd, scene_data, gpu_directional_lights, gfx->swapchain.getCurrentFrame( ).gbuffer, ibl.getIrradiance( ), ibl.getRadiance( ), ibl.getBRDF( ) );
 
 	vkCmdEndRendering( cmd );
 
@@ -595,7 +600,7 @@ void VulkanEngine::initImages( ) {
 }
 
 void VulkanEngine::initScene( ) {
-	ibl.init( *gfx, "../../assets/texture/ibls/overcast_soil_puresky_4k.hdr" );
+	ibl.init( *gfx, "../../assets/texture/ibls/wildflower_field_4k.hdr" );
 
 	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
 	scenes["sponza"] = std::move( scene );
@@ -612,14 +617,10 @@ void VulkanEngine::initScene( ) {
 	fps_controller = std::make_unique<FirstPersonFlyingController>( camera.get( ), 0.1f, 5.0f );
 	camera_controller = fps_controller.get( );
 
-	PointLight light = {};
-	light.transform.setPosition( vec3( 0.0f, 2.0f, 0.0f ) );
-	light.color = vec4( 20.0f, 20, 20, 1000.0f );
-	light.diffuse = 0.1f;
-	light.specular = 1.0f;
-	light.radius = 10.0f;
-
-	point_lights.push_back( light );
+	DirectionalLight dir_light;
+	dir_light.transform.euler = vec3( 0.0f, 0.0f, 0.0f );
+	dir_light.color = vec4( 2.0f, 1.0f, 1.0f, 1.0f );
+	directional_lights.emplace_back( dir_light );
 }
 
 // Global variables to store FPS history
@@ -817,7 +818,6 @@ void VulkanEngine::run( ) {
 				ImGui::SetCursorPos( image_pos );
 				ImGui::Image( (ImTextureID)(selected_set), image_size );
 
-				// guizmos
 				if ( selected_node != nullptr ) {
 					ImGuizmo::SetOrthographic( false );
 					ImGuizmo::SetDrawlist( );
@@ -837,9 +837,23 @@ void VulkanEngine::run( ) {
 					}
 
 					selected_node->setTransform( local_transform );
-				}
+				} else {
+					ImGuizmo::SetOrthographic( false );
+					ImGuizmo::SetDrawlist( );
+					ImGuizmo::SetRect( ImGui::GetWindowPos( ).x, ImGui::GetWindowPos( ).y, (float)ImGui::GetWindowWidth( ), (float)ImGui::GetWindowHeight( ) );
 
-				gfx->DrawDebug( );
+					auto camera_view = scene_data.view;
+					auto camera_proj = scene_data.proj;
+					camera_proj[1][1] *= -1;
+
+					auto& light = directional_lights.at( 0 );
+					auto model = light.transform.model;
+					if ( ImGuizmo::Manipulate( glm::value_ptr( camera_view ), glm::value_ptr( camera_proj ), ImGuizmo::OPERATION::ROTATE, ImGuizmo::MODE::WORLD, glm::value_ptr( model ) ) ) {
+						glm::mat3 rotationMat = glm::mat3( model );
+						light.transform.euler = glm::eulerAngles( glm::quat_cast( rotationMat ) );
+						light.transform.model = model;
+					}
+				}
 			}
 			ImGui::End( );
 
@@ -936,16 +950,16 @@ void VulkanEngine::run( ) {
 				}
 
 				if ( ImGui::CollapsingHeader( "Point Lights" ) ) {
+					ImGui::Indent( );
 					for ( auto i = 0u; i < point_lights.size( ); i++ ) {
-						if ( ImGui::CollapsingHeader(
-							std::format( "Point Light {}", i ).c_str( ) ) ) {
+						if ( ImGui::CollapsingHeader( std::format( "Point Light {}", i ).c_str( ) ) ) {
 							ImGui::PushID( i );
 							auto flags = ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR;
 							ImGui::ColorEdit3( "Color", &point_lights.at( i ).color.x, flags );
 
-							auto pos = point_lights.at( i ).transform.getPosition( );
+							auto pos = point_lights.at( i ).transform.position;
 							ImGui::DragFloat3( "Pos", &pos.x, 0.1f );
-							point_lights.at( i ).transform.setPosition( pos );
+							point_lights.at( i ).transform.position = pos;
 
 							ImGui::DragFloat( "Diffuse", &point_lights.at( i ).diffuse, 0.01f,
 								0.0f, 1.0f );
@@ -955,6 +969,17 @@ void VulkanEngine::run( ) {
 							ImGui::PopID( );
 						}
 					}
+					for ( auto i = 0; i < directional_lights.size( ); i++ ) {
+						if ( ImGui::CollapsingHeader( std::format( "Light {}", i ).c_str( ) ) ) {
+							ImGui::PushID( i );
+							auto euler = glm::degrees( directional_lights.at( i ).transform.euler );
+							if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
+								directional_lights.at( i ).transform.euler = glm::radians( euler );
+							}
+							ImGui::PopID( );
+						}
+					}
+					ImGui::Unindent( );
 				}
 			}
 			ImGui::End( );
@@ -1038,6 +1063,16 @@ static void createDrawCommands( GfxDevice& gfx, const Scene& scene, const Scene:
 	}
 }
 
+vec3 GetDirectionVector( const glm::vec3& rotation ) {
+	glm::vec3 radiansAngles = glm::radians( rotation );
+	glm::mat4 rotX = glm::rotate( glm::mat4( 1.0f ), radiansAngles.x, glm::vec3( 1, 0, 0 ) );
+	glm::mat4 rotY = glm::rotate( glm::mat4( 1.0f ), radiansAngles.y, glm::vec3( 0, 1, 0 ) );
+	glm::mat4 rotZ = glm::rotate( glm::mat4( 1.0f ), radiansAngles.z, glm::vec3( 0, 0, 1 ) );
+	glm::mat4 rotationMatrix = rotZ * rotY * rotX;
+	glm::vec4 direction = rotationMatrix * glm::vec4( 0, 0, -1, 0 );
+	return glm::normalize( glm::vec3( direction ) );
+}
+
 void VulkanEngine::updateScene( ) {
 	ZoneScopedN( "update_scene" );
 	auto start = std::chrono::system_clock::now( );
@@ -1052,15 +1087,18 @@ void VulkanEngine::updateScene( ) {
 	scene_data.viewproj = scene_data.proj * scene_data.view;
 	scene_data.camera_position = vec4( camera->getPosition( ), 0.0f );
 
-	// point lights
-	scene_data.number_of_lights = static_cast<int>(point_lights.size( ));
-	for ( size_t i = 0; i < point_lights.size( ); i++ ) {
-		auto& light = scene_data.point_lights[i];
-		light.position = point_lights[i].transform.getPosition( );
-		light.radius = point_lights[i].radius;
-		light.color = point_lights[i].color;
-		light.diffuse = point_lights[i].diffuse;
-		light.specular = point_lights[i].specular;
+	gpu_directional_lights.clear( );
+	scene_data.number_of_lights = static_cast<int>(directional_lights.size( ));
+	for ( auto i = 0; i < directional_lights.size( ); i++ ) {
+		GpuDirectionalLight gpu_light;
+		auto& light = directional_lights.at( i );
+		gpu_light.position = light.transform.position;
+		gpu_light.color = light.color;
+
+		// get direction
+		auto direction = light.transform.asMatrix( ) * glm::vec4( 0, 0, -1, 0 );
+		gpu_light.direction = direction;
+		gpu_directional_lights.push_back( gpu_light );
 	}
 
 	auto end = std::chrono::system_clock::now( );

@@ -112,6 +112,14 @@ struct GpuPointLightData {
 	int pad2;
 };
 
+struct GpuDirectionalLight {
+	vec3 position;
+	int pad;
+	vec3 direction;
+	int pad1;
+	vec4 color;
+};
+
 struct GpuSceneData {
 	mat4 view;
 	mat4 proj;
@@ -124,7 +132,6 @@ struct GpuSceneData {
 	float fog_start;
 	VkDeviceAddress materials;
 	int number_of_lights;
-	GpuPointLightData point_lights[10];
 };
 
 struct DrawStats {

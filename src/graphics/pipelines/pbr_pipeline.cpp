@@ -32,9 +32,10 @@ void PbrPipeline::cleanup( GfxDevice& gfx ) {
 	vkDestroyDescriptorSetLayout( gfx.device, ub_layout, nullptr );
 	gfx.free( gpu_scene_data );
 	gfx.free( gpu_ibl );
+	gfx.free( gpu_directional_lights );
 }
 
-DrawStats PbrPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuSceneData& scene_data, const GBuffer& gbuffer, uint32_t irradiance_map, uint32_t radiance_map, uint32_t brdf_lut ) const {
+DrawStats PbrPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuSceneData& scene_data, const std::vector<GpuDirectionalLight>& directional_lights, const GBuffer& gbuffer, uint32_t irradiance_map, uint32_t radiance_map, uint32_t brdf_lut ) const {
 	DrawStats stats = {};
 
 	GpuSceneData* gpu_scene_addr = nullptr;
@@ -49,9 +50,11 @@ DrawStats PbrPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuScene
 	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &bindless_set, 0, nullptr );
 
 	gpu_ibl.Upload( gfx, (void*)&ibl, sizeof( IBLSettings ) );
+	gpu_directional_lights.Upload( gfx, (void*)directional_lights.data( ), sizeof( GpuDirectionalLight ) * directional_lights.size( ) );
 
 	DescriptorWriter writer;
 	writer.WriteBuffer( 0, gpu_ibl.buffer, sizeof( IBLSettings ), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+	writer.WriteBuffer( 1, gpu_directional_lights.buffer, sizeof( GpuDirectionalLight ) * 10, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 	writer.UpdateSet( gfx.device, set );
 	vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1, &set, 0, nullptr );
 
@@ -128,6 +131,7 @@ void PbrPipeline::Reconstruct( GfxDevice& gfx ) {
 
 	DescriptorLayoutBuilder layout_builder;
 	layout_builder.AddBinding( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+	layout_builder.AddBinding( 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 	ub_layout = layout_builder.Build( gfx.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
 	set = gfx.set_pool.Allocate( gfx.device, ub_layout );
@@ -176,4 +180,5 @@ void PbrPipeline::Reconstruct( GfxDevice& gfx ) {
 		VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data PBR Pipeline" );
 
 	gpu_ibl = gfx.allocate( sizeof( IBLSettings ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "IBL Settings" );
+	gpu_directional_lights = gfx.allocate( sizeof( GpuDirectionalLight ) * 10, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Directional Lights" );
 }

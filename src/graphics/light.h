@@ -4,9 +4,14 @@
 #include "../math/transform.h"
 
 struct PointLight {
-	Transform3D transform;
-	vec4 color; // w is power in W's
+	Transform transform;
+	vec4 color;
 	float diffuse = 1.0f;
 	float specular = 1.0f;
 	float radius = 10.0f;
+};
+
+struct DirectionalLight {
+	Transform transform;
+	vec4 color;
 };
