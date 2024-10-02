@@ -618,8 +618,11 @@ void VulkanEngine::initScene( ) {
 	camera_controller = fps_controller.get( );
 
 	DirectionalLight dir_light;
-	dir_light.transform.euler = vec3( 0.0f, 0.0f, 0.0f );
 	dir_light.color = vec4( 2.0f, 1.0f, 1.0f, 1.0f );
+	dir_light.transform.euler = vec3( glm::radians( 90.0f ), 0.0f, 0.0f );
+	directional_lights.emplace_back( dir_light );
+
+	dir_light.transform.euler = vec3( glm::radians(-90.0f), 0.0f, 0.0f );
 	directional_lights.emplace_back( dir_light );
 }
 
