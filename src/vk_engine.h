@@ -19,6 +19,7 @@
 #include <graphics/pipelines/gbuffer_pipeline.h>
 #include <graphics/pipelines/imgui_pipeline.h>
 #include <graphics/pipelines/skybox_pipeline.h>
+#include <graphics/pipelines/shadowmap.h>
 
 #include "graphics/gfx_device.h"
 #include <graphics/material_codex.h>
@@ -81,6 +82,7 @@ public:
 	GBufferPipeline gbuffer_pipeline;
 	ImGuiPipeline imgui_pipeline;
 	SkyboxPipeline skybox_pipeline;
+	ShadowMap shadowmap_pipeline;
 
 	struct PostProcessConfig {
 		ImageID hdr;
@@ -138,6 +140,7 @@ private:
 	void pbrPass( VkCommandBuffer cmd ) const;
 	void skyboxPass( VkCommandBuffer cmd ) const;
 	void postProcessPass( VkCommandBuffer cmd ) const;
+	void ShadowMapPass( VkCommandBuffer cmd ) const;
 
 	void drawImgui( VkCommandBuffer cmd, VkImageView target_image_view );
 

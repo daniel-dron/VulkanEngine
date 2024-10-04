@@ -40,7 +40,11 @@ VkPipeline vkutil::PipelineBuilder::build_pipeline( VkDevice device ) {
 
 	std::vector<VkPipelineColorBlendAttachmentState> blend_attachments;
 	blend_attachments.resize( _attachment_count, _colorBlendAttachment );
-	colorBlending.pAttachments = blend_attachments.data( );
+	if ( _attachment_count == 0 ) {
+		colorBlending.pAttachments = nullptr;
+	} else {
+		colorBlending.pAttachments = blend_attachments.data( );
+	}
 
 	// completely clear VertexInputStateCreateInfo, as we have no need for it
 	VkPipelineVertexInputStateCreateInfo _vertexInputInfo = {

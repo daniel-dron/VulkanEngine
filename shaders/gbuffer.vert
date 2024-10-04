@@ -19,11 +19,11 @@ void main()
 	
 	vec4 position = vec4(v.position, 1.0f);
 
-	gl_Position = pc.scene.viewproj * pc.model *position;
+	gl_Position = pc.scene.viewproj * pc.model * position;
 
 	out_uvs.x = v.uv_x;
 	out_uvs.y = v.uv_y;
-	out_frag_pos = vec4(pc.model * position).xyz;
+	out_frag_pos = (pc.model * position).xyz;
 
 	vec3 T = normalize(vec3(pc.model * vec4(v.tangent, 0.0)));
     vec3 B = normalize(vec3(pc.model * vec4(v.bitangent, 0.0)));

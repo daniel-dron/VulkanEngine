@@ -85,7 +85,7 @@ vec4 sampleTextureCubeLinearLod(uint texID, vec3 p, float lod) {
     return textureLod(nonuniformEXT(samplerCube(textureCubes[texID], samplers[LINEAR_SAMPLER_ID])), p, lod);
 }
 
-vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, vec3 normal, vec3 view_dir) {
+vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, vec3 normal, vec3 view_dir, float shadow) {
     vec3 N = normal;
     vec3 V = view_dir;
     vec3 R = reflect(-V, N); 
@@ -98,37 +98,9 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
 	F0      = mix(F0, albedo, metallic);
 
     vec3 Lo = vec3(0.0f);
-    // for (int i = 0; i < pc.scene.number_of_lights; i++) {
-    //     PointLight light = pc.scene.pointLights[i];
-    //     vec3 L = normalize(light.position - position);
-    //     vec3 H = normalize(V + L);
-
-    //     float distance = length(light.position - position);
-    //     float attenuation = 1.0f / (distance * distance);
-    //     vec3 radiance = light.color.rgb * attenuation;
-
-    //     vec3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
-
-	// 	float NDF = DistributionGGX(N, H, roughness);
-    //     float G   = GeometrySmith(N, V, L, roughness);
-
-    //     vec3 numerator    = NDF * G * F;
-    //     // add 0.0001 to the denominator to prevent divide by zero
-    //     float denominator = 4.0f * max(dot(N, V), 0.0f) * max(dot(N, L), 0.0f) + 0.0001f;
-    //     vec3 specular     = numerator / denominator;
-
-    //     vec3 kS = F;
-    //     vec3 kD = vec3(1.0f) - kS;
-
-    //     kD *= 1.0f - metallic;
-
-    //     float NdotL = max(dot(N, L), 0.0f);
-    //     Lo += (kD * albedo / PI + specular) * radiance * NdotL;
-    // }
-
     for (int i = 0; i < pc.scene.number_of_lights; i++) {
         DirectionalLight light = directionalLights.lights[i];
-        vec3 L = normalize(-light.direction);  // Note the negative sign
+        vec3 L = normalize(light.direction);  // Note the negative sign
         vec3 H = normalize(V + L);
 
         // No attenuation for directional lights
@@ -149,7 +121,7 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
         kD *= 1.0f - metallic;
 
         float NdotL = max(dot(N, L), 0.0f);
-        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
+        Lo += (kD * albedo / PI + specular) * radiance * NdotL * shadow;
     }
 
     //vec3 kS = fresnelSchlick(max(dot(N, V), 0.0f), F0);
@@ -173,18 +145,57 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
     return color;
 }
 
+vec4 reconstructWorldPosition(vec2 screenPos, float depth, mat4 invView, mat4 invProj, vec2 screenSize) {
+    vec2 ndc;
+    ndc.x = (2.0 * screenPos.x) / screenSize.x - 1.0;
+    ndc.y = 1.0 - (2.0 * screenPos.y) / screenSize.y;
+    vec4 clipSpacePos = vec4(ndc, depth, 1.0);
+    vec4 viewSpacePos = invProj * clipSpacePos;
+    viewSpacePos /= viewSpacePos.w;
+    vec4 worldSpacePos = invView * viewSpacePos;
+    
+    return worldSpacePos;
+}
+
+float ShadowCalculation( vec4 light_space_pos ) {
+    vec3 proj_coords = light_space_pos.xyz / light_space_pos.w;
+
+    proj_coords = proj_coords * 0.5f + 0.5f;
+
+    float closest_depth = sampleTexture2DLinear(pc.scene.shadowmap, proj_coords.xy).r;
+    float current_depth = proj_coords.z;
+
+    return current_depth > closest_depth ? 1.0f : 0.0f;
+    // return closest_depth;
+}
+
 void main() {
     vec3 albedo = sampleTexture2DLinear(pc.albedo_tex, in_uvs).rgb;
     vec3 normal = sampleTexture2DLinear(pc.normal_tex, in_uvs).rgb;
-    vec3 position = sampleTexture2DLinear(pc.position_tex, in_uvs).rgb;
+    vec4 position = sampleTexture2DLinear(pc.position_tex, in_uvs).xyzw;
     vec4 pbr_values = sampleTexture2DLinear(pc.pbr_tex, in_uvs);
     
-    vec3 view_dir = normalize(pc.scene.camera_position.xyz - position);
+    vec3 view_dir = normalize(pc.scene.camera_position.xyz - position.xyz);
 
     float roughness = pbr_values.g;
     float metallic = pbr_values.b;
+    
+    vec3 position_world = sampleTexture2DLinear(pc.position_tex, in_uvs).xyz;
+    vec4 light_space_pos = pc.scene.light_proj * pc.scene.light_view * vec4(position_world, 1.0);
 
-    vec3 color = pbr(albedo, vec3(0.0f, 0.0f, 0.0f), metallic, roughness, 1.0f, normal, view_dir);
+    vec3 projCoords = light_space_pos.xyz / light_space_pos.w;
+    float current_depth = projCoords.z;
 
+    projCoords = projCoords * 0.5f + 0.5f;
+    float bias = 0.005; // Example bias value, adjust as needed
+    float closest_depth = sampleTexture2DLinear(pc.scene.shadowmap, projCoords.xy).r + bias;
+    // float closest_depth = sampleTexture2DLinear(pc.scene.shadowmap,projCoords.xy).r;
+
+    float shadow = current_depth > closest_depth ? 1.0f : 0.0f;
+    shadow = 1.0f - shadow;
+
+    vec3 color = pbr(albedo, vec3(0.0f, 0.0f, 0.0f), metallic, roughness, 1.0f, normal, view_dir, shadow);
+    // color = color * shadow;
+    
     out_color = vec4(color, 1.0f);
 }

@@ -14,7 +14,7 @@ namespace vkutil {
 		VkPipelineLayout _pipelineLayout;
 		VkPipelineDepthStencilStateCreateInfo _depthStencil;
 		VkPipelineRenderingCreateInfo _renderInfo;
-		size_t _attachment_count;
+		size_t _attachment_count = 0;
 		VkFormat _colorAttachmentFormat;
 
 	public:

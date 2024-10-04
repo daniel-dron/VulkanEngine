@@ -124,6 +124,8 @@ struct GpuSceneData {
 	mat4 view;
 	mat4 proj;
 	mat4 viewproj;
+	mat4 light_proj;
+	mat4 light_view;
 	vec4 fog_color;
 	vec3 camera_position;
 	float ambient_light_factor;
@@ -132,6 +134,7 @@ struct GpuSceneData {
 	float fog_start;
 	VkDeviceAddress materials;
 	int number_of_lights;
+	ImageID shadow_map;
 };
 
 struct DrawStats {

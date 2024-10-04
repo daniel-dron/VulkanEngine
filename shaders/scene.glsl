@@ -22,6 +22,8 @@ layout (buffer_reference, scalar) readonly buffer SceneBuffer {
 	mat4 view;
 	mat4 proj;
 	mat4 viewproj;
+	mat4 light_proj;
+	mat4 light_view;
   	vec4 fog_color;
 	vec3 camera_position;
 	float ambient_light_factor;
@@ -30,4 +32,5 @@ layout (buffer_reference, scalar) readonly buffer SceneBuffer {
   	float fog_start;
     MaterialsBuffer materials;
 	int number_of_lights;
+	int shadowmap;
 } sceneBuffer;

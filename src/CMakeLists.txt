@@ -52,6 +52,8 @@ file (GLOB SRC_PIPELINES
   graphics/pipelines/skybox_pipeline.cpp
   graphics/pipelines/compute_pipeline.h
   graphics/pipelines/compute_pipeline.cpp
+  graphics/pipelines/shadowmap.h
+  graphics/pipelines/shadowmap.cpp
 )
 
 file(GLOB SRC_CAMERA

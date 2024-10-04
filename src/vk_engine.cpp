@@ -276,6 +276,7 @@ void VulkanEngine::cleanup( ) {
 		gbuffer_pipeline.cleanup( *gfx );
 		imgui_pipeline.cleanup( *gfx );
 		skybox_pipeline.cleanup( *gfx );
+		shadowmap_pipeline.cleanup( *gfx );
 
 		post_process_pipeline.cleanup( *gfx );
 
@@ -342,6 +343,7 @@ void VulkanEngine::draw( ) {
 	if ( gfx->swapchain.frame_number == 5 ) {
 	}
 
+	ShadowMapPass( cmd );
 	gbufferPass( cmd );
 	pbrPass( cmd );
 	skyboxPass( cmd );
@@ -532,6 +534,37 @@ void VulkanEngine::postProcessPass( VkCommandBuffer cmd ) const {
 	output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 }
 
+void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
+	ZoneScopedN( "ShadowMap Pass" );
+	START_LABEL( cmd, "ShadowMap Pass", vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
+
+	using namespace vkinit;
+
+	{
+		auto& depth = gfx->image_codex.getImage( directional_lights.at( 0 ).shadow_map );
+
+		VkRenderingAttachmentInfo depth_attachment = depth_attachment_info( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+		VkRenderingInfo render_info = {
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.pNext = nullptr,
+			.renderArea = VkRect2D { VkOffset2D { 0, 0 }, VkExtent2D{ 4096, 4096} },
+			.layerCount = 1,
+			.colorAttachmentCount = 0,
+			.pColorAttachments = nullptr,
+			.pDepthAttachment = &depth_attachment,
+			.pStencilAttachment = nullptr
+		};
+		vkCmdBeginRendering( cmd, &render_info );
+	}
+
+	shadowmap_pipeline.draw( *gfx, cmd, draw_commands, scene_data.light_proj, scene_data.light_view, directional_lights.at( 0 ).shadow_map );
+
+	vkCmdEndRendering( cmd );
+
+	END_LABEL( cmd );
+
+}
+
 void VulkanEngine::initDefaultData( ) {
 	initImages( );
 
@@ -545,6 +578,7 @@ void VulkanEngine::initDefaultData( ) {
 	wireframe_pipeline.init( *gfx );
 	gbuffer_pipeline.init( *gfx );
 	skybox_pipeline.init( *gfx );
+	shadowmap_pipeline.init( *gfx );
 
 	// post process pipeline
 	auto& post_process_shader = gfx->shader_storage->Get( "post_process", T_COMPUTE );
@@ -618,11 +652,9 @@ void VulkanEngine::initScene( ) {
 	camera_controller = fps_controller.get( );
 
 	DirectionalLight dir_light;
-	dir_light.color = vec4( 2.0f, 1.0f, 1.0f, 1.0f );
-	dir_light.transform.euler = vec3( glm::radians( 90.0f ), 0.0f, 0.0f );
-	directional_lights.emplace_back( dir_light );
-
-	dir_light.transform.euler = vec3( glm::radians(-90.0f), 0.0f, 0.0f );
+	dir_light.color = vec4( 20.0f, 20.0f, 20.0f, 1.0f );
+	dir_light.transform.euler = vec3( glm::radians( -45.0f ), 0.0f, 0.0f );
+	dir_light.shadow_map = gfx->image_codex.createEmptyImage( "shadowmap", VkExtent3D{ 4096, 4096, 1 }, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false );
 	directional_lights.emplace_back( dir_light );
 }
 
@@ -891,6 +923,12 @@ void VulkanEngine::run( ) {
 				if ( ImGui::RadioButton( "HDR", &selected_set_n, 5 ) ) {
 					selected_set = gfx->swapchain.getCurrentFrame( ).hdr_color;
 				}
+				if ( ImGui::RadioButton( "ShadowMap", &selected_set_n, 6 ) ) {
+					selected_set = directional_lights.at( 0 ).shadow_map;
+				}
+				if ( ImGui::RadioButton( "Depth", &selected_set_n, 7 ) ) {
+					selected_set = gfx->swapchain.getCurrentFrame( ).depth;
+				}
 				ImGui::Separator( );
 				ImGui::SliderFloat( "Render Scale", &render_scale, 0.3f, 1.f );
 				ImGui::DragFloat( "Exposure", &pp_config.exposure, 0.01f, 0.01f, 10.0f );
@@ -975,10 +1013,23 @@ void VulkanEngine::run( ) {
 					for ( auto i = 0; i < directional_lights.size( ); i++ ) {
 						if ( ImGui::CollapsingHeader( std::format( "Light {}", i ).c_str( ) ) ) {
 							ImGui::PushID( i );
+
+							auto& light = directional_lights.at( i );
+
 							auto euler = glm::degrees( directional_lights.at( i ).transform.euler );
 							if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
 								directional_lights.at( i ).transform.euler = glm::radians( euler );
 							}
+
+							auto shadow_map_pos = glm::normalize( light.transform.asMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) * light.distance;
+							ImGui::DragFloat3( "Pos", glm::value_ptr( shadow_map_pos ) );
+
+							ImGui::DragFloat( "Distance", &light.distance );
+							ImGui::DragFloat( "Right", &light.right );
+							ImGui::DragFloat( "Up", &light.up );
+							ImGui::DragFloat( "Near", &light.near_plane );
+							ImGui::DragFloat( "Far", &light.far_plane );
+
 							ImGui::PopID( );
 						}
 					}
@@ -1089,6 +1140,14 @@ void VulkanEngine::updateScene( ) {
 	scene_data.proj = camera->getProjectionMatrix( );
 	scene_data.viewproj = scene_data.proj * scene_data.view;
 	scene_data.camera_position = vec4( camera->getPosition( ), 0.0f );
+	scene_data.shadow_map = directional_lights.at( 0 ).shadow_map;
+	auto& light = directional_lights.at( 0 );
+	auto proj = glm::ortho( -light.right, light.right, -light.up, light.up, light.near_plane, light.far_plane );
+	proj[1][1] *= -1;
+	auto shadow_map_pos = glm::normalize( light.transform.asMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) * light.distance;
+	auto view = glm::lookAt( vec3( shadow_map_pos ), vec3( 0.0f, 0.0f, 0.0f ), GlobalUp );
+	scene_data.light_proj = proj;
+	scene_data.light_view = view;
 
 	gpu_directional_lights.clear( );
 	scene_data.number_of_lights = static_cast<int>(directional_lights.size( ));
