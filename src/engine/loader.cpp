@@ -70,42 +70,47 @@ static std::vector<ImageID> loadImages( GfxDevice& gfx, const aiScene* scene ) {
 	std::vector<ImageID> images;
 	images.resize( scene->mNumTextures );
 
-	WorkerPool pool( 20 );
 	std::mutex gfx_mutex;
 
-	for ( auto i = 0; i < scene->mNumTextures; i++ ) {
-		auto texture = scene->mTextures[i];
-		std::string name = texture->mFilename.C_Str( );
+	// Do not remove
+	// WorkerPool destructor MUST be called before the mutex
+	{
+		WorkerPool pool( 20 );
 
-		pool.work( [&gfx, &gfx_mutex, &images, texture, name, i]( ) {
-			size_t size = texture->mWidth;
-			if ( texture->mHeight > 0 ) {
-				size = static_cast<unsigned long long>(texture->mWidth) * texture->mHeight * sizeof( aiTexel );
-			}
+		for ( auto i = 0; i < scene->mNumTextures; i++ ) {
+			auto texture = scene->mTextures[i];
+			std::string name = texture->mFilename.C_Str( );
 
-			int width, height, channels;
-			unsigned char* data = stbi_load_from_memory( (stbi_uc*)texture->pcData, size, &width, &height, &channels, 4 );
-
-			if ( data ) {
-				VkExtent3D size = {
-					.width = (uint32_t)(width),
-					.height = (uint32_t)(height),
-					.depth = 1
-				};
-
-				{
-					// TODO: use a staged pool for batched gpu loading
-					std::lock_guard<std::mutex> lock( gfx_mutex );
-					images[i] = gfx.image_codex.loadImageFromData( name, data, size, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true );
+			pool.work( [&gfx, &gfx_mutex, &images, texture, name, i]( ) {
+				size_t size = texture->mWidth;
+				if ( texture->mHeight > 0 ) {
+					size = static_cast<unsigned long long>(texture->mWidth) * texture->mHeight * sizeof( aiTexel );
 				}
 
-				stbi_image_free( data );
-			} else {
-				fmt::println( "Failed to load image {}\n\t{}", name, stbi_failure_reason( ) );
-			}
+				int width, height, channels;
+				unsigned char* data = stbi_load_from_memory( (stbi_uc*)texture->pcData, size, &width, &height, &channels, 4 );
 
-			fmt::println( "Loaded Texture: {} {}", i, name );
-		} );
+				if ( data ) {
+					VkExtent3D size = {
+						.width = (uint32_t)(width),
+						.height = (uint32_t)(height),
+						.depth = 1
+					};
+
+					{
+						// TODO: use a staged pool for batched gpu loading
+						std::lock_guard<std::mutex> lock( gfx_mutex );
+						images[i] = gfx.image_codex.loadImageFromData( name, data, size, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true );
+					}
+
+					stbi_image_free( data );
+				} else {
+					fmt::println( "Failed to load image {}\n\t{}", name, stbi_failure_reason( ) );
+				}
+
+				fmt::println( "Loaded Texture: {} {}", i, name );
+			} );
+		}
 	}
 
 	return images;
@@ -295,7 +300,7 @@ std::unique_ptr<Scene> GltfLoader::load( GfxDevice& gfx, const std::string& path
 	Assimp::Importer importer;
 	const auto ai_scene = importer.ReadFile( path,
 		aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_FlipUVs |
-		aiProcess_FlipWindingOrder | aiProcess_GenBoundingBoxes );
+		aiProcess_FlipWindingOrder | aiProcess_GenBoundingBoxes | aiProcess_OptimizeGraph | aiProcess_OptimizeMeshes );
 
 	fmt::println( "Loading meshes..." );
 	std::vector<MeshID> meshes = loadMeshes( gfx, ai_scene );

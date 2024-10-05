@@ -547,7 +547,7 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
 		VkRenderingInfo render_info = {
 			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
 			.pNext = nullptr,
-			.renderArea = VkRect2D { VkOffset2D { 0, 0 }, VkExtent2D{ 4096, 4096} },
+			.renderArea = VkRect2D { VkOffset2D { 0, 0 }, VkExtent2D{ 2048, 2048 } },
 			.layerCount = 1,
 			.colorAttachmentCount = 0,
 			.pColorAttachments = nullptr,
@@ -654,7 +654,7 @@ void VulkanEngine::initScene( ) {
 	DirectionalLight dir_light;
 	dir_light.color = vec4( 20.0f, 20.0f, 20.0f, 1.0f );
 	dir_light.transform.euler = vec3( glm::radians( -45.0f ), 0.0f, 0.0f );
-	dir_light.shadow_map = gfx->image_codex.createEmptyImage( "shadowmap", VkExtent3D{ 4096, 4096, 1 }, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false );
+	dir_light.shadow_map = gfx->image_codex.createEmptyImage( "shadowmap", VkExtent3D{ 2048, 2048, 1 }, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false );
 	directional_lights.emplace_back( dir_light );
 }
 
@@ -1016,6 +1016,9 @@ void VulkanEngine::run( ) {
 
 							auto& light = directional_lights.at( i );
 
+							auto flags = ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR;
+							ImGui::ColorEdit3( "Color", &light.color.x, flags );
+
 							auto euler = glm::degrees( directional_lights.at( i ).transform.euler );
 							if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
 								directional_lights.at( i ).transform.euler = glm::radians( euler );
@@ -1029,6 +1032,8 @@ void VulkanEngine::run( ) {
 							ImGui::DragFloat( "Up", &light.up );
 							ImGui::DragFloat( "Near", &light.near_plane );
 							ImGui::DragFloat( "Far", &light.far_plane );
+
+							ImGui::Image( (ImTextureID)(light.shadow_map), ImVec2( 200.0f, 200.0f ) );
 
 							ImGui::PopID( );
 						}
@@ -1143,7 +1148,7 @@ void VulkanEngine::updateScene( ) {
 	scene_data.shadow_map = directional_lights.at( 0 ).shadow_map;
 	auto& light = directional_lights.at( 0 );
 	auto proj = glm::ortho( -light.right, light.right, -light.up, light.up, light.near_plane, light.far_plane );
-	proj[1][1] *= -1;
+	//proj[1][1] *= -1;
 	auto shadow_map_pos = glm::normalize( light.transform.asMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) * light.distance;
 	auto view = glm::lookAt( vec3( shadow_map_pos ), vec3( 0.0f, 0.0f, 0.0f ), GlobalUp );
 	scene_data.light_proj = proj;

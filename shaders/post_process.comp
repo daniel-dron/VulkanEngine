@@ -57,7 +57,7 @@ void main()
     color = vec3(1.0) - exp(-color * pc.exposure);
 
     // tone mapper
-    color = neutral(color);
+    color = aces(color);
 
     // gamma correction
     color = pow(color, vec3(1.0f / pc.gamma));

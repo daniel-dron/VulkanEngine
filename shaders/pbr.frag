@@ -187,15 +187,12 @@ void main() {
     float current_depth = projCoords.z;
 
     projCoords = projCoords * 0.5f + 0.5f;
-    float bias = 0.005; // Example bias value, adjust as needed
+    float bias = 0.005;
     float closest_depth = sampleTexture2DLinear(pc.scene.shadowmap, projCoords.xy).r + bias;
-    // float closest_depth = sampleTexture2DLinear(pc.scene.shadowmap,projCoords.xy).r;
 
     float shadow = current_depth > closest_depth ? 1.0f : 0.0f;
     shadow = 1.0f - shadow;
 
     vec3 color = pbr(albedo, vec3(0.0f, 0.0f, 0.0f), metallic, roughness, 1.0f, normal, view_dir, shadow);
-    // color = color * shadow;
-    
     out_color = vec4(color, 1.0f);
 }

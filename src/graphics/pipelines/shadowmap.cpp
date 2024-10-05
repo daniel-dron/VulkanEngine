@@ -100,7 +100,7 @@ void ShadowMap::Reconstruct( GfxDevice& gfx ) {
 	builder.set_shaders( vert_shader.handle, frag_shader.handle );
 	builder.set_input_topology( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
 	builder.set_polygon_mode( VK_POLYGON_MODE_FILL );
-	builder.set_cull_mode( VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE );
+	builder.set_cull_mode( VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_CLOCKWISE );
 	builder.set_multisampling_none( );
 	builder.disable_blending( );
 	builder.enable_depthtest( true, VK_COMPARE_OP_LESS );
