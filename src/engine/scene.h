@@ -4,6 +4,8 @@
 #include <camera/camera.h>
 #include <math/transform.h>
 
+struct PointLight;
+
 struct Scene {
 	struct MeshAsset {
 		MeshID mesh;
@@ -24,10 +26,13 @@ struct Scene {
 		mat4 getTransformMatrix( ) const;
 	};
 
+	std::shared_ptr<Node> FindNodeByName( const std::string& name ) const;
+
 	std::vector<MaterialID> materials;
 	std::vector<MeshAsset> meshes;
 	std::vector<std::shared_ptr<Node>> top_nodes;
 	std::vector<Camera> cameras;
+	std::vector<PointLight> point_lights;
 
 	std::string name;
 };

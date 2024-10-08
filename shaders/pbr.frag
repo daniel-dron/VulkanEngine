@@ -20,6 +20,10 @@ layout (set = 1, binding = 1) uniform DirectionalLights {
     DirectionalLight lights[10];
 } directionalLights;
 
+layout (set = 1, binding = 2) uniform PointLights {
+    PointLight lights[10];
+} pointLights;
+
 layout( push_constant ) uniform constants {
     SceneBuffer scene;
     uint albedo_tex;
@@ -98,7 +102,7 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
 	F0      = mix(F0, albedo, metallic);
 
     vec3 Lo = vec3(0.0f);
-    for (int i = 0; i < pc.scene.number_of_lights; i++) {
+    for (int i = 0; i < pc.scene.number_of_directional_lights; i++) {
         DirectionalLight light = directionalLights.lights[i];
         vec3 L = normalize(light.direction);  // Note the negative sign
         vec3 H = normalize(V + L);
@@ -121,7 +125,38 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
         kD *= 1.0f - metallic;
 
         float NdotL = max(dot(N, L), 0.0f);
-        Lo += (kD * albedo / PI + specular) * radiance * NdotL * shadow;
+        float theta_max = 0.5 * 3.14159 / 180.0; // 0.5 degrees in radians
+        float pdf = 1.0 / (2.0 * 3.14159 * (1.0 - cos(theta_max)));
+
+        // Divide by PDF
+        Lo += (kD * albedo / PI + specular) * radiance * NdotL * shadow / pdf;
+    }
+
+    for (int i = 0; i < pc.scene.number_of_point_lights; i++) {
+        PointLight light = pointLights.lights[i];
+        vec3 L = normalize(light.position - position);
+        vec3 H = normalize(V + L);
+
+        float distance = length(light.position - position);
+        float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
+        vec3 radiance = light.color.rgb * attenuation;
+
+        vec3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
+
+        float NDF = DistributionGGX(N, H, roughness);
+        float G   = GeometrySmith(N, V, L, roughness);
+
+        vec3 numerator    = NDF * G * F;
+        float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
+        vec3 specular     = numerator / denominator;
+
+        vec3 kS = F;
+        vec3 kD = vec3(1.0) - kS;
+
+        kD *= 1.0 - metallic;
+
+        float NdotL = max(dot(N, L), 0.0);
+        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
     //vec3 kS = fresnelSchlick(max(dot(N, V), 0.0f), F0);
@@ -166,7 +201,6 @@ float ShadowCalculation( vec4 light_space_pos ) {
     float current_depth = proj_coords.z;
 
     return current_depth > closest_depth ? 1.0f : 0.0f;
-    // return closest_depth;
 }
 
 void main() {

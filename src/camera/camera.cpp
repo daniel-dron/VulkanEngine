@@ -54,7 +54,8 @@ void FirstPersonFlyingController::draw_debug( ) {
 	ImGui::DragFloat( "Move Speed", &move_speed, 0.01f );
 }
 
-Camera::Camera( const vec3& position, float yaw, float pitch, float width, float height ) {
+Camera::Camera( const vec3& position, float yaw, float pitch, float width, float height )
+	: position( position ), yaw( yaw ), pitch( pitch ) {
 	setAspectRatio( width, height );
 	updateVectors( );
 	updateMatrices( );
@@ -147,7 +148,7 @@ void Camera::drawDebug( ) {
 	ImGui::GetStyle( ).IndentSpacing = 10.0f;
 
 	// Position
-	if ( ImGui::CollapsingHeader( "Position", child_flags) ) {
+	if ( ImGui::CollapsingHeader( "Position", child_flags ) ) {
 		value_changed |= ImGui::InputFloat3( "Position", glm::value_ptr( position ) );
 	}
 

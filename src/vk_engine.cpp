@@ -466,7 +466,7 @@ void VulkanEngine::pbrPass( VkCommandBuffer cmd ) const {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	pbr_pipeline.draw( *gfx, cmd, scene_data, gpu_directional_lights, gfx->swapchain.getCurrentFrame( ).gbuffer, ibl.getIrradiance( ), ibl.getRadiance( ), ibl.getBRDF( ) );
+	pbr_pipeline.draw( *gfx, cmd, scene_data, gpu_directional_lights, gpu_point_lights, gfx->swapchain.getCurrentFrame( ).gbuffer, ibl.getIrradiance( ), ibl.getRadiance( ), ibl.getBRDF( ) );
 
 	vkCmdEndRendering( cmd );
 
@@ -582,6 +582,21 @@ void VulkanEngine::initDefaultData( ) {
 
 	// post process pipeline
 	auto& post_process_shader = gfx->shader_storage->Get( "post_process", T_COMPUTE );
+	post_process_shader.RegisterReloadCallback( [&]( VkShaderModule shader ) {
+		VK_CHECK( vkWaitForFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence, true, 1000000000 ) );
+		post_process_pipeline.cleanup( *gfx );
+
+		post_process_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+		post_process_pipeline.addPushConstantRange( sizeof( PostProcessConfig ) );
+		post_process_pipeline.build( *gfx, post_process_shader.handle, "post process compute" );
+		post_process_set = gfx->AllocateSet( post_process_pipeline.GetLayout( ) );
+
+		// TODO: this everyframe for more than one inflight frame
+		DescriptorWriter writer;
+		auto& out_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).post_process_image );
+		writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+		writer.UpdateSet( gfx->device, post_process_set );
+	} );
 
 	post_process_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 	post_process_pipeline.addPushConstantRange( sizeof( PostProcessConfig ) );
@@ -636,23 +651,23 @@ void VulkanEngine::initImages( ) {
 void VulkanEngine::initScene( ) {
 	ibl.init( *gfx, "../../assets/texture/ibls/wildflower_field_4k.hdr" );
 
-	auto scene = GltfLoader::load( *gfx, "../../assets/sponza_scene.glb" );
+	auto scene = GltfLoader::load( *gfx, "../../assets/sponza.glb" );
 	scenes["sponza"] = std::move( scene );
 
 	// init camera
 	if ( scenes["sponza"]->cameras.empty( ) ) {
-		camera = std::make_unique<Camera>( vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, 1920.0f, 1080.0f );
+		camera = std::make_unique<Camera>( vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, WIDTH, HEIGHT );
 	} else {
 		auto& c = scenes["sponza"]->cameras[0];
 		camera = std::make_unique<Camera>( c );
-		camera->setAspectRatio( 1920, 1080 );
+		camera->setAspectRatio( WIDTH, HEIGHT );
 	}
 
 	fps_controller = std::make_unique<FirstPersonFlyingController>( camera.get( ), 0.1f, 5.0f );
 	camera_controller = fps_controller.get( );
 
 	DirectionalLight dir_light;
-	dir_light.color = vec4( 20.0f, 20.0f, 20.0f, 1.0f );
+	dir_light.color = vec4( 50000.0f, 50000.0f, 50000.0f, 1.0f );
 	dir_light.transform.euler = vec3( glm::radians( -45.0f ), 0.0f, 0.0f );
 	dir_light.shadow_map = gfx->image_codex.createEmptyImage( "shadowmap", VkExtent3D{ 2048, 2048, 1 }, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false );
 	directional_lights.emplace_back( dir_light );
@@ -931,7 +946,7 @@ void VulkanEngine::run( ) {
 				}
 				ImGui::Separator( );
 				ImGui::SliderFloat( "Render Scale", &render_scale, 0.3f, 1.f );
-				ImGui::DragFloat( "Exposure", &pp_config.exposure, 0.01f, 0.01f, 10.0f );
+				ImGui::DragFloat( "Exposure", &pp_config.exposure, 0.001f, 0.00f, 10.0f );
 				ImGui::DragFloat( "Gamma", &pp_config.gamma, 0.01f, 0.01f, 10.0f );
 				ImGui::Checkbox( "Wireframe", &renderer_options.wireframe );
 				ImGui::Checkbox( "Frustum Culling", &renderer_options.frustum );
@@ -981,6 +996,8 @@ void VulkanEngine::run( ) {
 
 					pbr_pipeline.DrawDebug( );
 
+					ImGui::DragFloat( "Point Light Dimming", &renderer_options.point_light_dim, 0.01f, 0.0f );
+
 					ImGui::Unindent( );
 				}
 
@@ -992,24 +1009,6 @@ void VulkanEngine::run( ) {
 
 				if ( ImGui::CollapsingHeader( "Point Lights" ) ) {
 					ImGui::Indent( );
-					for ( auto i = 0u; i < point_lights.size( ); i++ ) {
-						if ( ImGui::CollapsingHeader( std::format( "Point Light {}", i ).c_str( ) ) ) {
-							ImGui::PushID( i );
-							auto flags = ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR;
-							ImGui::ColorEdit3( "Color", &point_lights.at( i ).color.x, flags );
-
-							auto pos = point_lights.at( i ).transform.position;
-							ImGui::DragFloat3( "Pos", &pos.x, 0.1f );
-							point_lights.at( i ).transform.position = pos;
-
-							ImGui::DragFloat( "Diffuse", &point_lights.at( i ).diffuse, 0.01f,
-								0.0f, 1.0f );
-							ImGui::DragFloat( "Specular", &point_lights.at( i ).specular, 0.01f,
-								0.0f, 1.0f );
-							ImGui::DragFloat( "Radius", &point_lights.at( i ).radius, 0.1f );
-							ImGui::PopID( );
-						}
-					}
 					for ( auto i = 0; i < directional_lights.size( ); i++ ) {
 						if ( ImGui::CollapsingHeader( std::format( "Light {}", i ).c_str( ) ) ) {
 							ImGui::PushID( i );
@@ -1155,7 +1154,7 @@ void VulkanEngine::updateScene( ) {
 	scene_data.light_view = view;
 
 	gpu_directional_lights.clear( );
-	scene_data.number_of_lights = static_cast<int>(directional_lights.size( ));
+	scene_data.number_of_directional_lights = static_cast<int>(directional_lights.size( ));
 	for ( auto i = 0; i < directional_lights.size( ); i++ ) {
 		GpuDirectionalLight gpu_light;
 		auto& light = directional_lights.at( i );
@@ -1166,6 +1165,21 @@ void VulkanEngine::updateScene( ) {
 		auto direction = light.transform.asMatrix( ) * glm::vec4( 0, 0, -1, 0 );
 		gpu_light.direction = direction;
 		gpu_directional_lights.push_back( gpu_light );
+	}
+
+	gpu_point_lights.clear( );
+	scene_data.number_of_point_lights = static_cast<int>(scene->point_lights.size( ));
+	for ( auto i = 0; i < scene->point_lights.size( ); i++ ) {
+		GpuPointLightData gpu_light;
+		auto& light = scene->point_lights.at( i );
+
+		gpu_light.position = light.node->transform.position;
+		gpu_light.color = light.color / renderer_options.point_light_dim;
+		gpu_light.quadratic = light.quadratic;
+		gpu_light.linear = light.linear;
+		gpu_light.constant = light.constant;
+
+		gpu_point_lights.push_back( gpu_light );
 	}
 
 	auto end = std::chrono::system_clock::now( );

@@ -2,12 +2,13 @@
 
 struct PointLight {
 	vec3 position;
-	float radius;
-	vec4 color; // w is power in W's
-	float diffuse;
-	float specular;
-	int pad;
-	int pad2;
+	float constant;
+	vec3 color;
+	float linear;
+	float quadratic;
+	float pad1;
+	float pad2;
+	float pad3;
 };
 
 struct DirectionalLight {
@@ -31,6 +32,7 @@ layout (buffer_reference, scalar) readonly buffer SceneBuffer {
   	float fog_end;
   	float fog_start;
     MaterialsBuffer materials;
-	int number_of_lights;
+	int number_of_directional_lights;
+	int number_of_point_lights;
 	int shadowmap;
 } sceneBuffer;

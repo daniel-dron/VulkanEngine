@@ -33,7 +33,8 @@ struct RendererOptions {
 	bool wireframe = false;
 	bool frustum = false;
 	bool vsync = true;
-	bool render_irradiance_instead_skybox = true;
+	bool render_irradiance_instead_skybox = false;
+	float point_light_dim = 200.0f;
 };
 
 /// @brief This is the main Vulkan Engine class
@@ -41,7 +42,7 @@ class VulkanEngine {
 public:
 	bool is_initialized{ false };
 	bool stop_rendering{ false };
-	VkExtent2D window_extent{ 1920, 1080 };
+	VkExtent2D window_extent{ WIDTH, HEIGHT };
 	EngineStats stats;
 
 	struct SDL_Window* window{ nullptr };
@@ -96,9 +97,9 @@ public:
 
 	// ----------
 	// scene
-	std::vector<PointLight> point_lights;
 	std::vector<DirectionalLight> directional_lights;
 	std::vector<GpuDirectionalLight> gpu_directional_lights;
+	std::vector<GpuPointLightData> gpu_point_lights;
 	GpuSceneData scene_data;
 	GpuBuffer gpu_scene_data;
 

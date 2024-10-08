@@ -237,6 +237,7 @@ static std::shared_ptr<Scene::Node> loadNode( const aiNode* node ) {
 	auto scene_node = std::make_shared<Scene::Node>( );
 
 	scene_node->name = node->mName.C_Str( );
+	fmt::println( "{}", scene_node->name.c_str( ) );
 
 	auto transform = assimpToGLM( node->mTransformation );
 	if ( node->mTransformation == aiMatrix4x4( ) ) {
@@ -277,17 +278,53 @@ static void loadCameras( const aiScene* ai_scene, Scene& scene ) {
 	for ( unsigned int i = 0; i < ai_scene->mNumCameras; ++i ) {
 		auto ai_camera = ai_scene->mCameras[i];
 
-		auto position = vec3( ai_camera->mPosition.x, ai_camera->mPosition.y, ai_camera->mPosition.z );
-		glm::vec3 look_at( ai_camera->mLookAt.x, ai_camera->mLookAt.y, ai_camera->mLookAt.z );
-		glm::vec3 direction = glm::normalize( look_at - position );
+		// find its node
+		auto node = scene.FindNodeByName( ai_camera->mName.C_Str( ) );
+		if ( node ) {
+			auto transform = node->getTransformMatrix( );
 
-		float yaw = atan2( direction.z, direction.x );
-		float pitch = asin( direction.y );
-		yaw = glm::degrees( yaw );
-		pitch = glm::degrees( pitch );
+			auto position = vec3( ai_camera->mPosition.x, ai_camera->mPosition.y, ai_camera->mPosition.z );
+			position = transform * vec4( position, 1.0f );
 
-		Camera camera = { position, yaw, pitch, 0, 0 };
-		scene.cameras.push_back( camera );
+			vec3 look_at( ai_camera->mLookAt.x, ai_camera->mLookAt.y, ai_camera->mLookAt.z );
+			look_at = transform * vec4( look_at, 0.0f );
+			vec3 direction = glm::normalize( look_at - position );
+
+			float yaw = atan2( direction.z, direction.x );
+			float pitch = asin( direction.y );
+			yaw = glm::degrees( yaw );
+			pitch = glm::degrees( pitch );
+
+			Camera camera = { position, yaw, pitch, WIDTH, HEIGHT };
+			scene.cameras.push_back( camera );
+		}
+	}
+}
+
+static void LoadLights( const aiScene* ai_scene, Scene& scene ) {
+	if ( !ai_scene->HasLights( ) ) {
+		return;
+	}
+
+	for ( unsigned int i = 0; i < ai_scene->mNumLights; i++ ) {
+		auto ai_light = ai_scene->mLights[i];
+
+		if ( ai_light->mType != aiLightSourceType::aiLightSource_POINT ) {
+			continue;
+		}
+
+		auto node = scene.FindNodeByName( ai_light->mName.C_Str( ) );
+		if ( node ) {
+			PointLight light;
+			light.node = node;
+
+			light.color = vec3(ai_light->mColorAmbient.r, ai_light->mColorAmbient.g, ai_light->mColorAmbient.b);
+			light.constant = ai_light->mAttenuationConstant;
+			light.linear = ai_light->mAttenuationLinear;
+			light.quadratic = ai_light->mAttenuationQuadratic;
+			
+			scene.point_lights.emplace_back( light );
+		}
 	}
 }
 
@@ -323,6 +360,8 @@ std::unique_ptr<Scene> GltfLoader::load( GfxDevice& gfx, const std::string& path
 	loadHierarchy( ai_scene, scene );
 
 	loadCameras( ai_scene, scene );
+
+	LoadLights( ai_scene, scene );
 
 	return std::move( scene_ptr );
 }

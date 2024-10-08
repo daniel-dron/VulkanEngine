@@ -41,6 +41,9 @@
 #define VK_CHECK(x) x
 #endif
 
+#define WIDTH 2560
+#define HEIGHT 1440
+
 // Helper macro for early return
 #define RETURN_IF_ERROR(expression) \
         if (auto result = (expression); !result) \
@@ -104,12 +107,13 @@ using quat = glm::quat;
 
 struct GpuPointLightData {
 	vec3 position;
-	float radius;
-	vec4 color;
-	float diffuse;
-	float specular;
-	int pad;
-	int pad2;
+	float constant;
+	vec3 color;
+	float linear;
+	float quadratic;
+	float pad1;
+	float pad2;
+	float pad3;
 };
 
 struct GpuDirectionalLight {
@@ -133,7 +137,8 @@ struct GpuSceneData {
 	float fog_end;
 	float fog_start;
 	VkDeviceAddress materials;
-	int number_of_lights;
+	int number_of_directional_lights;
+	int number_of_point_lights;
 	ImageID shadow_map;
 };
 

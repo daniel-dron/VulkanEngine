@@ -2,13 +2,15 @@
 
 #include <vk_types.h>
 #include "../math/transform.h"
+#include <engine/scene.h>
 
 struct PointLight {
-	Transform transform;
-	vec4 color;
-	float diffuse = 1.0f;
-	float specular = 1.0f;
-	float radius = 10.0f;
+	vec3 color;
+	float constant;
+	float linear;
+	float quadratic;
+
+	std::shared_ptr<Scene::Node> node;
 };
 
 struct DirectionalLight {
