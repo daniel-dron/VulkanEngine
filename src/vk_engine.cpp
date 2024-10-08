@@ -963,19 +963,25 @@ void VulkanEngine::run( ) {
 			}
 
 			if ( ImGui::Begin( "Settings" ) ) {
-				//if ( ImGui::CollapsingHeader( "Node" ) ) {
-				//	ImGui::Indent( );
-				//	if ( selected_node ) {
-				//		if ( ImGui::Button( "Deselect" ) ) {
-				//			selected_node = nullptr;
-				//		}
+				if ( ImGui::CollapsingHeader( "Node" ) ) {
+					ImGui::Indent( );
+					if ( selected_node ) {
+						if ( ImGui::Button( "Deselect" ) ) {
+							selected_node = nullptr;
+						}
 
-				//		if ( selected_node ) {
-				//			selected_node->transform.drawDebug( selected_node->name );
-				//		}
-				//	}
-				//	ImGui::Unindent( );
-				//}
+						if ( selected_node ) {
+							selected_node->transform.drawDebug( selected_node->name );
+						}
+
+						for ( auto& light : scenes["sponza"]->point_lights ) {
+							if ( light.node == selected_node ) {
+								light.DrawDebug( );
+							}
+						}
+					}
+					ImGui::Unindent( );
+				}
 
 				if ( ImGui::CollapsingHeader( "GPU Info" ) ) {
 					ImGui::Indent( );
@@ -1007,10 +1013,10 @@ void VulkanEngine::run( ) {
 					ImGui::Unindent( );
 				}
 
-				if ( ImGui::CollapsingHeader( "Point Lights" ) ) {
+				if ( ImGui::CollapsingHeader( "Directional Lights" ) ) {
 					ImGui::Indent( );
 					for ( auto i = 0; i < directional_lights.size( ); i++ ) {
-						if ( ImGui::CollapsingHeader( std::format( "Light {}", i ).c_str( ) ) ) {
+						if ( ImGui::CollapsingHeader( std::format( "Sun {}", i ).c_str( ) ) ) {
 							ImGui::PushID( i );
 
 							auto& light = directional_lights.at( i );

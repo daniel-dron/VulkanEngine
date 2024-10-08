@@ -13,16 +13,11 @@ mat4 Transform::asMatrix( ) const {
 
 void Transform::drawDebug( const std::string& label ) {
 	ImGui::PushID( label.c_str( ) );
+
 	ImGui::Text( "%s", label.c_str( ) );
-
-	ImGui::Text( "Position" );
-	ImGui::DragFloat3( "##Position", &position[0], 0.1f );
-
-	ImGui::Text( "Rotation" );
-	ImGui::DragFloat3( "##Rotation", &euler[0], 0.1f );
-
-	ImGui::Text( "Scale" );
-	ImGui::DragFloat3( "##Scale", &scale[0], 0.1f );
+	ImGui::DragFloat3( "Position", &position[0], 0.1f );
+	ImGui::DragFloat3( "Rotation", &euler[0], 0.1f );
+	ImGui::DragFloat3( "Scale", &scale[0], 0.1f );
 
 	ImGui::PopID( );
 }

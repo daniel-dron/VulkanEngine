@@ -11,6 +11,8 @@ struct PointLight {
 	float quadratic;
 
 	std::shared_ptr<Scene::Node> node;
+
+	void DrawDebug();
 };
 
 struct DirectionalLight {
