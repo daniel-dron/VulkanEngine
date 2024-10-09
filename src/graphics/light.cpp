@@ -1,6 +1,7 @@
 #include "light.h"
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <algorithm>    
 
 void PointLight::DrawDebug( ) {
 	ImGui::ColorEdit3( "Color HSV", &hsv.hue, ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV | ImGuiColorEditFlags_PickerHueWheel );

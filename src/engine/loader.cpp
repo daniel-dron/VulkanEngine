@@ -301,43 +301,53 @@ static void loadCameras( const aiScene* ai_scene, Scene& scene ) {
 	}
 }
 
-static std::pair<HSV, float> RgbToHSVP( double r, double g, double b ) {
-	HSV result{};
+void RGBtoHSV( float& fR, float& fG, float fB, float& fH, float& fS, float& fV ) {
+	float fCMax = std::max( std::max( fR, fG ), fB );
+	float fCMin = std::min( std::min( fR, fG ), fB );
+	float fDelta = fCMax - fCMin;
 
-	// Extract power (strength) from the maximum RGB value
-	float power = std::max( { r, g, b } );
+	if ( fDelta > 0 ) {
+		if ( fCMax == fR ) {
+			fH = 60 * (fmod( ((fG - fB) / fDelta), 6 ));
+		} else if ( fCMax == fG ) {
+			fH = 60 * (((fB - fR) / fDelta) + 2);
+		} else if ( fCMax == fB ) {
+			fH = 60 * (((fR - fG) / fDelta) + 4);
+		}
 
-	// Normalize RGB values
-	double r_norm = r / power;
-	double g_norm = g / power;
-	double b_norm = b / power;
+		if ( fCMax > 0 ) {
+			fS = fDelta / fCMax;
+		} else {
+			fS = 0;
+		}
 
-	double max_val = std::max( { r_norm, g_norm, b_norm } );
-	double min_val = std::min( { r_norm, g_norm, b_norm } );
-	double diff = max_val - min_val;
-
-	// Calculate Value (always 1.0 in this case)
-	result.value = 1.0;
-
-	// Calculate Saturation (always 1.0 in this case)
-	result.saturation = 1.0;
-
-	// Calculate Hue
-	if ( diff < 1e-6 ) {
-		result.hue = 0; // undefined, but set to 0 for consistency
-	} else if ( max_val == r_norm ) {
-		result.hue = (g_norm - b_norm) / diff;
-		if ( result.hue < 0 ) result.hue += 6.0;
-	} else if ( max_val == g_norm ) {
-		result.hue = 2.0 + (b_norm - r_norm) / diff;
-	} else { // max_val == b_norm
-		result.hue = 4.0 + (r_norm - g_norm) / diff;
+		fV = fCMax;
+	} else {
+		fH = 0;
+		fS = 0;
+		fV = fCMax;
 	}
 
-	// Convert hue to Blender's 0-1 range
-	result.hue /= 6.0;
+	if ( fH < 0 ) {
+		fH = 360 + fH;
+	}
+}
 
-	return { result, power };
+// Utility function to convert Hue to the range ImGui expects
+float convertHueToImGui( float hue, float sourceMax = 360.0f ) {
+	// Normalize the hue to 0-1 range
+	float normalizedHue = hue / sourceMax;
+
+	// Ensure the value is within 0-1 range
+	return std::clamp( normalizedHue, 0.0f, 1.0f );
+}
+
+// Function to convert HSV to ImGui compatible format
+void convertHSVToImGui( float& h, float& s, float& v, float sourceHueMax = 360.0f ) {
+	h = convertHueToImGui( h, sourceHueMax );
+	// S and V are typically already in 0-1 range, but we'll clamp them just in case
+	s = std::clamp( s, 0.0f, 1.0f );
+	v = std::clamp( v, 0.0f, 1.0f );
 }
 
 static void LoadLights( GfxDevice& gfx, const aiScene* ai_scene, Scene& scene ) {
@@ -357,9 +367,9 @@ static void LoadLights( GfxDevice& gfx, const aiScene* ai_scene, Scene& scene ) 
 			PointLight light;
 			light.node = node;
 
-			auto result = RgbToHSVP( ai_light->mColorAmbient.r, ai_light->mColorAmbient.g, ai_light->mColorAmbient.b );
-			light.hsv = result.first;
-			light.power = (result.second/ 683.0f) * 4.0f * 3.14159265359f;
+			RGBtoHSV( ai_light->mColor.r, ai_light->mColor.g, ai_light->mColor.b, light.hsv.hue, light.hsv.saturation, light.hsv.value );
+			convertHSVToImGui( light.hsv.hue, light.hsv.saturation, light.hsv.value );
+			light.power = (ai_light->mPower / 683.0f) * 4.0f * 3.14159265359f;
 
 			light.constant = ai_light->mAttenuationConstant;
 			light.linear = ai_light->mAttenuationLinear;
@@ -370,9 +380,9 @@ static void LoadLights( GfxDevice& gfx, const aiScene* ai_scene, Scene& scene ) 
 			DirectionalLight light;
 			light.node = node;
 
-			auto result = RgbToHSVP( ai_light->mColorAmbient.r, ai_light->mColorAmbient.g, ai_light->mColorAmbient.b );
-			light.hsv = result.first;
-			light.power = (result.second / 683.0f);
+			RGBtoHSV( ai_light->mColor.r, ai_light->mColor.g, ai_light->mColor.b, light.hsv.hue, light.hsv.saturation, light.hsv.value );
+			convertHSVToImGui( light.hsv.hue, light.hsv.saturation, light.hsv.value );
+			light.power = (ai_light->mPower / 683.0f);
 
 			light.shadow_map = gfx.image_codex.createEmptyImage( "shadowmap", VkExtent3D{ 2048, 2048, 1 }, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
