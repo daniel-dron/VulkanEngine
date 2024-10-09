@@ -301,6 +301,47 @@ static void loadCameras( const aiScene* ai_scene, Scene& scene ) {
 	}
 }
 
+static std::pair<HSV, float> RgbToHSVP( double r, double g, double b ) {
+	HSV result{};
+
+	// Extract power (strength) from the maximum RGB value
+	float power = std::max( { r, g, b } );
+
+	// Normalize RGB values
+	double r_norm = r / power;
+	double g_norm = g / power;
+	double b_norm = b / power;
+
+	double max_val = std::max( { r_norm, g_norm, b_norm } );
+	double min_val = std::min( { r_norm, g_norm, b_norm } );
+	double diff = max_val - min_val;
+
+	// Calculate Value (always 1.0 in this case)
+	result.value = 1.0;
+
+	// Calculate Saturation (always 1.0 in this case)
+	result.saturation = 1.0;
+
+	// Calculate Hue
+	if ( diff < 1e-6 ) {
+		result.hue = 0; // undefined, but set to 0 for consistency
+	} else if ( max_val == r_norm ) {
+		result.hue = (g_norm - b_norm) / diff;
+		if ( result.hue < 0 ) result.hue += 6.0;
+	} else if ( max_val == g_norm ) {
+		result.hue = 2.0 + (b_norm - r_norm) / diff;
+	} else { // max_val == b_norm
+		result.hue = 4.0 + (r_norm - g_norm) / diff;
+	}
+
+	// Convert hue to Blender's 0-1 range
+	result.hue /= 6.0;
+
+	power = (power / 683.0f) * 4.0f * 3.14159265359f;
+
+	return { result, power };
+}
+
 static void LoadLights( const aiScene* ai_scene, Scene& scene ) {
 	if ( !ai_scene->HasLights( ) ) {
 		return;
@@ -318,7 +359,10 @@ static void LoadLights( const aiScene* ai_scene, Scene& scene ) {
 			PointLight light;
 			light.node = node;
 
-			light.color = vec3(ai_light->mColorAmbient.r, ai_light->mColorAmbient.g, ai_light->mColorAmbient.b);
+			auto result = RgbToHSVP( ai_light->mColorAmbient.r, ai_light->mColorAmbient.g, ai_light->mColorAmbient.b );
+			light.hsv = result.first;
+			light.power = result.second;
+
 			light.constant = ai_light->mAttenuationConstant;
 			light.linear = ai_light->mAttenuationLinear;
 			light.quadratic = ai_light->mAttenuationQuadratic;

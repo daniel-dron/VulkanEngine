@@ -1158,8 +1158,6 @@ void VulkanEngine::run( ) {
 
 					pbr_pipeline.DrawDebug( );
 
-					ImGui::DragFloat( "Point Light Dimming", &renderer_options.point_light_dim, 0.01f, 0.0f );
-
 					ImGui::Indent( );
 					// ssao settings
 					ImGui::Checkbox( "SSAO", &ssao_settings.enable );
@@ -1345,7 +1343,11 @@ void VulkanEngine::updateScene( ) {
 		auto& light = scene->point_lights.at( i );
 
 		gpu_light.position = light.node->transform.position;
-		gpu_light.color = light.color / renderer_options.point_light_dim;
+
+		ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x, gpu_light.color.y, gpu_light.color.z );
+
+		gpu_light.color *= light.power;
+
 		gpu_light.quadratic = light.quadratic;
 		gpu_light.linear = light.linear;
 		gpu_light.constant = light.constant;

@@ -2,10 +2,10 @@
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 
-void PointLight::DrawDebug()
-{
-    ImGui::DragFloat3("Color", glm::value_ptr(color), 0.01f, 0.0f, 1.0f);
-    ImGui::DragFloat("Constant", &constant, 0.01f, 0.0f, 1.0f);
-    ImGui::DragFloat("Linear", &linear, 0.01f, 0.0f, 1.0f);
-    ImGui::DragFloat("Quadratic", &quadratic, 0.01f, 0.0f, 1.0f);
+void PointLight::DrawDebug( ) {
+	ImGui::ColorEdit3( "Color HSV", &hsv.hue, ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV | ImGuiColorEditFlags_PickerHueWheel );
+	ImGui::DragFloat( "Power", &power, 0.1f, 0.0f );
+	ImGui::DragFloat( "Constant", &constant, 0.01f, 0.0f, 1.0f );
+	ImGui::DragFloat( "Linear", &linear, 0.01f, 0.0f, 1.0f );
+	ImGui::DragFloat( "Quadratic", &quadratic, 0.01f, 0.0f, 1.0f );
 }

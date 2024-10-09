@@ -34,7 +34,6 @@ struct RendererOptions {
 	bool frustum = false;
 	bool vsync = true;
 	bool render_irradiance_instead_skybox = false;
-	float point_light_dim = 200.0f;
 };
 
 /// @brief This is the main Vulkan Engine class

@@ -4,8 +4,15 @@
 #include "../math/transform.h"
 #include <engine/scene.h>
 
+struct HSV {
+	float hue;
+	float saturation;
+	float value;
+};
+
 struct PointLight {
-	vec3 color;
+	HSV hsv;
+	float power;
 	float constant;
 	float linear;
 	float quadratic;
