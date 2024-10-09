@@ -5,6 +5,7 @@
 #include <math/transform.h>
 
 struct PointLight;
+struct DirectionalLight;
 
 struct Scene {
 	struct MeshAsset {
@@ -33,6 +34,7 @@ struct Scene {
 	std::vector<std::shared_ptr<Node>> top_nodes;
 	std::vector<Camera> cameras;
 	std::vector<PointLight> point_lights;
+	std::vector<DirectionalLight> directional_lights;
 
 	std::string name;
 };

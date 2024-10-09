@@ -119,8 +119,6 @@ struct GpuPointLightData {
 };
 
 struct GpuDirectionalLight {
-	vec3 position;
-	int pad;
 	vec3 direction;
 	int pad1;
 	vec4 color;

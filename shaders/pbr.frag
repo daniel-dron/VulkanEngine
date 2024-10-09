@@ -132,7 +132,7 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
         float pdf = 1.0 / (2.0 * 3.14159 * (1.0 - cos(theta_max)));
 
         // Divide by PDF
-        Lo += (kD * albedo / PI + specular) * radiance * NdotL * shadow / pdf;
+        Lo += (kD * albedo / PI + specular) * radiance * NdotL * shadow;// / pdf;
     }
 
     for (int i = 0; i < pc.scene.number_of_point_lights; i++) {

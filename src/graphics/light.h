@@ -23,8 +23,9 @@ struct PointLight {
 };
 
 struct DirectionalLight {
-	Transform transform;
-	vec4 color;
+	std::shared_ptr<Scene::Node> node;
+	HSV hsv;
+	float power;
 
 	// shadowmap
 	ImageID shadow_map;

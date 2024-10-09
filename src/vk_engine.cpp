@@ -689,7 +689,7 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
 	using namespace vkinit;
 
 	{
-		auto& depth = gfx->image_codex.getImage( directional_lights.at( 0 ).shadow_map );
+		auto& depth = gfx->image_codex.getImage( scenes.at( "sponza" )->directional_lights.at( 0 ).shadow_map );
 
 		VkRenderingAttachmentInfo depth_attachment = depth_attachment_info( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
 		VkRenderingInfo render_info = {
@@ -705,7 +705,7 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	shadowmap_pipeline.draw( *gfx, cmd, draw_commands, scene_data.light_proj, scene_data.light_view, directional_lights.at( 0 ).shadow_map );
+	shadowmap_pipeline.draw( *gfx, cmd, draw_commands, scene_data.light_proj, scene_data.light_view, scenes.at( "sponza" )->directional_lights.at( 0 ).shadow_map );
 
 	vkCmdEndRendering( cmd );
 
@@ -817,12 +817,6 @@ void VulkanEngine::initScene( ) {
 
 	fps_controller = std::make_unique<FirstPersonFlyingController>( camera.get( ), 0.1f, 5.0f );
 	camera_controller = fps_controller.get( );
-
-	DirectionalLight dir_light;
-	dir_light.color = vec4( 50000.0f, 50000.0f, 50000.0f, 1.0f );
-	dir_light.transform.euler = vec3( glm::radians( -45.0f ), 0.0f, 0.0f );
-	dir_light.shadow_map = gfx->image_codex.createEmptyImage( "shadowmap", VkExtent3D{ 2048, 2048, 1 }, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false );
-	directional_lights.emplace_back( dir_light );
 }
 
 // Global variables to store FPS history
@@ -1092,7 +1086,7 @@ void VulkanEngine::run( ) {
 					selected_set = gfx->swapchain.getCurrentFrame( ).hdr_color;
 				}
 				if ( ImGui::RadioButton( "ShadowMap", &selected_set_n, 6 ) ) {
-					selected_set = directional_lights.at( 0 ).shadow_map;
+					selected_set = scenes.at( "sponza" )->directional_lights.at( 0 ).shadow_map;
 				}
 				if ( ImGui::RadioButton( "Depth", &selected_set_n, 7 ) ) {
 					selected_set = gfx->swapchain.getCurrentFrame( ).depth;
@@ -1178,21 +1172,20 @@ void VulkanEngine::run( ) {
 
 				if ( ImGui::CollapsingHeader( "Directional Lights" ) ) {
 					ImGui::Indent( );
-					for ( auto i = 0; i < directional_lights.size( ); i++ ) {
+					for ( auto i = 0; i < scenes.at("sponza")->directional_lights.size( ); i++ ) {
 						if ( ImGui::CollapsingHeader( std::format( "Sun {}", i ).c_str( ) ) ) {
 							ImGui::PushID( i );
 
-							auto& light = directional_lights.at( i );
+							auto& light = scenes.at("sponza")->directional_lights.at( i );
+							ImGui::ColorEdit3( "Color HSV", &light.hsv.hue, ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV | ImGuiColorEditFlags_PickerHueWheel );
+							ImGui::DragFloat( "Power", &light.power, 0.1f );
 
-							auto flags = ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR;
-							ImGui::ColorEdit3( "Color", &light.color.x, flags );
-
-							auto euler = glm::degrees( directional_lights.at( i ).transform.euler );
+							auto euler = glm::degrees(light.node->transform.euler );
 							if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
-								directional_lights.at( i ).transform.euler = glm::radians( euler );
+								light.node->transform.euler = glm::radians( euler );
 							}
 
-							auto shadow_map_pos = glm::normalize( light.transform.asMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) * light.distance;
+							auto shadow_map_pos = glm::normalize( light.node->transform.asMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) * light.distance;
 							ImGui::DragFloat3( "Pos", glm::value_ptr( shadow_map_pos ) );
 
 							ImGui::DragFloat( "Distance", &light.distance );
@@ -1313,25 +1306,26 @@ void VulkanEngine::updateScene( ) {
 	scene_data.proj = camera->getProjectionMatrix( );
 	scene_data.viewproj = scene_data.proj * scene_data.view;
 	scene_data.camera_position = vec4( camera->getPosition( ), 0.0f );
-	scene_data.shadow_map = directional_lights.at( 0 ).shadow_map;
-	auto& light = directional_lights.at( 0 );
+	scene_data.shadow_map = scene->directional_lights.at( 0 ).shadow_map;
+	auto& light = scene->directional_lights.at( 0 );
 	auto proj = glm::ortho( -light.right, light.right, -light.up, light.up, light.near_plane, light.far_plane );
-	//proj[1][1] *= -1;
-	auto shadow_map_pos = glm::normalize( light.transform.asMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) * light.distance;
+
+	auto shadow_map_pos = glm::normalize( light.node->getTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 ) ) * light.distance;
 	auto view = glm::lookAt( vec3( shadow_map_pos ), vec3( 0.0f, 0.0f, 0.0f ), GlobalUp );
 	scene_data.light_proj = proj;
 	scene_data.light_view = view;
 
 	gpu_directional_lights.clear( );
-	scene_data.number_of_directional_lights = static_cast<int>(directional_lights.size( ));
-	for ( auto i = 0; i < directional_lights.size( ); i++ ) {
+	scene_data.number_of_directional_lights = static_cast<int>(scene->directional_lights.size( ));
+	for ( auto i = 0; i < scene->directional_lights.size( ); i++ ) {
 		GpuDirectionalLight gpu_light;
-		auto& light = directional_lights.at( i );
-		gpu_light.position = light.transform.position;
-		gpu_light.color = light.color;
+		auto& light = scene->directional_lights.at( i );
+
+		ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x, gpu_light.color.y, gpu_light.color.z );
+		gpu_light.color *= light.power;
 
 		// get direction
-		auto direction = light.transform.asMatrix( ) * glm::vec4( 0, 0, -1, 0 );
+		auto direction = light.node->getTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 );
 		gpu_light.direction = direction;
 		gpu_directional_lights.push_back( gpu_light );
 	}
@@ -1345,7 +1339,6 @@ void VulkanEngine::updateScene( ) {
 		gpu_light.position = light.node->transform.position;
 
 		ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x, gpu_light.color.y, gpu_light.color.z );
-
 		gpu_light.color *= light.power;
 
 		gpu_light.quadratic = light.quadratic;

@@ -124,7 +124,6 @@ public:
 
 	// ----------
 	// scene
-	std::vector<DirectionalLight> directional_lights;
 	std::vector<GpuDirectionalLight> gpu_directional_lights;
 	std::vector<GpuPointLightData> gpu_point_lights;
 	GpuSceneData scene_data;

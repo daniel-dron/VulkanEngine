@@ -337,37 +337,46 @@ static std::pair<HSV, float> RgbToHSVP( double r, double g, double b ) {
 	// Convert hue to Blender's 0-1 range
 	result.hue /= 6.0;
 
-	power = (power / 683.0f) * 4.0f * 3.14159265359f;
-
 	return { result, power };
 }
 
-static void LoadLights( const aiScene* ai_scene, Scene& scene ) {
+static void LoadLights( GfxDevice& gfx, const aiScene* ai_scene, Scene& scene ) {
 	if ( !ai_scene->HasLights( ) ) {
 		return;
 	}
 
 	for ( unsigned int i = 0; i < ai_scene->mNumLights; i++ ) {
 		auto ai_light = ai_scene->mLights[i];
+		auto node = scene.FindNodeByName( ai_light->mName.C_Str( ) );
 
-		if ( ai_light->mType != aiLightSourceType::aiLightSource_POINT ) {
+		if ( !node ) {
 			continue;
 		}
 
-		auto node = scene.FindNodeByName( ai_light->mName.C_Str( ) );
-		if ( node ) {
+		if ( ai_light->mType == aiLightSourceType::aiLightSource_POINT ) {
 			PointLight light;
 			light.node = node;
 
 			auto result = RgbToHSVP( ai_light->mColorAmbient.r, ai_light->mColorAmbient.g, ai_light->mColorAmbient.b );
 			light.hsv = result.first;
-			light.power = result.second;
+			light.power = (result.second/ 683.0f) * 4.0f * 3.14159265359f;
 
 			light.constant = ai_light->mAttenuationConstant;
 			light.linear = ai_light->mAttenuationLinear;
 			light.quadratic = ai_light->mAttenuationQuadratic;
-			
+
 			scene.point_lights.emplace_back( light );
+		} else if ( ai_light->mType == aiLightSourceType::aiLightSource_DIRECTIONAL ) {
+			DirectionalLight light;
+			light.node = node;
+
+			auto result = RgbToHSVP( ai_light->mColorAmbient.r, ai_light->mColorAmbient.g, ai_light->mColorAmbient.b );
+			light.hsv = result.first;
+			light.power = (result.second / 683.0f);
+
+			light.shadow_map = gfx.image_codex.createEmptyImage( "shadowmap", VkExtent3D{ 2048, 2048, 1 }, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false );
+
+			scene.directional_lights.emplace_back( light );
 		}
 	}
 }
@@ -405,7 +414,7 @@ std::unique_ptr<Scene> GltfLoader::load( GfxDevice& gfx, const std::string& path
 
 	loadCameras( ai_scene, scene );
 
-	LoadLights( ai_scene, scene );
+	LoadLights( gfx, ai_scene, scene );
 
 	return std::move( scene_ptr );
 }
