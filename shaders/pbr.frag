@@ -225,9 +225,19 @@ void main() {
 
     projCoords = projCoords * 0.5f + 0.5f;
     float bias = 0.005;
-    float closest_depth = sampleTexture2DLinear(pc.scene.shadowmap, projCoords.xy).r + bias;
+    // float closest_depth = sampleTexture2DLinear(pc.scene.shadowmap, projCoords.xy).r + bias;
 
-    float shadow = current_depth > closest_depth ? 1.0f : 0.0f;
+    float shadow = 0.0f;
+    vec2 texelSize = vec2(1.0 / 2048.0f);
+    for(int x = -2; x <= 2; ++x)
+    {
+        for(int y = -2; y <= 2; ++y)
+        {
+            float closest_depth = sampleTexture2DLinear(pc.scene.shadowmap, projCoords.xy + vec2(x, y) * texelSize).r + bias;
+            shadow += current_depth > closest_depth ? 1.0f : 0.0f;
+        }
+    }
+    shadow = shadow / 25.0f;
     shadow = 1.0f - shadow;
 
     vec3 color = pbr(albedo, vec3(0.0f, 0.0f, 0.0f), metallic, roughness, 1.0f, normal, view_dir, shadow);
