@@ -29,6 +29,7 @@ public:
 		VkFence fence;
 		DeletionQueue deletion_queue;
 		ImageID hdr_color;
+		ImageID ssao;
 		ImageID post_process_image;
 		ImageID depth;
 		GBuffer gbuffer;

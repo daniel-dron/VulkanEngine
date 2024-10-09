@@ -85,6 +85,7 @@ public:
 	SkyboxPipeline skybox_pipeline;
 	ShadowMap shadowmap_pipeline;
 
+	// post process
 	struct PostProcessConfig {
 		ImageID hdr;
 		float gamma = 2.2f;
@@ -94,6 +95,33 @@ public:
 	BindlessCompute post_process_pipeline;
 	VkDescriptorSet post_process_set;
 
+	// ssao
+	struct SSAOSettings {
+		bool enable = false;
+		int kernelSize = 32;
+		float radius = 0.5;
+		float bias = 0.025;
+		int blurSize = 2;
+		float power = 2;
+		int noise_texture;
+		int depth_texture;
+		int normal_texture;
+		VkDeviceAddress scene;
+	};
+	mutable SSAOSettings ssao_settings;
+	BindlessCompute ssao_pipeline;
+	VkDescriptorSet ssao_set;
+	GpuBuffer ssao_buffer;
+	GpuBuffer ssao_kernel;
+
+	// blur
+	struct BlurSettings {
+		int source_tex;
+		int size;
+	};
+	mutable BlurSettings blur_settings;
+	BindlessCompute blur_pipeline;
+	VkDescriptorSet blur_set;
 
 	// ----------
 	// scene
@@ -137,7 +165,14 @@ private:
 	/// @brief Initializes ImGui entire context
 	void initImgui( );
 
+	void ConstructSSAOPipeline( );
+	void ActuallyConstructSSAOPipeline();
+
+	void ConstructBlurPipeline( );
+	void ActuallyConstructBlurPipeline( );
+
 	void gbufferPass( VkCommandBuffer cmd ) const;
+	void SSAOPass( VkCommandBuffer cmd ) const;
 	void pbrPass( VkCommandBuffer cmd ) const;
 	void skyboxPass( VkCommandBuffer cmd ) const;
 	void postProcessPass( VkCommandBuffer cmd ) const;

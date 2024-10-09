@@ -86,8 +86,10 @@ struct GpuBuffer {
 	VmaAllocation allocation;
 	VmaAllocationInfo info;
 	std::string name;
+	VkDeviceAddress device_address = 0;
 
 	void Upload( GfxDevice& gfx, void* data, size_t size );
+	VkDeviceAddress GetDeviceAddress( GfxDevice& gfx );
 };
 
 struct EngineStats {

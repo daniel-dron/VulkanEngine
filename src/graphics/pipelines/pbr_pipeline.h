@@ -26,6 +26,7 @@ private:
 		uint32_t irradiance_tex;
 		uint32_t radiance_tex;
 		uint32_t brdf_lut;
+		uint32_t ssao_tex;
 	};
 
 	struct IBLSettings {

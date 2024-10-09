@@ -46,6 +46,7 @@
 #include <engine/loader.h>
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
+#include <random>
 
 VulkanEngine* loaded_engine = nullptr;
 
@@ -56,6 +57,20 @@ void GpuBuffer::Upload( GfxDevice& gfx, void* data, size_t size ) {
 	vmaMapMemory( gfx.allocator, allocation, &mapped_buffer );
 	memcpy( mapped_buffer, data, size );
 	vmaUnmapMemory( gfx.allocator, allocation );
+}
+
+VkDeviceAddress GpuBuffer::GetDeviceAddress( GfxDevice& gfx ) {
+	if ( device_address == 0 ) {
+		VkBufferDeviceAddressInfo address_info = {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+			.pNext = nullptr,
+			.buffer = buffer
+		};
+
+		device_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
+	}
+
+	return device_address;
 }
 
 VulkanEngine& VulkanEngine::get( ) { return *loaded_engine; }
@@ -257,6 +272,99 @@ void VulkanEngine::initImgui( ) {
 	} );
 }
 
+float random_range( float min, float max ) {
+	static std::random_device rd;
+	static std::mt19937 gen( rd( ) );
+
+	std::uniform_real_distribution<float> dis( min, max );
+
+	return dis( gen );
+}
+
+float lerp( float a, float b, float f ) {
+	return a + f * (b - a);
+}
+
+void VulkanEngine::ConstructSSAOPipeline( ) {
+	ssao_buffer = gfx->allocate( sizeof( SSAOSettings ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Settings" );
+	ssao_kernel = gfx->allocate( sizeof( vec3 ) * 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Kernel" );
+
+	std::vector<glm::vec3> kernels;
+	for ( int i = 0; i < ssao_settings.kernelSize; i++ ) {
+		glm::vec3 sample( random_range( 0.0, 1.0 ) * 2.0 - 1.0, random_range( 0.0, 1.0 ) * 2.0 - 1.0, random_range( 0.0, 1.0 ) );
+		sample = glm::normalize( sample );
+		sample *= random_range( 0.0, 1.0 );
+
+		float scale = (float)i / (float)ssao_settings.kernelSize;
+		float scaleMul = lerp( 0.1f, 1.0f, scale * scale );
+		sample *= scaleMul;
+
+		kernels.push_back( sample );
+	}
+	ssao_kernel.Upload( *gfx, kernels.data( ), kernels.size( ) * sizeof( vec3 ) );
+
+	std::vector<glm::vec4> noiseData;
+	for ( int i = 0; i < 16; i++ ) {
+		glm::vec3 noise( random_range( 0.0, 1.0 ), random_range( 0.0, 1.0 ), 0.0f );
+		noiseData.push_back( glm::vec4( noise, 1.0f ) );
+	}
+	ssao_settings.noise_texture = gfx->image_codex.loadImageFromData( "SSAO Noise", noiseData.data( ), VkExtent3D{ 4, 4, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+
+	ssao_settings.depth_texture = gfx->swapchain.getCurrentFrame( ).depth;
+	ssao_settings.normal_texture = gfx->swapchain.getCurrentFrame( ).gbuffer.normal;
+	ssao_settings.scene = gpu_scene_data.GetDeviceAddress( *gfx );
+	ssao_buffer.Upload( *gfx, &ssao_settings, sizeof( SSAOSettings ) );
+
+	// Create pipeline
+	auto& shader = gfx->shader_storage->Get( "ssao", T_COMPUTE );
+	shader.RegisterReloadCallback( [&]( VkShaderModule module ) {
+		VK_CHECK( vkWaitForFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence, true, 1000000000 ) );
+		ssao_pipeline.cleanup( *gfx );
+
+		ActuallyConstructSSAOPipeline( );
+	} );
+
+	ActuallyConstructSSAOPipeline( );
+}
+
+void VulkanEngine::ActuallyConstructSSAOPipeline( ) {
+	auto& shader = gfx->shader_storage->Get( "ssao", T_COMPUTE );
+	ssao_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+	ssao_pipeline.addDescriptorSetLayout( 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+	ssao_pipeline.addDescriptorSetLayout( 2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+	ssao_pipeline.build( *gfx, shader.handle, "ssao compute" );
+
+	ssao_set = gfx->AllocateSet( ssao_pipeline.GetLayout( ) );
+
+	auto& ssao_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).ssao );
+	DescriptorWriter writer;
+	writer.WriteBuffer( 0, ssao_buffer.buffer, sizeof( SSAOSettings ), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+	writer.WriteBuffer( 1, ssao_kernel.buffer, sizeof( vec3 ) * 64, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+	writer.WriteImage( 2, ssao_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+	writer.UpdateSet( gfx->device, ssao_set );
+}
+
+void VulkanEngine::ConstructBlurPipeline( ) {
+	auto& shader = gfx->shader_storage->Get( "blur", T_COMPUTE );
+	shader.RegisterReloadCallback( [&]( VkShaderModule module ) {
+		VK_CHECK( vkWaitForFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence, true, 1000000000 ) );
+		blur_pipeline.cleanup( *gfx );
+
+		ActuallyConstructBlurPipeline( );
+	} );
+
+	ActuallyConstructBlurPipeline( );
+}
+
+void VulkanEngine::ActuallyConstructBlurPipeline( ) {
+	auto& shader = gfx->shader_storage->Get( "blur", T_COMPUTE );
+	blur_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+	blur_pipeline.addPushConstantRange( sizeof( BlurSettings ) );
+	blur_pipeline.build( *gfx, shader.handle, "blur pipeline" );
+
+	blur_set = gfx->AllocateSet( blur_pipeline.GetLayout( ) );
+}
+
 void VulkanEngine::resizeSwapchain( uint32_t width, uint32_t height ) {
 	vkDeviceWaitIdle( gfx->device );
 
@@ -279,6 +387,9 @@ void VulkanEngine::cleanup( ) {
 		shadowmap_pipeline.cleanup( *gfx );
 
 		post_process_pipeline.cleanup( *gfx );
+		ssao_pipeline.cleanup( *gfx );
+		gfx->free( ssao_buffer );
+		gfx->free( ssao_kernel );
 
 		ibl.clean( *gfx );
 
@@ -345,6 +456,7 @@ void VulkanEngine::draw( ) {
 
 	ShadowMapPass( cmd );
 	gbufferPass( cmd );
+	SSAOPass( cmd );
 	pbrPass( cmd );
 	skyboxPass( cmd );
 	postProcessPass( cmd );
@@ -437,6 +549,42 @@ void VulkanEngine::gbufferPass( VkCommandBuffer cmd ) const {
 	gbuffer_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
 
 	vkCmdEndRendering( cmd );
+
+	END_LABEL( cmd );
+}
+
+void VulkanEngine::SSAOPass( VkCommandBuffer cmd ) const {
+	ZoneScopedN( "SSAO Pass" );
+	START_LABEL( cmd, "SSAO Pass", vec4( 1.0f, 0.5f, 0.3f, 1.0f ) );
+
+	auto bindless = gfx->getBindlessSet( );
+	auto& output = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).ssao );
+
+	output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
+
+	ssao_pipeline.bind( cmd );
+	ssao_pipeline.bindDescriptorSet( cmd, bindless, 0 );
+	ssao_pipeline.bindDescriptorSet( cmd, ssao_set, 1 );
+	ssao_pipeline.dispatch( cmd, (output.GetExtent( ).width + 15) / 16, (output.GetExtent( ).height + 15) / 16, 6 );
+
+	output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+
+	// ----------
+	// Blur
+	output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
+	DescriptorWriter writer;
+	writer.WriteImage( 0, output.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+	writer.UpdateSet( gfx->device, blur_set );
+
+	blur_settings.source_tex = output.GetId( );
+	blur_settings.size = 2;
+
+	blur_pipeline.bind( cmd );
+	blur_pipeline.bindDescriptorSet( cmd, bindless, 0 );
+	blur_pipeline.bindDescriptorSet( cmd, blur_set, 1 );
+	blur_pipeline.pushConstants( cmd, sizeof( BlurSettings ), &blur_settings );
+	blur_pipeline.dispatch( cmd, (output.GetExtent( ).width + 15) / 16, (output.GetExtent( ).height + 15) / 16, 6 );
+	output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 
 	END_LABEL( cmd );
 }
@@ -568,7 +716,7 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
 void VulkanEngine::initDefaultData( ) {
 	initImages( );
 
-	gpu_scene_data = gfx->allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
+	gpu_scene_data = gfx->allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
 
 	main_deletion_queue.pushFunction( [=, this]( ) {
 		gfx->free( gpu_scene_data );
@@ -608,6 +756,10 @@ void VulkanEngine::initDefaultData( ) {
 	auto& out_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).post_process_image );
 	writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 	writer.UpdateSet( gfx->device, post_process_set );
+
+	// SSAO pipeline
+	ConstructSSAOPipeline( );
+	ConstructBlurPipeline( );
 }
 
 void VulkanEngine::initImages( ) {
@@ -649,7 +801,7 @@ void VulkanEngine::initImages( ) {
 }
 
 void VulkanEngine::initScene( ) {
-	ibl.init( *gfx, "../../assets/texture/ibls/wildflower_field_4k.hdr" );
+	ibl.init( *gfx, "../../assets/texture/ibls/dikhololo_night_4k.hdr" );
 
 	auto scene = GltfLoader::load( *gfx, "../../assets/sponza.glb" );
 	scenes["sponza"] = std::move( scene );
@@ -887,23 +1039,24 @@ void VulkanEngine::run( ) {
 					}
 
 					selected_node->setTransform( local_transform );
-				} else {
-					ImGuizmo::SetOrthographic( false );
-					ImGuizmo::SetDrawlist( );
-					ImGuizmo::SetRect( ImGui::GetWindowPos( ).x, ImGui::GetWindowPos( ).y, (float)ImGui::GetWindowWidth( ), (float)ImGui::GetWindowHeight( ) );
-
-					auto camera_view = scene_data.view;
-					auto camera_proj = scene_data.proj;
-					camera_proj[1][1] *= -1;
-
-					auto& light = directional_lights.at( 0 );
-					auto model = light.transform.model;
-					if ( ImGuizmo::Manipulate( glm::value_ptr( camera_view ), glm::value_ptr( camera_proj ), ImGuizmo::OPERATION::ROTATE, ImGuizmo::MODE::WORLD, glm::value_ptr( model ) ) ) {
-						glm::mat3 rotationMat = glm::mat3( model );
-						light.transform.euler = glm::eulerAngles( glm::quat_cast( rotationMat ) );
-						light.transform.model = model;
-					}
 				}
+				//else {
+				//	ImGuizmo::SetOrthographic( false );
+				//	ImGuizmo::SetDrawlist( );
+				//	ImGuizmo::SetRect( ImGui::GetWindowPos( ).x, ImGui::GetWindowPos( ).y, (float)ImGui::GetWindowWidth( ), (float)ImGui::GetWindowHeight( ) );
+
+				//	auto camera_view = scene_data.view;
+				//	auto camera_proj = scene_data.proj;
+				//	camera_proj[1][1] *= -1;
+
+				//	auto& light = directional_lights.at( 0 );
+				//	auto model = light.transform.model;
+				//	if ( ImGuizmo::Manipulate( glm::value_ptr( camera_view ), glm::value_ptr( camera_proj ), ImGuizmo::OPERATION::ROTATE, ImGuizmo::MODE::WORLD, glm::value_ptr( model ) ) ) {
+				//		glm::mat3 rotationMat = glm::mat3( model );
+				//		light.transform.euler = glm::eulerAngles( glm::quat_cast( rotationMat ) );
+				//		light.transform.model = model;
+				//	}
+				//}
 			}
 			ImGui::End( );
 
@@ -943,6 +1096,9 @@ void VulkanEngine::run( ) {
 				}
 				if ( ImGui::RadioButton( "Depth", &selected_set_n, 7 ) ) {
 					selected_set = gfx->swapchain.getCurrentFrame( ).depth;
+				}
+				if ( ImGui::RadioButton( "SSAO", &selected_set_n, 8 ) ) {
+					selected_set = gfx->swapchain.getCurrentFrame( ).ssao;
 				}
 				ImGui::Separator( );
 				ImGui::SliderFloat( "Render Scale", &render_scale, 0.3f, 1.f );
@@ -1003,6 +1159,15 @@ void VulkanEngine::run( ) {
 					pbr_pipeline.DrawDebug( );
 
 					ImGui::DragFloat( "Point Light Dimming", &renderer_options.point_light_dim, 0.01f, 0.0f );
+
+					ImGui::Indent( );
+					// ssao settings
+					ImGui::Checkbox( "SSAO", &ssao_settings.enable );
+					ImGui::DragFloat( "SSAO Radius", &ssao_settings.radius, 0.01f, 0.0f, 1.0f );
+					ImGui::DragFloat( "SSAO Bias", &ssao_settings.bias, 0.01f, 0.0f, 1.0f );
+					ImGui::DragFloat( "SSAO Power", &ssao_settings.power, 0.01f, 0.0f, 1.0f );
+
+					ImGui::Unindent( );
 
 					ImGui::Unindent( );
 				}
@@ -1187,6 +1352,10 @@ void VulkanEngine::updateScene( ) {
 
 		gpu_point_lights.push_back( gpu_light );
 	}
+
+	gpu_scene_data.Upload( *gfx, &scene_data, sizeof( GpuSceneData ) );
+
+	ssao_buffer.Upload( *gfx, &ssao_settings, sizeof( SSAOSettings ) );
 
 	auto end = std::chrono::system_clock::now( );
 	// convert to microseconds (integer), and then come back to miliseconds

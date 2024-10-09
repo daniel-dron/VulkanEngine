@@ -1,0 +1,87 @@
+#version 450
+
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_buffer_reference : require
+#include "bindless.glsl"
+#include "scene.glsl"
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 1, binding = 0) uniform Settings {
+		bool enable;
+		int kernelSize;
+		float radius;
+		float bias;
+		int blurSize;
+		float power;
+		int noise_texture;
+        int depth_texture;
+        int normal_texture;
+        SceneBuffer scene;
+} settings;
+
+layout(set = 1, binding = 1) uniform Kernel {
+    vec3 kernel[64];
+} kernel;
+
+layout(set = 1, binding = 2, rgba32f) uniform image2D output_image;
+
+vec2 TexelToUV(vec2 texel, vec2 texelSize) {
+    return vec2(texel + 0.5f) * texelSize;
+}
+
+vec3 hash33(vec3 p3) {
+    p3 = fract(p3 * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz + 33.33);
+    return fract((p3.xxy + p3.yxx) * p3.zyx);
+}
+
+vec3 GetViewPos(vec2 uv, float depth, mat4 inverseProj) {
+    // vec4 clipSpace = vec4(uv * 2.0 - 1.0, depth, 1.0);
+    // vec4 viewSpace = inverseProj * clipSpace;
+    // return viewSpace.xyz / viewSpace.w;
+
+    vec2 clip_space = uv * 2.0f - 1.0f;
+    vec4 view_space = inverseProj * vec4(clip_space, depth * 2.0f - 1.0f, 1.0f);
+
+    return view_space.xyz / view_space.w;
+}
+
+void main() {
+    ivec2 dims = imageSize(output_image);
+    vec2 uvs = TexelToUV(gl_GlobalInvocationID.xy, 1.0f / vec2(dims));
+
+    float depth = sampleTexture2DNearest(settings.depth_texture, uvs).r;
+    vec3 normal = normalize(sampleTexture2DNearest(settings.normal_texture, uvs).rgb);
+    normal = mat3(settings.scene.view) * normal;
+
+    vec3 position = GetViewPos(uvs, depth, inverse(settings.scene.proj));
+
+    vec3 randomVec = hash33(vec3(gl_GlobalInvocationID.xy, settings.kernelSize));
+    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
+    vec3 bitangent = cross(normal, tangent);
+    mat3 TBN = mat3(tangent, bitangent, normal);
+
+    float occlusion = 0.0;
+    
+    for (int i = 0; i < 16; ++i) {
+        vec3 sample_vec = TBN * kernel.kernel[i];
+        sample_vec = sample_vec * settings.radius + position;
+
+        vec4 offset = settings.scene.proj * vec4(sample_vec, 1.0);
+        offset.xy /= offset.w;
+        offset.xy = offset.xy * 0.5 + 0.5;
+
+        float sample_depth = sampleTexture2DNearest(settings.depth_texture, offset.xy).r;
+        float linear_depth = GetViewPos(offset.xy, sample_depth, inverse(settings.scene.proj)).z;
+
+        float rangeCheck = smoothstep(0.0, 1.0, settings.radius / abs(position.z - linear_depth));
+        occlusion += (linear_depth >= sample_vec.z + settings.bias ? 1.0 : 0.0) * rangeCheck;
+    }
+
+    occlusion = 1.0 - (occlusion / float(settings.kernelSize));
+    occlusion = pow(max(0.0, min(1.0, occlusion)), settings.power);
+
+    imageStore(output_image, ivec2(gl_GlobalInvocationID), vec4(occlusion, 0.0, 0.0, 1.0));
+}

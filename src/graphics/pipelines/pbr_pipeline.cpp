@@ -100,7 +100,8 @@ DrawStats PbrPipeline::draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuScene
 		.pbr_tex = gbuffer.pbr,
 		.irradiance_tex = irradiance_map,
 		.radiance_tex = radiance_map,
-		.brdf_lut = brdf_lut
+		.brdf_lut = brdf_lut,
+		.ssao_tex = gfx.swapchain.getCurrentFrame( ).ssao
 	};
 	vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( PushConstants ), &push_constants );
 
