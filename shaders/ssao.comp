@@ -38,13 +38,8 @@ vec3 hash33(vec3 p3) {
 }
 
 vec3 GetViewPos(vec2 uv, float depth, mat4 inverseProj) {
-    // vec4 clipSpace = vec4(uv * 2.0 - 1.0, depth, 1.0);
-    // vec4 viewSpace = inverseProj * clipSpace;
-    // return viewSpace.xyz / viewSpace.w;
-
     vec2 clip_space = uv * 2.0f - 1.0f;
     vec4 view_space = inverseProj * vec4(clip_space, depth * 2.0f - 1.0f, 1.0f);
-
     return view_space.xyz / view_space.w;
 }
 

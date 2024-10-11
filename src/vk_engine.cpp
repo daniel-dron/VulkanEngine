@@ -385,6 +385,7 @@ void VulkanEngine::cleanup( ) {
 		imgui_pipeline.cleanup( *gfx );
 		skybox_pipeline.cleanup( *gfx );
 		shadowmap_pipeline.cleanup( *gfx );
+		blur_pipeline.cleanup( *gfx );
 
 		post_process_pipeline.cleanup( *gfx );
 		ssao_pipeline.cleanup( *gfx );
@@ -689,7 +690,7 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
 	using namespace vkinit;
 
 	{
-		auto& depth = gfx->image_codex.getImage( scenes.at( "sponza" )->directional_lights.at( 0 ).shadow_map );
+		auto& depth = gfx->image_codex.getImage( scene->directional_lights.at( 0 ).shadow_map );
 
 		VkRenderingAttachmentInfo depth_attachment = depth_attachment_info( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
 		VkRenderingInfo render_info = {
@@ -705,7 +706,7 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
 		vkCmdBeginRendering( cmd, &render_info );
 	}
 
-	shadowmap_pipeline.draw( *gfx, cmd, draw_commands, scene_data.light_proj, scene_data.light_view, scenes.at( "sponza" )->directional_lights.at( 0 ).shadow_map );
+	shadowmap_pipeline.draw( *gfx, cmd, draw_commands, scene_data.light_proj, scene_data.light_view, scene->directional_lights.at( 0 ).shadow_map );
 
 	vkCmdEndRendering( cmd );
 
@@ -801,16 +802,15 @@ void VulkanEngine::initImages( ) {
 }
 
 void VulkanEngine::initScene( ) {
-	ibl.init( *gfx, "../../assets/texture/ibls/dikhololo_night_4k.hdr" );
+	ibl.init( *gfx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
-	auto scene = GltfLoader::load( *gfx, "../../assets/sponza.glb" );
-	scenes["sponza"] = std::move( scene );
+	scene = GltfLoader::load( *gfx, "../../assets/sponza.glb" );
 
 	// init camera
-	if ( scenes["sponza"]->cameras.empty( ) ) {
+	if ( scene->cameras.empty( ) ) {
 		camera = std::make_unique<Camera>( vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, WIDTH, HEIGHT );
 	} else {
-		auto& c = scenes["sponza"]->cameras[0];
+		auto& c = scene->cameras[0];
 		camera = std::make_unique<Camera>( c );
 		camera->setAspectRatio( WIDTH, HEIGHT );
 	}
@@ -1058,7 +1058,7 @@ void VulkanEngine::run( ) {
 			ImGui::PopStyleVar( );
 
 			if ( ImGui::Begin( "Scene" ) ) {
-				drawNodeHierarchy( scenes["sponza"]->top_nodes[0] );
+				drawNodeHierarchy( scene->top_nodes[0] );
 			}
 			ImGui::End( );
 
@@ -1086,7 +1086,7 @@ void VulkanEngine::run( ) {
 					selected_set = gfx->swapchain.getCurrentFrame( ).hdr_color;
 				}
 				if ( ImGui::RadioButton( "ShadowMap", &selected_set_n, 6 ) ) {
-					selected_set = scenes.at( "sponza" )->directional_lights.at( 0 ).shadow_map;
+					selected_set = scene->directional_lights.at( 0 ).shadow_map;
 				}
 				if ( ImGui::RadioButton( "Depth", &selected_set_n, 7 ) ) {
 					selected_set = gfx->swapchain.getCurrentFrame( ).depth;
@@ -1124,7 +1124,7 @@ void VulkanEngine::run( ) {
 							selected_node->transform.drawDebug( selected_node->name );
 						}
 
-						for ( auto& light : scenes["sponza"]->point_lights ) {
+						for ( auto& light : scene->point_lights ) {
 							if ( light.node == selected_node ) {
 								light.DrawDebug( );
 							}
@@ -1172,11 +1172,11 @@ void VulkanEngine::run( ) {
 
 				if ( ImGui::CollapsingHeader( "Directional Lights" ) ) {
 					ImGui::Indent( );
-					for ( auto i = 0; i < scenes.at("sponza")->directional_lights.size( ); i++ ) {
+					for ( auto i = 0; i < scene->directional_lights.size( ); i++ ) {
 						if ( ImGui::CollapsingHeader( std::format( "Sun {}", i ).c_str( ) ) ) {
 							ImGui::PushID( i );
 
-							auto& light = scenes.at("sponza")->directional_lights.at( i );
+							auto& light = scene->directional_lights.at( i );
 							ImGui::ColorEdit3( "Color HSV", &light.hsv.hue, ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV | ImGuiColorEditFlags_PickerHueWheel );
 							ImGui::DragFloat( "Power", &light.power, 0.1f );
 
@@ -1298,8 +1298,7 @@ void VulkanEngine::updateScene( ) {
 	auto start = std::chrono::system_clock::now( );
 
 	draw_commands.clear( );
-	auto scene = scenes["sponza"].get( );
-	createDrawCommands( *gfx.get( ), *scene, *(scenes["sponza"]->top_nodes[0].get( )), draw_commands );
+	createDrawCommands( *gfx.get( ), *scene, *(scene->top_nodes[0].get( )), draw_commands );
 
 	// camera
 	scene_data.view = camera->getViewMatrix( );

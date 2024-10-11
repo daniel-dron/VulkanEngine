@@ -5,7 +5,6 @@ cmake_minimum_required (VERSION 3.8)
 
 project ("vulkan_guide")
 
-
 find_package(Vulkan REQUIRED)
 
 add_subdirectory(third_party)
@@ -17,7 +16,6 @@ set (TRACY_ENABLE TRUE)
 add_subdirectory(src)
 
 find_program(GLSL_VALIDATOR glslangValidator)
-
 
 file(GLOB_RECURSE GLSL_SOURCE_FILES
     "${PROJECT_SOURCE_DIR}/shaders/*.frag"
@@ -39,7 +37,7 @@ endforeach(GLSL)
 
 add_custom_target(
     Shaders 
-    DEPENDS ${SPIRV_BINARY_FILES}
+    DEPENDS ${GLSL_SOURCE_FILES}
     )
 
 source_group(Shaders "shaders" FILES ${GLSL_SOURCE_FILES})
