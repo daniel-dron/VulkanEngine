@@ -8,6 +8,7 @@ file(GLOB SRC_SRC
   vk_pipelines.cpp
   vk_engine.h
   vk_engine.cpp
+  pch.h
 )
 
 file(GLOB SRC_GRAPHICS
@@ -122,6 +123,6 @@ target_compile_definitions(engine PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 target_compile_definitions(engine PUBLIC GLM_FORCE_RIGHT_HANDED)
 target_include_directories(engine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
-target_link_libraries(engine PUBLIC vma glm Vulkan::Vulkan fmt::fmt stb_image SDL2::SDL2 vkbootstrap imgui assimp)
+target_precompile_headers(engine PRIVATE pch.h)
 
-target_precompile_headers(engine PUBLIC <optional> <vector> <memory> <string> <vector> <unordered_map> <glm/mat4x4.hpp>  <glm/vec4.hpp> <vulkan/vulkan.h>)
+target_link_libraries(engine PUBLIC vma glm Vulkan::Vulkan fmt::fmt stb_image SDL2::SDL2 vkbootstrap imgui assimp)

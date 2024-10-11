@@ -1,13 +1,14 @@
+#include <pch.h>
+
 #include "camera.h"
 
 #include <imgui.h>
 
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
-#include <algorithm>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "engine/input.h"
-#include <glm/gtc/type_ptr.hpp>
 
 void FirstPersonFlyingController::update( float deltaTime ) {
 	if ( EG_INPUT.is_key_up( EG_KEY::MOUSE_RIGHT ) ) {

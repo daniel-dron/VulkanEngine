@@ -1,3 +1,5 @@
+#include <pch.h>
+
 #include "scene.h"
 #include <imgui.h>
 #include <glm/gtx/matrix_decompose.hpp>

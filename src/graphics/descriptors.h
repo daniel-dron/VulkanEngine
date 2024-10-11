@@ -2,6 +2,8 @@
 
 #include <vk_types.h>
 
+#include <span>
+
 class GfxDevice;
 
 class DescriptorLayoutBuilder {

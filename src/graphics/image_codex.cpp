@@ -1,3 +1,5 @@
+#include <pch.h>
+
 #include "image_codex.h"
 
 #define STB_IMAGE_IMPLEMENTATION

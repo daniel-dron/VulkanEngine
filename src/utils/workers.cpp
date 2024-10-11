@@ -1,3 +1,5 @@
+#include <pch.h>
+
 #include "workers.h"
 
 WorkerPool::WorkerPool( size_t num_threads ) {

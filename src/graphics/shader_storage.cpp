@@ -1,3 +1,5 @@
+#include <pch.h>
+
 #include "shader_storage.h"
 #include <fstream>
 #include <graphics/gfx_device.h>

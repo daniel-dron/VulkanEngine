@@ -1,4 +1,6 @@
-﻿#include <graphics/descriptors.h>
+﻿#include <pch.h>
+
+#include <graphics/descriptors.h>
 #include <graphics/gfx_device.h>
 #include "descriptors.h"
 

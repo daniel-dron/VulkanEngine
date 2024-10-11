@@ -2,11 +2,6 @@
 
 #include <SDL.h>
 
-#include <array>
-#include <cstdint>
-#include <unordered_map>
-
-
 // swap here the input implementation
 #define EG_INPUT EngineInput::instance()
 

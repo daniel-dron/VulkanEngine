@@ -1,11 +1,10 @@
 #pragma once
 
+#include <pch.h>
+
 #include "input.h"
 
-#include <fmt/core.h>
 #include <imgui_impl_sdl2.h>
-
-#include <algorithm>
 #include <tracy/tracy/Tracy.hpp>
 
 #include "../vk_engine.h"

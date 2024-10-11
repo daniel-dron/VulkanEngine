@@ -1,3 +1,5 @@
+#include <pch.h>
+
 #include "light.h"
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>

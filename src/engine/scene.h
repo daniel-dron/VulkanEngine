@@ -4,6 +4,8 @@
 #include <camera/camera.h>
 #include <math/transform.h>
 
+#include <memory>
+
 struct PointLight;
 struct DirectionalLight;
 

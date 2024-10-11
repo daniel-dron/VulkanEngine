@@ -2,27 +2,16 @@
 // or project specific include files.
 #pragma once
 
-#include <fmt/core.h>
+#include <deque>
+#include <functional>
+
 #include <vk_mem_alloc.h>
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
-
-#include <array>
-#include <cstdint>
-#include <deque>
-#include <functional>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
-#include <memory>
-#include <optional>
-#include <span>
-#include <string>
-#include <vector>
-#include <deque>
-#include <functional>
-
 #include "glm/ext/vector_float4.hpp"
 
 #ifdef _DEBUG

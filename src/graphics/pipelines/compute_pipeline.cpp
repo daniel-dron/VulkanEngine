@@ -1,3 +1,5 @@
+#include <pch.h>
+
 #include "compute_pipeline.h"
 
 void BindlessCompute::addDescriptorSetLayout( uint32_t binding, VkDescriptorType type ) {

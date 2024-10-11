@@ -1,4 +1,4 @@
-#pragma once
+#include <pch.h>
 
 #include "gpu_image.h"
 

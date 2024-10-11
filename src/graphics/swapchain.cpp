@@ -1,3 +1,5 @@
+#include <pch.h>
+
 #include "swapchain.h"
 
 #include "gfx_device.h"

@@ -5,11 +5,6 @@
 
 #include <vk_types.h>
 #include <vulkan/vulkan_core.h>
-
-#include <cstdint>
-#include <memory>
-#include <span>
-
 #include "camera/camera.h"
 #include <graphics/descriptors.h>
 #include "graphics/light.h"
@@ -20,10 +15,8 @@
 #include <graphics/pipelines/imgui_pipeline.h>
 #include <graphics/pipelines/skybox_pipeline.h>
 #include <graphics/pipelines/shadowmap.h>
-
 #include "graphics/gfx_device.h"
 #include <graphics/material_codex.h>
-
 #include <engine/scene.h>
 #include <graphics/ibl.h>
 

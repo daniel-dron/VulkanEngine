@@ -1,3 +1,5 @@
+#include <pch.h>
+
 #include "loader.h"
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>

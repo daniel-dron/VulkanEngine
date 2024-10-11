@@ -1,4 +1,6 @@
-﻿#include <vk_initializers.h>
+﻿#include <pch.h>
+
+#include <vk_initializers.h>
 
 //> init_cmd
 VkCommandPoolCreateInfo vkinit::command_pool_create_info(
