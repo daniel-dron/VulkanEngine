@@ -10,7 +10,6 @@ cmake_install.cmake
 Makefile
 
 assets/
-third_party/
 megabugs/
 
 # Compiled Object files
