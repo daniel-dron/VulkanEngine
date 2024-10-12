@@ -1,6 +1,18 @@
-﻿#include <pch.h>
+﻿/******************************************************************************
+******************************************************************************
+**                                                                           **
+**                             Twilight Engine                               **
+**                                                                           **
+**                  Copyright (c) 2024-present Daniel Dron                   **
+**                                                                           **
+**            This software is released under the MIT License.               **
+**                 https://opensource.org/licenses/MIT                       **
+**                                                                           **
+******************************************************************************
+******************************************************************************/
 
-#include <graphics/gfx_device.h>
+#include <pch.h>
+
 #include "descriptors.h"
 
 void DescriptorLayoutBuilder::AddBinding( uint32_t binding, VkDescriptorType type ) {

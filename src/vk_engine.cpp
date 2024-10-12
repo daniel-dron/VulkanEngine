@@ -1,4 +1,17 @@
-﻿#include <pch.h>
+﻿/******************************************************************************
+******************************************************************************
+**                                                                           **
+**                             Twilight Engine                               **
+**                                                                           **
+**                  Copyright (c) 2024-present Daniel Dron                   **
+**                                                                           **
+**            This software is released under the MIT License.               **
+**                 https://opensource.org/licenses/MIT                       **
+**                                                                           **
+******************************************************************************
+******************************************************************************/
+
+#include <pch.h>
 
 #include "vk_engine.h"
 
@@ -16,7 +29,6 @@
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/gtx/integer.hpp"
 #include "glm/gtx/matrix_decompose.hpp"
-#include "glm/gtx/orthonormalize.hpp"
 #include "glm/packing.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"

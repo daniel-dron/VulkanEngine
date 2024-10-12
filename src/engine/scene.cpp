@@ -1,8 +1,20 @@
+/******************************************************************************
+******************************************************************************
+**                                                                           **
+**                             Twilight Engine                               **
+**                                                                           **
+**                  Copyright (c) 2024-present Daniel Dron                   **
+**                                                                           **
+**            This software is released under the MIT License.               **
+**                 https://opensource.org/licenses/MIT                       **
+**                                                                           **
+******************************************************************************
+******************************************************************************/
+
 #include <pch.h>
 
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
-#include <imgui.h>
 #include "scene.h"
 
 void Node::SetTransform( const Mat4 &newTransform ) {
