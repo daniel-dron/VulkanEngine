@@ -11,6 +11,7 @@ Makefile
 
 assets/
 third_party/
+megabugs/
 
 # Compiled Object files
 *.slo
