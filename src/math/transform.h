@@ -4,15 +4,13 @@
 
 class Transform {
 public:
-	mat4 asMatrix( ) const;
+    [[nodiscard]] Mat4 AsMatrix( ) const;
 
-	void drawDebug( const std::string& );
+	void DrawDebug( const std::string& );
 
-	void DrawGizmo( );
+	Vec3 position = { 0.0f, 0.0f, 0.0f };
+	Vec3 euler = { 0.0f, 0.0f, 0.0f };
+    Vec3 scale = { 1.0f, 1.0f, 1.0f };
 
-	vec3 position = { 0.0f, 0.0f, 0.0f };
-	vec3 euler = { 0.0f, 0.0f, 0.0f };
-	vec3 scale = { 1.0f, 1.0f, 1.0f };
-
-	mat4 model = glm::identity<mat4>( );
+	Mat4 model = glm::identity<Mat4>( );
 };

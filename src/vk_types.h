@@ -1,20 +1,15 @@
-﻿// vulkan_guide.h : Include file for standard system include files,
-// or project specific include files.
-#pragma once
+﻿#pragma once
 
 #include <deque>
 #include <functional>
 
 #include <vk_mem_alloc.h>
-#include <vulkan/vk_enum_string_helper.h>
-#include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 #include <glm/gtx/quaternion.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/vec4.hpp>
-#include "glm/ext/vector_float4.hpp"
 
 #ifdef _DEBUG
+#include <vulkan/vk_enum_string_helper.h>
+#include <vulkan/vulkan.h>
 #define ENABLE_DEBUG_UTILS
 #define VK_CHECK(x)                                                       \
   do {                                                                    \
@@ -39,13 +34,13 @@
             return std::unexpected(result.error())
 
 
-const glm::vec3 GlobalUp{ 0.0f, 1.0f, 0.0f };
-const glm::vec3 GlobalRight{ 1.0f, 0.0f, 0.0f };
-const glm::vec3 GlobalFront{ 0.0f, 0.0f, 1.0f };
+constexpr glm::vec3 GLOBAL_UP{ 0.0f, 1.0f, 0.0f };
+constexpr glm::vec3 GLOBAL_RIGHT{ 1.0f, 0.0f, 0.0f };
+constexpr glm::vec3 GLOBAL_FRONT{ 0.0f, 0.0f, 1.0f };
 
-using ImageID = uint32_t;
-using MeshID = uint32_t;
-using MaterialID = uint32_t;
+using ImageId = uint32_t;
+using MeshId = uint32_t;
+using MaterialId = uint32_t;
 
 struct DeletionQueue {
 	std::deque<std::function<void( )>> deletors;
@@ -54,11 +49,11 @@ struct DeletionQueue {
 		deletors.clear( );
 	}
 
-	void pushFunction( std::function<void( )>&& deletor ) {
+	void PushFunction( std::function<void( )>&& deletor ) {
 		deletors.push_back( std::move( deletor ) );
 	}
 
-	void flush( ) {
+	void Flush( ) {
 		// reverse iterate the deletion queue to execute all the functions
 		for ( auto it = deletors.rbegin( ); it != deletors.rend( ); ++it ) {
 			(*it)();  // call functors
@@ -75,31 +70,31 @@ struct GpuBuffer {
 	VmaAllocation allocation;
 	VmaAllocationInfo info;
 	std::string name;
-	VkDeviceAddress device_address = 0;
+	VkDeviceAddress deviceAddress = 0;
 
-	void Upload( GfxDevice& gfx, void* data, size_t size );
-	VkDeviceAddress GetDeviceAddress( GfxDevice& gfx );
+	void Upload(const GfxDevice& gfx, const void * data, size_t size ) const;
+	VkDeviceAddress GetDeviceAddress( const GfxDevice & gfx );
 };
 
 struct EngineStats {
 	float frametime;
-	int triangle_count;
-	int drawcall_count;
-	float scene_update_time;
-	float mesh_draw_time;
+	int triangleCount;
+	int drawcallCount;
+	float sceneUpdateTime;
+	float meshDrawTime;
 };
 
 
-using vec2 = glm::vec2;
-using vec3 = glm::vec3;
-using vec4 = glm::vec4;
-using mat4 = glm::mat4;
-using quat = glm::quat;
+using Vec2 = glm::vec2;
+using Vec3 = glm::vec3;
+using Vec4 = glm::vec4;
+using Mat4 = glm::mat4;
+using Quat = glm::quat;
 
 struct GpuPointLightData {
-	vec3 position;
+	Vec3 position;
 	float constant;
-	vec3 color;
+	Vec3 color;
 	float linear;
 	float quadratic;
 	float pad1;
@@ -108,30 +103,30 @@ struct GpuPointLightData {
 };
 
 struct GpuDirectionalLight {
-	vec3 direction;
+	Vec3 direction;
 	int pad1;
-	vec4 color;
+	Vec4 color;
 };
 
 struct GpuSceneData {
-	mat4 view;
-	mat4 proj;
-	mat4 viewproj;
-	mat4 light_proj;
-	mat4 light_view;
-	vec4 fog_color;
-	vec3 camera_position;
-	float ambient_light_factor;
-	vec3 ambient_light_color;
-	float fog_end;
-	float fog_start;
+	Mat4 view;
+	Mat4 proj;
+	Mat4 viewproj;
+	Mat4 lightProj;
+	Mat4 lightView;
+	Vec4 fogColor;
+	Vec3 cameraPosition;
+	float ambientLightFactor;
+	Vec3 ambientLightColor;
+	float fogEnd;
+	float fogStart;
 	VkDeviceAddress materials;
-	int number_of_directional_lights;
-	int number_of_point_lights;
-	ImageID shadow_map;
+	int numberOfDirectionalLights;
+	int numberOfPointLights;
+	ImageId shadowMap;
 };
 
 struct DrawStats {
-	int triangle_count;
-	int drawcall_count;
+	int triangleCount;
+	int drawcallCount;
 };

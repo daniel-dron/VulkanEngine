@@ -2,21 +2,23 @@
 
 #include "pipeline.h"
 
+struct MeshDrawCommand;
+
 class GBufferPipeline : public Pipeline {
 public:
-	virtual Result<> init( GfxDevice& gfx ) override;
-	virtual void cleanup( GfxDevice& gfx ) override;
-	DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const GpuSceneData& scene_data ) const;
+    Result<> Init( GfxDevice &gfx ) override;
+    void Cleanup( GfxDevice &gfx ) override;
+    DrawStats Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands, const GpuSceneData &sceneData ) const;
 
 private:
-	struct PushConstants {
-		mat4 world_from_local;
-		VkDeviceAddress scene_data_address;
-		VkDeviceAddress vertex_buffer_address;
-		uint32_t material_id;
-	};
+    struct PushConstants {
+        Mat4 worldFromLocal;
+        VkDeviceAddress sceneDataAddress;
+        VkDeviceAddress vertexBufferAddress;
+        uint32_t materialId;
+    };
 
-	void Reconstruct( GfxDevice& gfx );
+    void Reconstruct( GfxDevice &gfx );
 
-	GpuBuffer gpu_scene_data;
+    GpuBuffer m_gpuSceneData = { };
 };

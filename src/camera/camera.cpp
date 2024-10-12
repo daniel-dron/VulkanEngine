@@ -4,206 +4,205 @@
 
 #include <imgui.h>
 
+#include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 #include "engine/input.h"
 
-void FirstPersonFlyingController::update( float deltaTime ) {
-	if ( EG_INPUT.is_key_up( EG_KEY::MOUSE_RIGHT ) ) {
-		return;
-	}
+void FirstPersonFlyingController::Update( float deltaTime ) {
+    if ( EG_INPUT.IsKeyUp( EG_KEY::MOUSE_RIGHT ) ) {
+        return;
+    }
 
-	move_speed += EG_INPUT.get_mouse_wheel( ) * 10.0f;
-	if ( move_speed <= 0.1f ) {
-		move_speed = 0.1f;
-	}
+    m_moveSpeed += EG_INPUT.GetMouseWheel( ) * 10.0f;
+    if ( m_moveSpeed <= 0.1f ) {
+        m_moveSpeed = 0.1f;
+    }
 
-	glm::vec3 movement( 0.0f );
+    glm::vec3 movement( 0.0f );
 
-	if ( EG_INPUT.is_key_down( EG_KEY::W ) ) {
-		movement += camera->getFront( );
-	}
-	if ( EG_INPUT.is_key_down( EG_KEY::S ) ) {
-		movement -= camera->getFront( );
-	}
-	if ( EG_INPUT.is_key_down( EG_KEY::A ) ) {
-		movement -= camera->getRight( );
-	}
-	if ( EG_INPUT.is_key_down( EG_KEY::D ) ) {
-		movement += camera->getRight( );
-	}
+    if ( EG_INPUT.IsKeyDown( EG_KEY::W ) ) {
+        movement += m_camera->GetFront( );
+    }
+    if ( EG_INPUT.IsKeyDown( EG_KEY::S ) ) {
+        movement -= m_camera->GetFront( );
+    }
+    if ( EG_INPUT.IsKeyDown( EG_KEY::A ) ) {
+        movement -= m_camera->GetRight( );
+    }
+    if ( EG_INPUT.IsKeyDown( EG_KEY::D ) ) {
+        movement += m_camera->GetRight( );
+    }
 
-	// Normalize movement vector if it's not zero
-	if ( glm::length2( movement ) > 0.0f ) {
-		movement = glm::normalize( movement );
-	}
+    // Normalize movement vector if it's not zero
+    if ( glm::length2( movement ) > 0.0f ) {
+        movement = glm::normalize( movement );
+    }
 
-	// Apply movement
-	glm::vec3 newPosition = camera->getPosition( ) + movement * move_speed * deltaTime;
-	camera->setPosition( newPosition );
+    // Apply movement
+    const glm::vec3 new_position = m_camera->GetPosition( ) + movement * m_moveSpeed * deltaTime;
+    m_camera->SetPosition( new_position );
 
-	auto rel = EG_INPUT.get_mouse_rel( );
-	float delta_yaw = static_cast<float>(rel.first) * sensitivity;
-	float delta_pitch = -static_cast<float>(rel.second) * sensitivity;
-	camera->rotate( delta_yaw, delta_pitch, 0.0f );
+    auto [yaw, pitch] = EG_INPUT.GetMouseRel( );
+    const float delta_yaw = static_cast<float>( yaw ) * m_sensitivity;
+    const float delta_pitch = -static_cast<float>( pitch ) * m_sensitivity;
+    m_camera->Rotate( delta_yaw, delta_pitch, 0.0f );
 }
 
-void FirstPersonFlyingController::draw_debug( ) {
-	ImGui::DragFloat( "Sensitivity", &sensitivity, 0.01f );
-	ImGui::DragFloat( "Move Speed", &move_speed, 0.01f );
+void FirstPersonFlyingController::DrawDebug( ) {
+    ImGui::DragFloat( "Sensitivity", &m_sensitivity, 0.01f );
+    ImGui::DragFloat( "Move Speed", &m_moveSpeed, 0.01f );
 }
 
-Camera::Camera( const vec3& position, float yaw, float pitch, float width, float height )
-	: position( position ), yaw( yaw ), pitch( pitch ) {
-	setAspectRatio( width, height );
-	updateVectors( );
-	updateMatrices( );
+Camera::Camera( const Vec3 &position, float yaw, float pitch, float width, float height ) :
+    m_position( position ), m_yaw( yaw ), m_pitch( pitch ) {
+    SetAspectRatio( width, height );
+    UpdateVectors( );
+    UpdateMatrices( );
 }
 
-void Camera::setAspectRatio( float width, float height ) {
-	aspect_ratio = width / height;
+void Camera::SetAspectRatio( float width, float height ) {
+    m_aspectRatio = width / height;
 
-	dirty_matrices = true;
+    m_dirtyMatrices = true;
 }
 
-void Camera::rotate( float delta_yaw, float delta_pitch, float delta_roll ) {
-	yaw += delta_yaw;
-	yaw = std::fmod( yaw, 360.0f );
+void Camera::Rotate( float deltaYaw, float deltaPitch, float deltaRoll ) {
+    m_yaw += deltaYaw;
+    m_yaw = std::fmod( m_yaw, 360.0f );
 
-	roll += delta_roll;
+    m_roll += deltaRoll;
 
-	pitch += delta_pitch;
-	pitch = std::clamp( pitch, min_pitch, max_pitch );
+    m_pitch += deltaPitch;
+    m_pitch = std::clamp( m_pitch, m_minPitch, m_maxPitch );
 
-	dirty_matrices = true;
+    m_dirtyMatrices = true;
 
-	updateVectors( );
+    UpdateVectors( );
 }
 
-const vec3& Camera::getFront( ) const {
-	return front;
+const Vec3 &Camera::GetFront( ) const {
+    return m_front;
 }
 
-const vec3& Camera::getRight( ) const {
-	return right;
+const Vec3 &Camera::GetRight( ) const {
+    return m_right;
 }
 
-const vec3& Camera::getPosition( ) const {
-	return position;
+const Vec3 &Camera::GetPosition( ) const {
+    return m_position;
 }
 
-void Camera::setPosition( const vec3& new_position ) {
-	position = new_position;
+void Camera::SetPosition( const Vec3 &newPosition ) {
+    m_position = newPosition;
 }
 
-const mat4& Camera::getViewMatrix( ) {
-	if ( dirty_matrices ) {
-		updateMatrices( );
-	}
+const Mat4 &Camera::GetViewMatrix( ) {
+    if ( m_dirtyMatrices ) {
+        UpdateMatrices( );
+    }
 
-	return view_matrix;
+    return m_viewMatrix;
 }
 
-const mat4& Camera::getProjectionMatrix( ) {
-	if ( dirty_matrices ) {
-		updateMatrices( );
-	}
+const Mat4 &Camera::GetProjectionMatrix( ) {
+    if ( m_dirtyMatrices ) {
+        UpdateMatrices( );
+    }
 
-	return projection_matrix;
+    return m_projectionMatrix;
 }
 
-void Camera::updateVectors( ) {
-	front.x = cos( glm::radians( yaw ) ) * cos( glm::radians( pitch ) );
-	front.y = sin( glm::radians( pitch ) );
-	front.z = sin( glm::radians( yaw ) ) * cos( glm::radians( pitch ) );
-	front = glm::normalize( front );
+void Camera::UpdateVectors( ) {
+    m_front.x = cos( glm::radians( m_yaw ) ) * cos( glm::radians( m_pitch ) );
+    m_front.y = sin( glm::radians( m_pitch ) );
+    m_front.z = sin( glm::radians( m_yaw ) ) * cos( glm::radians( m_pitch ) );
+    m_front = normalize( m_front );
 
-	right = glm::normalize( glm::cross( front, world_up ) );
-	up = glm::normalize( glm::cross( right, front ) );
+    m_right = normalize( cross( m_front, m_worldUp ) );
+    m_up = normalize( cross( m_right, m_front ) );
 
-	if ( roll != 0.0f ) {
-		glm::mat4 roll_matrix = glm::rotate( glm::mat4( 1.0f ), glm::radians( roll ), front );
-		right = glm::vec3( roll_matrix * glm::vec4( right, 0.0f ) );
-		up = glm::vec3( roll_matrix * glm::vec4( up, 0.0f ) );
-	}
+    if ( m_roll != 0.0f ) {
+        const glm::mat4 roll_matrix = rotate( glm::mat4( 1.0f ), glm::radians( m_roll ), m_front );
+        m_right = glm::vec3( roll_matrix * glm::vec4( m_right, 0.0f ) );
+        m_up = glm::vec3( roll_matrix * glm::vec4( m_up, 0.0f ) );
+    }
 
-	dirty_matrices = true;
+    m_dirtyMatrices = true;
 }
 
-void Camera::updateMatrices( ) {
-	view_matrix = glm::lookAt( position, position + front, up );
-	projection_matrix = glm::perspective( glm::radians( fov ), aspect_ratio, near_plane, far_plane );
-	projection_matrix[1][1] *= -1;
+void Camera::UpdateMatrices( ) {
+    m_viewMatrix = lookAt( m_position, m_position + m_front, m_up );
+    m_projectionMatrix = glm::perspective( glm::radians( m_fov ), m_aspectRatio, m_nearPlane, m_farPlane );
+    m_projectionMatrix[1][1] *= -1;
 
-	dirty_matrices = false;
+    m_dirtyMatrices = false;
 }
 
-void Camera::drawDebug( ) {
-	bool value_changed = false;
+void Camera::DrawDebug( ) {
+    bool value_changed = false;
 
-	ImGui::Indent( );
-	ImGuiTreeNodeFlags child_flags = ImGuiTreeNodeFlags_DefaultOpen;
-	float original_indent = ImGui::GetStyle( ).IndentSpacing;
-	ImGui::GetStyle( ).IndentSpacing = 10.0f;
+    ImGui::Indent( );
+    const ImGuiTreeNodeFlags child_flags = ImGuiTreeNodeFlags_DefaultOpen;
+    ImGui::GetStyle( ).IndentSpacing = 10.0f;
 
-	// Position
-	if ( ImGui::CollapsingHeader( "Position", child_flags ) ) {
-		value_changed |= ImGui::InputFloat3( "Position", glm::value_ptr( position ) );
-	}
+    // Position
+    if ( ImGui::CollapsingHeader( "Position", child_flags ) ) {
+        value_changed |= ImGui::InputFloat3( "Position", glm::value_ptr( m_position ) );
+    }
 
-	// Orientation vectors
-	if ( ImGui::CollapsingHeader( "Orientation Vectors", child_flags ) ) {
-		value_changed |= ImGui::InputFloat3( "Front", glm::value_ptr( front ) );
-		value_changed |= ImGui::InputFloat3( "Right", glm::value_ptr( right ) );
-		value_changed |= ImGui::InputFloat3( "Up", glm::value_ptr( up ) );
-		value_changed |= ImGui::InputFloat3( "World Up", glm::value_ptr( world_up ) );
-	}
+    // Orientation vectors
+    if ( ImGui::CollapsingHeader( "Orientation Vectors", child_flags ) ) {
+        value_changed |= ImGui::InputFloat3( "Front", glm::value_ptr( m_front ) );
+        value_changed |= ImGui::InputFloat3( "Right", glm::value_ptr( m_right ) );
+        value_changed |= ImGui::InputFloat3( "Up", glm::value_ptr( m_up ) );
+        value_changed |= ImGui::InputFloat3( "World Up", glm::value_ptr( m_worldUp ) );
+    }
 
-	// Rotation angles
-	if ( ImGui::CollapsingHeader( "Rotation Angles", child_flags ) ) {
-		value_changed |= ImGui::SliderFloat( "Yaw", &yaw, 0.0f, 360.0f );
-		value_changed |= ImGui::SliderFloat( "Pitch", &pitch, min_pitch, max_pitch );
-		value_changed |= ImGui::SliderFloat( "Roll", &roll, -180.0f, 180.0f );
-	}
+    // Rotation angles
+    if ( ImGui::CollapsingHeader( "Rotation Angles", child_flags ) ) {
+        value_changed |= ImGui::SliderFloat( "Yaw", &m_yaw, 0.0f, 360.0f );
+        value_changed |= ImGui::SliderFloat( "Pitch", &m_pitch, m_minPitch, m_maxPitch );
+        value_changed |= ImGui::SliderFloat( "Roll", &m_roll, -180.0f, 180.0f );
+    }
 
-	// FOV
-	if ( ImGui::CollapsingHeader( "Field of View", child_flags ) ) {
-		value_changed |= ImGui::SliderFloat( "FOV", &fov, min_fov, max_fov );
-		if ( ImGui::InputFloat( "Min FOV", &min_fov ) || ImGui::InputFloat( "Max FOV", &max_fov ) ) {
-			fov = glm::clamp( fov, min_fov, max_fov );
-			value_changed = true;
-		}
-	}
+    // FOV
+    if ( ImGui::CollapsingHeader( "Field of View", child_flags ) ) {
+        value_changed |= ImGui::SliderFloat( "FOV", &m_fov, m_minFov, m_maxFov );
+        if ( ImGui::InputFloat( "Min FOV", &m_minFov ) || ImGui::InputFloat( "Max FOV", &m_maxFov ) ) {
+            m_fov = glm::clamp( m_fov, m_minFov, m_maxFov );
+            value_changed = true;
+        }
+    }
 
-	// Other parameters
-	if ( ImGui::CollapsingHeader( "Other Parameters", child_flags ) ) {
-		value_changed |= ImGui::InputFloat( "Aspect Ratio", &aspect_ratio );
-		value_changed |= ImGui::InputFloat( "Near Plane", &near_plane, 0.001f, 0.1f );
-		value_changed |= ImGui::InputFloat( "Far Plane", &far_plane, 1.0f, 100.0f );
-	}
+    // Other parameters
+    if ( ImGui::CollapsingHeader( "Other Parameters", child_flags ) ) {
+        value_changed |= ImGui::InputFloat( "Aspect Ratio", &m_aspectRatio );
+        value_changed |= ImGui::InputFloat( "Near Plane", &m_nearPlane, 0.001f, 0.1f );
+        value_changed |= ImGui::InputFloat( "Far Plane", &m_farPlane, 1.0f, 100.0f );
+    }
 
-	// Matrices
-	if ( ImGui::CollapsingHeader( "Matrices", child_flags ) ) {
-		ImGui::Text( "View Matrix" );
-		for ( int i = 0; i < 4; i++ ) {
-			ImGui::InputFloat4( ("##View" + std::to_string( i )).c_str( ), glm::value_ptr( view_matrix[i] ) );
-		}
+    // Matrices
+    if ( ImGui::CollapsingHeader( "Matrices", child_flags ) ) {
+        ImGui::Text( "View Matrix" );
+        for ( int i = 0; i < 4; i++ ) {
+            ImGui::InputFloat4( ( "##View" + std::to_string( i ) ).c_str( ), glm::value_ptr( m_viewMatrix[i] ) );
+        }
 
-		ImGui::Text( "Projection Matrix" );
-		for ( int i = 0; i < 4; i++ ) {
-			ImGui::InputFloat4( ("##Proj" + std::to_string( i )).c_str( ), glm::value_ptr( projection_matrix[i] ) );
-		}
-	}
+        ImGui::Text( "Projection Matrix" );
+        for ( int i = 0; i < 4; i++ ) {
+            ImGui::InputFloat4( ( "##Proj" + std::to_string( i ) ).c_str( ), glm::value_ptr( m_projectionMatrix[i] ) );
+        }
+    }
 
-	// Set dirty flag if any relevant value changed
-	if ( value_changed ) {
-		updateVectors( );
-	}
+    // Set dirty flag if any relevant value changed
+    if ( value_changed ) {
+        UpdateVectors( );
+    }
 
-	// Dirty flag display
-	ImGui::Checkbox( "Dirty Matrices", &dirty_matrices );
+    // Dirty flag display
+    ImGui::Checkbox( "Dirty Matrices", &m_dirtyMatrices );
 
-	ImGui::Unindent( );
+    ImGui::Unindent( );
 }

@@ -5,47 +5,46 @@
 class GfxDevice;
 
 struct AABB {
-	vec3 min;
-	vec3 max;
+    Vec3 min;
+    Vec3 max;
 };
 
 struct GpuMesh {
-	GpuBuffer index_buffer;
-	GpuBuffer vertex_buffer;
+    GpuBuffer indexBuffer;
+    GpuBuffer vertexBuffer;
 
-	AABB aabb;
+    AABB aabb;
 
-	uint32_t index_count;
-	VkDeviceAddress vertex_buffer_address;
+    uint32_t indexCount;
+    VkDeviceAddress vertexBufferAddress;
 };
 
 struct Mesh {
-	struct Vertex {
-		vec3 position;
-		float uv_x;
-		vec3 normal;
-		float uv_y;
-		vec3 tangent;
-		float pad;
-		vec3 bitangent;
-		float pad2;
-	};
+    struct Vertex {
+        Vec3 position;
+        float uvX;
+        Vec3 normal;
+        float uvY;
+        Vec3 tangent;
+        float pad;
+        Vec3 biTangent;
+        float pad2;
+    };
 
-	std::vector<Vertex> vertices;
-	std::vector<uint32_t> indices;
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
 
-	AABB aabb;
+    AABB aabb;
 };
 
 class MeshCodex {
 public:
-	void cleanup( GfxDevice& gfx );
+    void Cleanup( GfxDevice &gfx ) const;
 
-	MeshID addMesh( GfxDevice& gfx, const Mesh& mesh );
-	const GpuMesh& getMesh( MeshID id ) const;
+    MeshId AddMesh( GfxDevice &gfx, const Mesh &mesh );
+    const GpuMesh &GetMesh( MeshId id ) const;
+
 private:
-
-	GpuMesh uploadMesh( GfxDevice& gfx, const Mesh& mesh );
-
-	std::vector<GpuMesh> meshes;
+    GpuMesh UploadMesh( GfxDevice &gfx, const Mesh &mesh ) const;
+    std::vector<GpuMesh> m_meshes;
 };

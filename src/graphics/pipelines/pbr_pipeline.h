@@ -1,49 +1,49 @@
 #pragma once
 
-#include "pipeline.h"
 #include <graphics/gbuffer.h>
+#include "pipeline.h"
 
 class PbrPipeline : public Pipeline {
 public:
-	virtual Result<> init( GfxDevice& gfx ) override;
-	virtual void cleanup( GfxDevice& gfx ) override;
-	DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const GpuSceneData& scene_data, const std::vector<GpuDirectionalLight>& directional_lights, const std::vector<GpuPointLightData>& point_lights, const GBuffer& gbuffer, uint32_t irradiance_map, uint32_t radiance_map, uint32_t brdf_lut ) const;
+    Result<> Init( GfxDevice &gfx ) override;
+    void Cleanup( GfxDevice &gfx ) override;
+    DrawStats Draw( GfxDevice &gfx, VkCommandBuffer cmd, const GpuSceneData &sceneData, const std::vector<GpuDirectionalLight> &directionalLights, const std::vector<GpuPointLightData> &pointLights, const GBuffer &gBuffer, uint32_t irradianceMap, uint32_t radianceMap, uint32_t brdfLut ) const;
 
-	void DrawDebug( );
+    void DrawDebug( );
 
 private:
-	void Reconstruct( GfxDevice& gfx );
+    void Reconstruct( GfxDevice &gfx );
 
-	VkDescriptorSetLayout ub_layout;
-	VkDescriptorSet set;
+    VkDescriptorSetLayout m_ubLayout = nullptr;
+    VkDescriptorSet m_set = nullptr;
 
-	struct PushConstants {
-		VkDeviceAddress scene_data_address;
-		uint32_t albedo_tex;
-		uint32_t normal_tex;
-		uint32_t position_tex;
-		uint32_t pbr_tex;
-		uint32_t irradiance_tex;
-		uint32_t radiance_tex;
-		uint32_t brdf_lut;
-		uint32_t ssao_tex;
-	};
+    struct PushConstants {
+        VkDeviceAddress sceneDataAddress;
+        uint32_t albedoTex;
+        uint32_t normalTex;
+        uint32_t positionTex;
+        uint32_t pbrTex;
+        uint32_t irradianceTex;
+        uint32_t radianceTex;
+        uint32_t brdfLut;
+        uint32_t ssaoTex;
+    };
 
-	struct IBLSettings {
-		float irradiance_factor;
-		float radiance_factor;
-		float brdf_factor;
-		int padding;
-	};
+    struct IblSettings {
+        float irradianceFactor;
+        float radianceFactor;
+        float brdfFactor;
+        int padding;
+    };
 
-	GpuBuffer gpu_scene_data;
-	mutable GpuBuffer gpu_ibl;
-	mutable GpuBuffer gpu_directional_lights;
-	mutable GpuBuffer gpu_point_lights;
+    GpuBuffer m_gpuSceneData = { };
+    mutable GpuBuffer m_gpuIbl = { };
+    mutable GpuBuffer m_gpuDirectionalLights = { };
+    mutable GpuBuffer m_gpuPointLights = { };
 
-	IBLSettings ibl = {
-		.irradiance_factor = 0.05f,
-		.radiance_factor = 0.05f,
-		.brdf_factor = 1.0f
-	};
+    IblSettings m_ibl = {
+            .irradianceFactor = 0.05f,
+            .radianceFactor = 0.05f,
+            .brdfFactor = 1.0f,
+    };
 };

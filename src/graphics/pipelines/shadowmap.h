@@ -2,19 +2,22 @@
 
 #include "pipeline.h"
 
+struct MeshDrawCommand;
+
 class ShadowMap : public Pipeline {
 public:
-	virtual Result<> init( GfxDevice& gfx ) override;
-	virtual void cleanup( GfxDevice& gfx ) override;
+    Result<> Init( GfxDevice &gfx ) override;
+    void Cleanup( GfxDevice &gfx ) override;
 
-	DrawStats draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const glm::mat4& projection, const glm::mat4 view, ImageID target ) const;
+    DrawStats Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands, const glm::mat4 &projection, const glm::mat4 &view, ImageId target ) const;
+
 private:
-	struct PushConstants {
-		mat4 projection;
-		mat4 view;
-		mat4 model;
-		VkDeviceAddress vertex_buffer_address;
-	};
+    struct PushConstants {
+        Mat4 projection;
+        Mat4 view;
+        Mat4 model;
+        VkDeviceAddress vertexBufferAddress;
+    };
 
-	void Reconstruct( GfxDevice& gfx );
+    void Reconstruct( GfxDevice &gfx );
 };

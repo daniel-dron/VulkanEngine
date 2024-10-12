@@ -1,54 +1,54 @@
 #pragma once
 
-#include <vk_types.h>
 #include <graphics/image_codex.h>
 #include <graphics/pipelines/compute_pipeline.h>
+#include <vk_types.h>
 
 class GfxDevice;
 
-class IBL {
+class Ibl {
 public:
-	void init( GfxDevice& gfx, const std::string& path );
-	void clean( GfxDevice& gfx );
+    void Init( GfxDevice &gfx, const std::string &path );
+    void Clean( const GfxDevice &gfx ) const;
 
-	ImageID getSkybox( ) const { return skybox; }
-	ImageID getIrradiance( ) const { return irradiance; }
-	ImageID getRadiance( ) const { return radiance; }
-	ImageID getBRDF( ) const { return brdf; }
+    ImageId GetSkybox( ) const { return m_skybox; }
+    ImageId GetIrradiance( ) const { return m_irradiance; }
+    ImageId GetRadiance( ) const { return m_radiance; }
+    ImageId GetBrdf( ) const { return m_brdf; }
+
 private:
-	void initComputes( GfxDevice& gfx );
-	void initTextures( GfxDevice& gfx );
+    void InitComputes( GfxDevice &gfx );
+    void InitTextures( GfxDevice &gfx );
 
-	void generateSkybox( GfxDevice& gfx, VkCommandBuffer cmd ) const;
-	void generateIrradiance( GfxDevice& gfx, VkCommandBuffer cmd ) const;
-	void generateRadiance( GfxDevice& gfx, VkCommandBuffer cmd ) const;
-	void generateBrdf( GfxDevice& gfx, VkCommandBuffer cmd ) const;
+    void GenerateSkybox( GfxDevice &gfx, VkCommandBuffer cmd ) const;
+    void GenerateIrradiance( GfxDevice &gfx, VkCommandBuffer cmd ) const;
+    void GenerateRadiance( GfxDevice &gfx, VkCommandBuffer cmd ) const;
+    void GenerateBrdf( GfxDevice &gfx, VkCommandBuffer cmd ) const;
 
-	VkCommandBuffer compute_command;
-	VkFence compute_fence;
+    VkCommandBuffer m_computeCommand = nullptr;
+    VkFence m_computeFence = nullptr;
 
-	ImageID hdr_texture = ImageCodex::INVALID_IMAGE_ID; // 2D
+    ImageId m_hdrTexture = ImageCodex::InvalidImageId; // 2D
 
-	ImageID skybox = ImageCodex::INVALID_IMAGE_ID;		// Cubemap
-	ImageID irradiance = ImageCodex::INVALID_IMAGE_ID;	// Cubemap
-	ImageID radiance = ImageCodex::INVALID_IMAGE_ID;	// Cubemap
-	ImageID brdf = ImageCodex::INVALID_IMAGE_ID;		// 2D
+    ImageId m_skybox = ImageCodex::InvalidImageId; // Cubemap
+    ImageId m_irradiance = ImageCodex::InvalidImageId; // Cubemap
+    ImageId m_radiance = ImageCodex::InvalidImageId; // Cubemap
+    ImageId m_brdf = ImageCodex::InvalidImageId; // 2D
 
-	BindlessCompute irradiance_pipeline;
-	VkDescriptorSet irradiance_set;
+    BindlessCompute m_irradiancePipeline = { };
+    VkDescriptorSet m_irradianceSet = nullptr;
 
-	BindlessCompute equirectangular_pipeline;
-	VkDescriptorSet equi_set;
+    BindlessCompute m_equirectangularPipeline = { };
+    VkDescriptorSet m_equiSet = nullptr;
 
-	struct RadiancePushConstants {
-		ImageID input;
-		int mipmap;
-		float roughness;
-	};
-	BindlessCompute radiance_pipeline;
-	std::array<VkDescriptorSet, 6> radiance_sets;
+    struct RadiancePushConstants {
+        ImageId input;
+        int mipmap;
+        float roughness;
+    };
+    BindlessCompute m_radiancePipeline = { };
+    std::array<VkDescriptorSet, 6> m_radianceSets = { };
 
-	BindlessCompute brdf_pipeline;
-	VkDescriptorSet brdf_set;
-
+    BindlessCompute m_brdfPipeline = { };
+    VkDescriptorSet m_brdfSet = nullptr;
 };

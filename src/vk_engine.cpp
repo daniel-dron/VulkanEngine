@@ -3,35 +3,24 @@
 #include "vk_engine.h"
 
 #include <SDL.h>
-#include <SDL_vulkan.h>
 #include <VkBootstrap.h>
 #include <vk_initializers.h>
-#include <vk_pipelines.h>
 #include <vk_types.h>
 #include <vulkan/vulkan_core.h>
 
-#include <algorithm>
-#include <cassert>
-#include <chrono>
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
-#include <stack>
-#include <thread>
-
+#include <graphics/descriptors.h>
 #include "SDL_events.h"
 #include "SDL_stdinc.h"
 #include "SDL_video.h"
 #include "fmt/core.h"
 #include "glm/ext/matrix_clip_space.hpp"
-#include "glm/gtx/orthonormalize.hpp"
 #include "glm/gtx/integer.hpp"
 #include "glm/gtx/matrix_decompose.hpp"
+#include "glm/gtx/orthonormalize.hpp"
 #include "glm/packing.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
-#include <graphics/descriptors.h>
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
@@ -39,1323 +28,1185 @@
 #define TRACY_ENABLE
 #include <glm/gtc/type_ptr.hpp>
 
+#include <graphics/pipelines/compute_pipeline.h>
 #include "engine/input.h"
 #include "imguizmo/ImGuizmo.h"
 #include "tracy/TracyClient.cpp"
 #include "tracy/tracy/Tracy.hpp"
-#include <graphics/pipelines/compute_pipeline.h>
 
 #include <engine/loader.h>
 #include <glm/gtx/euler_angles.hpp>
-#include <glm/gtx/matrix_decompose.hpp>
-#include <random>
 
-VulkanEngine* loaded_engine = nullptr;
+#include "graphics/draw_command.h"
+
+VulkanEngine *g_loadedEngine = nullptr;
 
 // TODO: move
-void GpuBuffer::Upload( GfxDevice& gfx, void* data, size_t size ) {
-	void* mapped_buffer = {};
+void GpuBuffer::Upload( const GfxDevice &gfx, const void *data, const size_t size ) const {
+    void *mapped_buffer = { };
 
-	vmaMapMemory( gfx.allocator, allocation, &mapped_buffer );
-	memcpy( mapped_buffer, data, size );
-	vmaUnmapMemory( gfx.allocator, allocation );
+    vmaMapMemory( gfx.allocator, allocation, &mapped_buffer );
+    memcpy( mapped_buffer, data, size );
+    vmaUnmapMemory( gfx.allocator, allocation );
 }
 
-VkDeviceAddress GpuBuffer::GetDeviceAddress( GfxDevice& gfx ) {
-	if ( device_address == 0 ) {
-		VkBufferDeviceAddressInfo address_info = {
-			.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-			.pNext = nullptr,
-			.buffer = buffer
-		};
+VkDeviceAddress GpuBuffer::GetDeviceAddress( const GfxDevice &gfx ) {
+    if ( deviceAddress == 0 ) {
+        const VkBufferDeviceAddressInfo address_info = {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+                .pNext = nullptr,
+                .buffer = buffer,
+        };
 
-		device_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
-	}
+        deviceAddress = vkGetBufferDeviceAddress( gfx.device, &address_info );
+    }
 
-	return device_address;
+    return deviceAddress;
 }
 
-VulkanEngine& VulkanEngine::get( ) { return *loaded_engine; }
+VulkanEngine &VulkanEngine::Get( ) { return *g_loadedEngine; }
 
-void VulkanEngine::init( ) {
-	// only one engine initialization is allowed with the application.
-	assert( loaded_engine == nullptr );
-	loaded_engine = this;
+void VulkanEngine::Init( ) {
+    assert( g_loadedEngine == nullptr );
+    g_loadedEngine = this;
 
-	initSdl( );
+    InitSdl( );
+    InitVulkan( );
+    InitDefaultData( );
+    InitImGui( );
+    m_imGuiPipeline.Init( *m_gfx );
+    EG_INPUT.Init( );
+    InitScene( );
 
-	initVulkan( );
-
-	initDefaultData( );
-
-	initImgui( );
-
-	imgui_pipeline.init( *gfx );
-
-	EG_INPUT.init( );
-
-	initScene( );
-
-	// everything went fine
-	is_initialized = true;
+    m_isInitialized = true;
 }
 
-void VulkanEngine::initSdl( ) {
-	SDL_Init( SDL_INIT_VIDEO );
+void VulkanEngine::InitSdl( ) {
+    SDL_Init( SDL_INIT_VIDEO );
 
-	constexpr auto window_flags =
-		static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    constexpr auto window_flags = static_cast<SDL_WindowFlags>( SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE );
 
-	window = SDL_CreateWindow( "Vulkan Engine", SDL_WINDOWPOS_UNDEFINED,
-		SDL_WINDOWPOS_UNDEFINED, window_extent.width,
-		window_extent.height, window_flags );
+    m_window = SDL_CreateWindow( "Vulkan Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, m_windowExtent.width, m_windowExtent.height, window_flags );
 }
 
-void VulkanEngine::initVulkan( ) {
-	gfx = std::make_unique<GfxDevice>( );
+void VulkanEngine::InitVulkan( ) {
+    m_gfx = std::make_unique<GfxDevice>( );
 
-	if ( renderer_options.vsync ) {
-		gfx->swapchain.present_mode = VK_PRESENT_MODE_FIFO_KHR;
-	} else {
-		gfx->swapchain.present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-	}
+    if ( m_rendererOptions.vsync ) {
+        m_gfx->swapchain.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    }
+    else {
+        m_gfx->swapchain.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+    }
 
-	gfx->init( window );
+    m_gfx->Init( m_window );
 
-	main_deletion_queue.flush( );
+    m_mainDeletionQueue.Flush( );
 }
 
-void VulkanEngine::initImgui( ) {
-	// 1: create descriptor pool for IMGUI
-	//  the size of the pool is very oversize, but it's copied from imgui demo
-	//  itself.
-	VkDescriptorPoolSize pool_sizes[] = {
-		{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
-		{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-		{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
-		{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
-		{VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
-		{VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
-		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
-		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
-		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-		{VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000} };
+void VulkanEngine::InitImGui( ) {
+    const VkDescriptorPoolSize pool_sizes[] = {
+            { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+            { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+            { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 },
+    };
 
-	VkDescriptorPoolCreateInfo pool_info = {};
-	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-	pool_info.maxSets = 1000;
-	pool_info.poolSizeCount = (uint32_t)std::size( pool_sizes );
-	pool_info.pPoolSizes = pool_sizes;
+    const VkDescriptorPoolCreateInfo pool_info = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+            .maxSets = 1000,
+            .poolSizeCount = static_cast<uint32_t>( std::size( pool_sizes ) ),
+            .pPoolSizes = pool_sizes,
+    };
 
-	VkDescriptorPool imguiPool;
-	VK_CHECK( vkCreateDescriptorPool( gfx->device, &pool_info, nullptr, &imguiPool ) );
+    VkDescriptorPool imgui_pool;
+    VK_CHECK( vkCreateDescriptorPool( m_gfx->device, &pool_info, nullptr, &imgui_pool ) );
 
-	// 2: initialize imgui library
+    ImGui::CreateContext( );
 
-	// this initializes the core structures of imgui
-	ImGui::CreateContext( );
+    ImGui_ImplSDL2_InitForVulkan( m_window );
 
-	// this initializes imgui for SDL
-	ImGui_ImplSDL2_InitForVulkan( window );
+    ImGui_ImplVulkan_InitInfo init_info = {
+            .Instance = m_gfx->instance,
+            .PhysicalDevice = m_gfx->chosenGpu,
+            .Device = m_gfx->device,
+            .Queue = m_gfx->graphicsQueue,
+            .DescriptorPool = imgui_pool,
+            .MinImageCount = 3,
+            .ImageCount = 3,
+            .UseDynamicRendering = true,
+    };
 
-	// this initializes imgui for Vulkan
-	ImGui_ImplVulkan_InitInfo init_info = {};
-	init_info.Instance = gfx->instance;
-	init_info.PhysicalDevice = gfx->chosen_gpu;
-	init_info.Device = gfx->device;
-	init_info.Queue = gfx->graphics_queue;
-	init_info.DescriptorPool = imguiPool;
-	init_info.MinImageCount = 3;
-	init_info.ImageCount = 3;
-	init_info.UseDynamicRendering = true;
+    init_info.PipelineRenderingCreateInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
+    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &m_gfx->swapchain.format;
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
-	// dynamic rendering parameters for imgui to use
-	init_info.PipelineRenderingCreateInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
-	init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-	init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats =
-		&gfx->swapchain.format;
+    ImGui_ImplVulkan_Init( &init_info );
+    ImGui_ImplVulkan_CreateFontsTexture( );
 
-	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    auto &io = ImGui::GetIO( );
+    io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    ImGui::StyleColorsDark( );
 
-	ImGui_ImplVulkan_Init( &init_info );
+    ImGuiStyle &style = ImGui::GetStyle( );
+    ImVec4 *colors = style.Colors;
 
-	ImGui_ImplVulkan_CreateFontsTexture( );
-
-	auto& io = ImGui::GetIO( );
-	io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-	ImGui::StyleColorsDark( );
-
-	ImGuiStyle& style = ImGui::GetStyle( );
-	ImVec4* colors = style.Colors;
-
-	colors[ImGuiCol_Text] = ImVec4( 0.80f, 0.80f, 0.80f, 1.00f );
-	colors[ImGuiCol_TextDisabled] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-	colors[ImGuiCol_WindowBg] = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
-	colors[ImGuiCol_ChildBg] = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
-	colors[ImGuiCol_PopupBg] = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
-	colors[ImGuiCol_Border] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-	colors[ImGuiCol_BorderShadow] = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
-	colors[ImGuiCol_FrameBg] = ImVec4( 0.20f, 0.20f, 0.20f, 1.00f );
-	colors[ImGuiCol_FrameBgHovered] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
-	colors[ImGuiCol_FrameBgActive] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-	colors[ImGuiCol_TitleBg] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
-	colors[ImGuiCol_TitleBgActive] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-	colors[ImGuiCol_TitleBgCollapsed] = ImVec4( 0.00f, 0.00f, 0.00f, 0.51f );
-	colors[ImGuiCol_MenuBarBg] = ImVec4( 0.14f, 0.14f, 0.14f, 1.00f );
-	colors[ImGuiCol_ScrollbarBg] = ImVec4( 0.02f, 0.02f, 0.02f, 0.53f );
-	colors[ImGuiCol_ScrollbarGrab] = ImVec4( 0.31f, 0.31f, 0.31f, 1.00f );
-	colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4( 0.41f, 0.41f, 0.41f, 1.00f );
-	colors[ImGuiCol_ScrollbarGrabActive] = ImVec4( 0.51f, 0.51f, 0.51f, 1.00f );
-	colors[ImGuiCol_CheckMark] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
-	colors[ImGuiCol_SliderGrab] = ImVec4( 0.88f, 0.24f, 0.24f, 1.00f );
-	colors[ImGuiCol_SliderGrabActive] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
-	colors[ImGuiCol_Button] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
-	colors[ImGuiCol_ButtonHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-	colors[ImGuiCol_ButtonActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-	colors[ImGuiCol_Header] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
-	colors[ImGuiCol_HeaderHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-	colors[ImGuiCol_HeaderActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-	colors[ImGuiCol_Separator] = ImVec4( 0.43f, 0.43f, 0.50f, 0.50f );
-	colors[ImGuiCol_SeparatorHovered] = ImVec4( 0.75f, 0.10f, 0.10f, 0.78f );
-	colors[ImGuiCol_SeparatorActive] = ImVec4( 0.75f, 0.10f, 0.10f, 1.00f );
-	colors[ImGuiCol_ResizeGrip] = ImVec4( 0.98f, 0.26f, 0.26f, 0.20f );
-	colors[ImGuiCol_ResizeGripHovered] = ImVec4( 0.98f, 0.26f, 0.26f, 0.67f );
-	colors[ImGuiCol_ResizeGripActive] = ImVec4( 0.98f, 0.26f, 0.26f, 0.95f );
-	colors[ImGuiCol_TabHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-	colors[ImGuiCol_Tab] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
-	colors[ImGuiCol_TabSelected] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-	colors[ImGuiCol_TabSelectedOverline] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
-	colors[ImGuiCol_TabDimmed] = ImVec4( 0.07f, 0.10f, 0.15f, 0.97f );
-	colors[ImGuiCol_TabDimmedSelected] = ImVec4( 0.42f, 0.14f, 0.14f, 1.00f );
-	colors[ImGuiCol_TabDimmedSelectedOverline] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-	colors[ImGuiCol_DockingPreview] = ImVec4( 0.98f, 0.26f, 0.26f, 0.70f );
-	colors[ImGuiCol_DockingEmptyBg] = ImVec4( 0.20f, 0.20f, 0.20f, 1.00f );
-	colors[ImGuiCol_PlotLines] = ImVec4( 0.61f, 0.61f, 0.61f, 1.00f );
-	colors[ImGuiCol_PlotLinesHovered] = ImVec4( 1.00f, 0.43f, 0.35f, 1.00f );
-	colors[ImGuiCol_PlotHistogram] = ImVec4( 0.90f, 0.70f, 0.00f, 1.00f );
-	colors[ImGuiCol_PlotHistogramHovered] = ImVec4( 1.00f, 0.60f, 0.00f, 1.00f );
-	colors[ImGuiCol_TableHeaderBg] = ImVec4( 0.19f, 0.19f, 0.20f, 1.00f );
-	colors[ImGuiCol_TableBorderStrong] = ImVec4( 0.31f, 0.31f, 0.35f, 1.00f );
-	colors[ImGuiCol_TableBorderLight] = ImVec4( 0.23f, 0.23f, 0.25f, 1.00f );
-	colors[ImGuiCol_TableRowBg] = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
-	colors[ImGuiCol_TableRowBgAlt] = ImVec4( 1.00f, 1.00f, 1.00f, 0.06f );
-	colors[ImGuiCol_TextLink] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
-	colors[ImGuiCol_TextSelectedBg] = ImVec4( 0.98f, 0.26f, 0.26f, 0.35f );
-	colors[ImGuiCol_DragDropTarget] = ImVec4( 1.00f, 1.00f, 0.00f, 0.90f );
-	colors[ImGuiCol_NavHighlight] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
-	colors[ImGuiCol_NavWindowingHighlight] = ImVec4( 1.00f, 1.00f, 1.00f, 0.70f );
-	colors[ImGuiCol_NavWindowingDimBg] = ImVec4( 0.80f, 0.80f, 0.80f, 0.20f );
-	colors[ImGuiCol_ModalWindowDimBg] = ImVec4( 0.80f, 0.80f, 0.80f, 0.35f );
+    colors[ImGuiCol_Text] = ImVec4( 0.80f, 0.80f, 0.80f, 1.00f );
+    colors[ImGuiCol_TextDisabled] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+    colors[ImGuiCol_WindowBg] = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
+    colors[ImGuiCol_ChildBg] = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
+    colors[ImGuiCol_PopupBg] = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
+    colors[ImGuiCol_Border] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+    colors[ImGuiCol_BorderShadow] = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
+    colors[ImGuiCol_FrameBg] = ImVec4( 0.20f, 0.20f, 0.20f, 1.00f );
+    colors[ImGuiCol_FrameBgHovered] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+    colors[ImGuiCol_FrameBgActive] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+    colors[ImGuiCol_TitleBg] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+    colors[ImGuiCol_TitleBgActive] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+    colors[ImGuiCol_TitleBgCollapsed] = ImVec4( 0.00f, 0.00f, 0.00f, 0.51f );
+    colors[ImGuiCol_MenuBarBg] = ImVec4( 0.14f, 0.14f, 0.14f, 1.00f );
+    colors[ImGuiCol_ScrollbarBg] = ImVec4( 0.02f, 0.02f, 0.02f, 0.53f );
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4( 0.31f, 0.31f, 0.31f, 1.00f );
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4( 0.41f, 0.41f, 0.41f, 1.00f );
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4( 0.51f, 0.51f, 0.51f, 1.00f );
+    colors[ImGuiCol_CheckMark] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+    colors[ImGuiCol_SliderGrab] = ImVec4( 0.88f, 0.24f, 0.24f, 1.00f );
+    colors[ImGuiCol_SliderGrabActive] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+    colors[ImGuiCol_Button] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+    colors[ImGuiCol_ButtonHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+    colors[ImGuiCol_ButtonActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+    colors[ImGuiCol_Header] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+    colors[ImGuiCol_HeaderHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+    colors[ImGuiCol_HeaderActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+    colors[ImGuiCol_Separator] = ImVec4( 0.43f, 0.43f, 0.50f, 0.50f );
+    colors[ImGuiCol_SeparatorHovered] = ImVec4( 0.75f, 0.10f, 0.10f, 0.78f );
+    colors[ImGuiCol_SeparatorActive] = ImVec4( 0.75f, 0.10f, 0.10f, 1.00f );
+    colors[ImGuiCol_ResizeGrip] = ImVec4( 0.98f, 0.26f, 0.26f, 0.20f );
+    colors[ImGuiCol_ResizeGripHovered] = ImVec4( 0.98f, 0.26f, 0.26f, 0.67f );
+    colors[ImGuiCol_ResizeGripActive] = ImVec4( 0.98f, 0.26f, 0.26f, 0.95f );
+    colors[ImGuiCol_TabHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+    colors[ImGuiCol_Tab] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+    colors[ImGuiCol_TabSelected] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+    colors[ImGuiCol_TabSelectedOverline] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+    colors[ImGuiCol_TabDimmed] = ImVec4( 0.07f, 0.10f, 0.15f, 0.97f );
+    colors[ImGuiCol_TabDimmedSelected] = ImVec4( 0.42f, 0.14f, 0.14f, 1.00f );
+    colors[ImGuiCol_TabDimmedSelectedOverline] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+    colors[ImGuiCol_DockingPreview] = ImVec4( 0.98f, 0.26f, 0.26f, 0.70f );
+    colors[ImGuiCol_DockingEmptyBg] = ImVec4( 0.20f, 0.20f, 0.20f, 1.00f );
+    colors[ImGuiCol_PlotLines] = ImVec4( 0.61f, 0.61f, 0.61f, 1.00f );
+    colors[ImGuiCol_PlotLinesHovered] = ImVec4( 1.00f, 0.43f, 0.35f, 1.00f );
+    colors[ImGuiCol_PlotHistogram] = ImVec4( 0.90f, 0.70f, 0.00f, 1.00f );
+    colors[ImGuiCol_PlotHistogramHovered] = ImVec4( 1.00f, 0.60f, 0.00f, 1.00f );
+    colors[ImGuiCol_TableHeaderBg] = ImVec4( 0.19f, 0.19f, 0.20f, 1.00f );
+    colors[ImGuiCol_TableBorderStrong] = ImVec4( 0.31f, 0.31f, 0.35f, 1.00f );
+    colors[ImGuiCol_TableBorderLight] = ImVec4( 0.23f, 0.23f, 0.25f, 1.00f );
+    colors[ImGuiCol_TableRowBg] = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
+    colors[ImGuiCol_TableRowBgAlt] = ImVec4( 1.00f, 1.00f, 1.00f, 0.06f );
+    colors[ImGuiCol_TextLink] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+    colors[ImGuiCol_TextSelectedBg] = ImVec4( 0.98f, 0.26f, 0.26f, 0.35f );
+    colors[ImGuiCol_DragDropTarget] = ImVec4( 1.00f, 1.00f, 0.00f, 0.90f );
+    colors[ImGuiCol_NavHighlight] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+    colors[ImGuiCol_NavWindowingHighlight] = ImVec4( 1.00f, 1.00f, 1.00f, 0.70f );
+    colors[ImGuiCol_NavWindowingDimBg] = ImVec4( 0.80f, 0.80f, 0.80f, 0.20f );
+    colors[ImGuiCol_ModalWindowDimBg] = ImVec4( 0.80f, 0.80f, 0.80f, 0.35f );
 
 
-	style.WindowBorderSize = 1.0f;
-	style.ChildBorderSize = 1.0f;
-	style.PopupBorderSize = 1.0f;
-	style.FrameBorderSize = 1.0f;
-	style.WindowRounding = 0.0f;
-	style.ChildRounding = 0.0f;
-	style.FrameRounding = 0.0f;
-	style.PopupRounding = 0.0f;
-	style.ScrollbarRounding = 0.0f;
-	style.GrabRounding = 0.0f;
-	style.TabRounding = 0.0f;
-	style.WindowTitleAlign = ImVec2( 0.0f, 0.5f );
-	style.ItemSpacing = ImVec2( 8, 4 );
-	style.FramePadding = ImVec2( 4, 2 );
+    style.WindowBorderSize = 1.0f;
+    style.ChildBorderSize = 1.0f;
+    style.PopupBorderSize = 1.0f;
+    style.FrameBorderSize = 1.0f;
+    style.WindowRounding = 0.0f;
+    style.ChildRounding = 0.0f;
+    style.FrameRounding = 0.0f;
+    style.PopupRounding = 0.0f;
+    style.ScrollbarRounding = 0.0f;
+    style.GrabRounding = 0.0f;
+    style.TabRounding = 0.0f;
+    style.WindowTitleAlign = ImVec2( 0.0f, 0.5f );
+    style.ItemSpacing = ImVec2( 8, 4 );
+    style.FramePadding = ImVec2( 4, 2 );
 
-	// add the destroy the imgui created structures
-	main_deletion_queue.pushFunction( [&, imguiPool]( ) {
-		ImGui_ImplVulkan_Shutdown( );
-		vkDestroyDescriptorPool( gfx->device, imguiPool, nullptr );
-	} );
+    m_mainDeletionQueue.PushFunction( [&, imgui_pool]( ) {
+        ImGui_ImplVulkan_Shutdown( );
+        vkDestroyDescriptorPool( m_gfx->device, imgui_pool, nullptr );
+    } );
 }
 
-float random_range( float min, float max ) {
-	static std::random_device rd;
-	static std::mt19937 gen( rd( ) );
+auto RandomRange( const float min, const float max ) -> float {
+    static std::random_device rd;
+    static std::mt19937 gen( rd( ) );
 
-	std::uniform_real_distribution<float> dis( min, max );
+    std::uniform_real_distribution<float> dis( min, max );
 
-	return dis( gen );
+    return dis( gen );
 }
 
-float lerp( float a, float b, float f ) {
-	return a + f * (b - a);
+float Lerp( const float a, const float b, const float f ) {
+    return a + f * ( b - a );
 }
 
-void VulkanEngine::ConstructSSAOPipeline( ) {
-	ssao_buffer = gfx->allocate( sizeof( SSAOSettings ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Settings" );
-	ssao_kernel = gfx->allocate( sizeof( vec3 ) * 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Kernel" );
+void VulkanEngine::ConstructSsaoPipeline( ) {
+    m_ssaoBuffer = m_gfx->Allocate( sizeof( SsaoSettings ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Settings" );
+    m_ssaoKernel = m_gfx->Allocate( sizeof( Vec3 ) * 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Kernel" );
 
-	std::vector<glm::vec3> kernels;
-	for ( int i = 0; i < ssao_settings.kernelSize; i++ ) {
-		glm::vec3 sample( random_range( 0.0, 1.0 ) * 2.0 - 1.0, random_range( 0.0, 1.0 ) * 2.0 - 1.0, random_range( 0.0, 1.0 ) );
-		sample = glm::normalize( sample );
-		sample *= random_range( 0.0, 1.0 );
+    std::vector<glm::vec3> kernels;
+    for ( int i = 0; i < m_ssaoSettings.kernelSize; i++ ) {
+        glm::vec3 sample( RandomRange( 0.0, 1.0 ) * 2.0 - 1.0, RandomRange( 0.0, 1.0 ) * 2.0 - 1.0, RandomRange( 0.0, 1.0 ) );
+        sample = glm::normalize( sample );
+        sample *= RandomRange( 0.0, 1.0 );
 
-		float scale = (float)i / (float)ssao_settings.kernelSize;
-		float scaleMul = lerp( 0.1f, 1.0f, scale * scale );
-		sample *= scaleMul;
+        const float scale = static_cast<float>( i ) / static_cast<float>( m_ssaoSettings.kernelSize );
+        const float scale_mul = Lerp( 0.1f, 1.0f, scale * scale );
+        sample *= scale_mul;
 
-		kernels.push_back( sample );
-	}
-	ssao_kernel.Upload( *gfx, kernels.data( ), kernels.size( ) * sizeof( vec3 ) );
+        kernels.push_back( sample );
+    }
+    m_ssaoKernel.Upload( *m_gfx, kernels.data( ), kernels.size( ) * sizeof( Vec3 ) );
 
-	std::vector<glm::vec4> noiseData;
-	for ( int i = 0; i < 16; i++ ) {
-		glm::vec3 noise( random_range( 0.0, 1.0 ), random_range( 0.0, 1.0 ), 0.0f );
-		noiseData.push_back( glm::vec4( noise, 1.0f ) );
-	}
-	ssao_settings.noise_texture = gfx->image_codex.loadImageFromData( "SSAO Noise", noiseData.data( ), VkExtent3D{ 4, 4, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    std::vector<glm::vec4> noise_data;
+    for ( int i = 0; i < 16; i++ ) {
+        glm::vec3 noise( RandomRange( 0.0, 1.0 ), RandomRange( 0.0, 1.0 ), 0.0f );
+        noise_data.push_back( glm::vec4( noise, 1.0f ) );
+    }
+    m_ssaoSettings.noiseTexture = m_gfx->imageCodex.LoadImageFromData( "SSAO Noise", noise_data.data( ), VkExtent3D{ 4, 4, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
-	ssao_settings.depth_texture = gfx->swapchain.getCurrentFrame( ).depth;
-	ssao_settings.normal_texture = gfx->swapchain.getCurrentFrame( ).gbuffer.normal;
-	ssao_settings.scene = gpu_scene_data.GetDeviceAddress( *gfx );
-	ssao_buffer.Upload( *gfx, &ssao_settings, sizeof( SSAOSettings ) );
+    m_ssaoSettings.depthTexture = m_gfx->swapchain.GetCurrentFrame( ).depth;
+    m_ssaoSettings.normalTexture = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.normal;
+    m_ssaoSettings.scene = m_gpuSceneData.GetDeviceAddress( *m_gfx );
+    m_ssaoBuffer.Upload( *m_gfx, &m_ssaoSettings, sizeof( SsaoSettings ) );
 
-	// Create pipeline
-	auto& shader = gfx->shader_storage->Get( "ssao", T_COMPUTE );
-	shader.RegisterReloadCallback( [&]( VkShaderModule module ) {
-		VK_CHECK( vkWaitForFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence, true, 1000000000 ) );
-		ssao_pipeline.cleanup( *gfx );
+    // Create pipeline
+    auto &shader = m_gfx->shaderStorage->Get( "ssao", TCompute );
+    shader.RegisterReloadCallback( [&]( VkShaderModule module ) {
+        VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
+        m_ssaoPipeline.Cleanup( *m_gfx );
 
-		ActuallyConstructSSAOPipeline( );
-	} );
+        ActuallyConstructSsaoPipeline( );
+    } );
 
-	ActuallyConstructSSAOPipeline( );
+    ActuallyConstructSsaoPipeline( );
 }
 
-void VulkanEngine::ActuallyConstructSSAOPipeline( ) {
-	auto& shader = gfx->shader_storage->Get( "ssao", T_COMPUTE );
-	ssao_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-	ssao_pipeline.addDescriptorSetLayout( 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-	ssao_pipeline.addDescriptorSetLayout( 2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-	ssao_pipeline.build( *gfx, shader.handle, "ssao compute" );
+void VulkanEngine::ActuallyConstructSsaoPipeline( ) {
+    auto &shader = m_gfx->shaderStorage->Get( "ssao", TCompute );
+    m_ssaoPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+    m_ssaoPipeline.AddDescriptorSetLayout( 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+    m_ssaoPipeline.AddDescriptorSetLayout( 2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+    m_ssaoPipeline.Build( *m_gfx, shader.handle, "ssao compute" );
 
-	ssao_set = gfx->AllocateSet( ssao_pipeline.GetLayout( ) );
+    m_ssaoSet = m_gfx->AllocateSet( m_ssaoPipeline.GetLayout( ) );
 
-	auto& ssao_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).ssao );
-	DescriptorWriter writer;
-	writer.WriteBuffer( 0, ssao_buffer.buffer, sizeof( SSAOSettings ), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-	writer.WriteBuffer( 1, ssao_kernel.buffer, sizeof( vec3 ) * 64, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-	writer.WriteImage( 2, ssao_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-	writer.UpdateSet( gfx->device, ssao_set );
+    auto &ssao_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).ssao );
+    DescriptorWriter writer;
+    writer.WriteBuffer( 0, m_ssaoBuffer.buffer, sizeof( SsaoSettings ), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+    writer.WriteBuffer( 1, m_ssaoKernel.buffer, sizeof( Vec3 ) * 64, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+    writer.WriteImage( 2, ssao_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+    writer.UpdateSet( m_gfx->device, m_ssaoSet );
 }
 
 void VulkanEngine::ConstructBlurPipeline( ) {
-	auto& shader = gfx->shader_storage->Get( "blur", T_COMPUTE );
-	shader.RegisterReloadCallback( [&]( VkShaderModule module ) {
-		VK_CHECK( vkWaitForFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence, true, 1000000000 ) );
-		blur_pipeline.cleanup( *gfx );
+    auto &shader = m_gfx->shaderStorage->Get( "blur", TCompute );
+    shader.RegisterReloadCallback( [&]( VkShaderModule module ) {
+        VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
+        m_blurPipeline.Cleanup( *m_gfx );
 
-		ActuallyConstructBlurPipeline( );
-	} );
+        ActuallyConstructBlurPipeline( );
+    } );
 
-	ActuallyConstructBlurPipeline( );
+    ActuallyConstructBlurPipeline( );
 }
 
 void VulkanEngine::ActuallyConstructBlurPipeline( ) {
-	auto& shader = gfx->shader_storage->Get( "blur", T_COMPUTE );
-	blur_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-	blur_pipeline.addPushConstantRange( sizeof( BlurSettings ) );
-	blur_pipeline.build( *gfx, shader.handle, "blur pipeline" );
+    auto &shader = m_gfx->shaderStorage->Get( "blur", TCompute );
+    m_blurPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+    m_blurPipeline.AddPushConstantRange( sizeof( BlurSettings ) );
+    m_blurPipeline.Build( *m_gfx, shader.handle, "blur pipeline" );
 
-	blur_set = gfx->AllocateSet( blur_pipeline.GetLayout( ) );
+    m_blurSet = m_gfx->AllocateSet( m_blurPipeline.GetLayout( ) );
 }
 
-void VulkanEngine::resizeSwapchain( uint32_t width, uint32_t height ) {
-	vkDeviceWaitIdle( gfx->device );
+void VulkanEngine::ResizeSwapchain( uint32_t width, uint32_t height ) {
+    vkDeviceWaitIdle( m_gfx->device );
 
-	window_extent.width = width;
-	window_extent.height = height;
+    m_windowExtent.width = width;
+    m_windowExtent.height = height;
 
-	gfx->swapchain.recreate( width, height );
+    m_gfx->swapchain.Recreate( width, height );
 }
 
-void VulkanEngine::cleanup( ) {
-	if ( is_initialized ) {
-		// wait for gpu work to finish
-		vkDeviceWaitIdle( gfx->device );
+void VulkanEngine::Cleanup( ) {
+    if ( m_isInitialized ) {
+        // wait for gpu work to finish
+        vkDeviceWaitIdle( m_gfx->device );
 
-		pbr_pipeline.cleanup( *gfx );
-		wireframe_pipeline.cleanup( *gfx );
-		gbuffer_pipeline.cleanup( *gfx );
-		imgui_pipeline.cleanup( *gfx );
-		skybox_pipeline.cleanup( *gfx );
-		shadowmap_pipeline.cleanup( *gfx );
-		blur_pipeline.cleanup( *gfx );
+        m_pbrPipeline.Cleanup( *m_gfx );
+        m_wireframePipeline.Cleanup( *m_gfx );
+        m_gBufferPipeline.Cleanup( *m_gfx );
+        m_imGuiPipeline.Cleanup( *m_gfx );
+        m_skyboxPipeline.Cleanup( *m_gfx );
+        m_shadowMapPipeline.Cleanup( *m_gfx );
+        m_blurPipeline.Cleanup( *m_gfx );
 
-		post_process_pipeline.cleanup( *gfx );
-		ssao_pipeline.cleanup( *gfx );
-		gfx->free( ssao_buffer );
-		gfx->free( ssao_kernel );
+        m_postProcessPipeline.Cleanup( *m_gfx );
+        m_ssaoPipeline.Cleanup( *m_gfx );
+        m_gfx->Free( m_ssaoBuffer );
+        m_gfx->Free( m_ssaoKernel );
 
-		ibl.clean( *gfx );
+        m_ibl.Clean( *m_gfx );
 
-		main_deletion_queue.flush( );
+        m_mainDeletionQueue.Flush( );
 
-		gfx->cleanup( );
+        m_gfx->Cleanup( );
 
-		SDL_DestroyWindow( window );
-	}
+        SDL_DestroyWindow( m_window );
+    }
 
-	// clear engine pointer
-	loaded_engine = nullptr;
+    // clear engine pointer
+    g_loadedEngine = nullptr;
 }
 
-void VulkanEngine::draw( ) {
-	ZoneScopedN( "draw" );
+void VulkanEngine::Draw( ) {
+    ZoneScopedN( "draw" );
 
-	uint32_t swapchainImageIndex;
-	{
-		ZoneScopedN( "vsync" );
-		// wait for last frame rendering phase. 1 sec timeout
-		VK_CHECK( vkWaitForFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence, true, 1000000000 ) );
+    uint32_t swapchain_image_index;
+    {
+        ZoneScopedN( "vsync" );
+        // wait for last frame rendering phase. 1 sec timeout
+        VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
 
-		gfx->swapchain.getCurrentFrame( ).deletion_queue.flush( );
+        m_gfx->swapchain.GetCurrentFrame( ).deletionQueue.Flush( );
 
-		VkResult e = (vkAcquireNextImageKHR( gfx->device, gfx->swapchain.swapchain, 1000000000, gfx->swapchain.getCurrentFrame( ).swapchain_semaphore, 0, &swapchainImageIndex ));
-		if ( e != VK_SUCCESS ) {
-			return;
-		}
+        VkResult e = ( vkAcquireNextImageKHR( m_gfx->device, m_gfx->swapchain.swapchain, 1000000000, m_gfx->swapchain.GetCurrentFrame( ).swapchainSemaphore, nullptr, &swapchain_image_index ) );
+        if ( e != VK_SUCCESS ) {
+            return;
+        }
 
-		// Reset after acquire the next image from the swapchain
-		// Incase of error, this fence would never get passed to the queue, thus
-		// never triggering leaving us with a timeout next time we wait for fence
-		VK_CHECK( vkResetFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence ) );
-	}
+        // Reset after acquire the next image from the swapchain
+        // In case of error, this fence would never get passed to the queue, thus
+        // never triggering leaving us with a timeout next time we wait for fence
+        VK_CHECK( vkResetFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence ) );
+    }
 
-	auto& color = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).hdr_color );
+    auto &color = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).hdrColor );
 
-	auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
+    auto &depth = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).depth );
 
-	draw_extent.height = static_cast<uint32_t>(
-		std::min( gfx->swapchain.extent.height, color.GetExtent( ).height ) *
-		render_scale);
-	draw_extent.width = static_cast<uint32_t>(
-		std::min( gfx->swapchain.extent.width, color.GetExtent( ).width ) * render_scale);
+    m_drawExtent.height = static_cast<uint32_t>(
+            std::min( m_gfx->swapchain.extent.height, color.GetExtent( ).height ) *
+            m_renderScale );
+    m_drawExtent.width = static_cast<uint32_t>(
+            std::min( m_gfx->swapchain.extent.width, color.GetExtent( ).width ) * m_renderScale );
 
-	//
-	// commands
-	//
-	auto cmd = gfx->swapchain.getCurrentFrame( ).command_buffer;
+    // commands
+    const auto cmd = m_gfx->swapchain.GetCurrentFrame( ).commandBuffer;
+    VK_CHECK( vkResetCommandBuffer( cmd, 0 ) );
+    const auto cmd_begin_info = vk_init::CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
+    VK_CHECK( vkBeginCommandBuffer( cmd, &cmd_begin_info ) );
 
-	// we can safely reset the command buffer because we waited for the render
-	// fence
-	VK_CHECK( vkResetCommandBuffer( cmd, 0 ) );
+    depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
-	// begin recording. will only use this command buffer once
-	auto cmdBeginInfo = vkinit::command_buffer_begin_info( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
-	VK_CHECK( vkBeginCommandBuffer( cmd, &cmdBeginInfo ) );
+    ShadowMapPass( cmd );
+    GBufferPass( cmd );
+    SsaoPass( cmd );
+    PbrPass( cmd );
+    SkyboxPass( cmd );
+    PostProcessPass( cmd );
 
-	depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
+    image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
+    DrawImGui( cmd, m_gfx->swapchain.views[swapchain_image_index] );
 
-	if ( gfx->swapchain.frame_number == 5 ) {
-	}
+    image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
+    VK_CHECK( vkEndCommandBuffer( cmd ) );
 
-	ShadowMapPass( cmd );
-	gbufferPass( cmd );
-	SSAOPass( cmd );
-	pbrPass( cmd );
-	skyboxPass( cmd );
-	postProcessPass( cmd );
+    //
+    // send commands
+    //
 
-	Image::TransitionLayout( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
-	drawImgui( cmd, gfx->swapchain.views[swapchainImageIndex] );
+    // wait on _swapchainSemaphore. signaled when the swap chain is ready
+    // wait on _renderSemaphore. signaled when rendering has finished
+    auto cmdinfo = vk_init::CommandBufferSubmitInfo( cmd );
 
-	Image::TransitionLayout( cmd, gfx->swapchain.images[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
-	VK_CHECK( vkEndCommandBuffer( cmd ) );
+    auto waitInfo = vk_init::SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, m_gfx->swapchain.GetCurrentFrame( ).swapchainSemaphore );
+    auto signalInfo = vk_init::SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, m_gfx->swapchain.GetCurrentFrame( ).renderSemaphore );
 
-	//
-	// send commands
-	//
+    auto submit = vk_init::SubmitInfo( &cmdinfo, &signalInfo, &waitInfo );
 
-	// wait on _swapchainSemaphore. signaled when the swap chain is ready
-	// wait on _renderSemaphore. signaled when rendering has finished
-	auto cmdinfo = vkinit::command_buffer_submit_info( cmd );
+    // submit command buffer and execute it
+    // _renderFence will now block until the commands finish
+    VK_CHECK( vkQueueSubmit2( m_gfx->graphicsQueue, 1, &submit, m_gfx->swapchain.GetCurrentFrame( ).fence ) );
 
-	auto waitInfo = vkinit::semaphore_submit_info( VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, gfx->swapchain.getCurrentFrame( ).swapchain_semaphore );
-	auto signalInfo = vkinit::semaphore_submit_info( VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, gfx->swapchain.getCurrentFrame( ).render_semaphore );
+    //
+    // present
+    //
+    VkPresentInfoKHR presentInfo = { };
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.pNext = nullptr;
+    presentInfo.pSwapchains = &m_gfx->swapchain.swapchain;
+    presentInfo.swapchainCount = 1;
 
-	auto submit = vkinit::submit_info( &cmdinfo, &signalInfo, &waitInfo );
+    // wait on _renderSemaphore, since we need the rendering to have finished
+    // to display to the screen
+    presentInfo.pWaitSemaphores = &m_gfx->swapchain.GetCurrentFrame( ).renderSemaphore;
+    presentInfo.waitSemaphoreCount = 1;
 
-	// submit command buffer and execute it
-	// _renderFence will now block until the commands finish
-	VK_CHECK( vkQueueSubmit2( gfx->graphics_queue, 1, &submit, gfx->swapchain.getCurrentFrame( ).fence ) );
+    presentInfo.pImageIndices = &swapchain_image_index;
 
-	//
-	// present
-	//
-	VkPresentInfoKHR presentInfo = {};
-	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	presentInfo.pNext = nullptr;
-	presentInfo.pSwapchains = &gfx->swapchain.swapchain;
-	presentInfo.swapchainCount = 1;
+    vkQueuePresentKHR( m_gfx->graphicsQueue, &presentInfo );
 
-	// wait on _renderSemaphore, since we need the rendering to have finished
-	// to display to the screen
-	presentInfo.pWaitSemaphores = &gfx->swapchain.getCurrentFrame( ).render_semaphore;
-	presentInfo.waitSemaphoreCount = 1;
-
-	presentInfo.pImageIndices = &swapchainImageIndex;
-
-	vkQueuePresentKHR( gfx->graphics_queue, &presentInfo );
-
-	// increase frame number for next loop
-	gfx->swapchain.frame_number++;
+    // increase frame number for next loop
+    m_gfx->swapchain.frameNumber++;
 }
 
-void VulkanEngine::gbufferPass( VkCommandBuffer cmd ) const {
-	ZoneScopedN( "GBuffer Pass" );
-	START_LABEL( cmd, "GBuffer Pass", vec4( 1.0f, 1.0f, 0.0f, 1.0 ) );
+void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) const {
+    ZoneScopedN( "GBuffer Pass" );
+    START_LABEL( cmd, "GBuffer Pass", Vec4( 1.0f, 1.0f, 0.0f, 1.0 ) );
 
-	using namespace vkinit;
+    using namespace vk_init;
 
-	// ----------
-	// Attachments
-	{
-		auto& gbuffer = gfx->swapchain.getCurrentFrame( ).gbuffer;
-		auto& albedo = gfx->image_codex.getImage( gbuffer.albedo );
-		auto& normal = gfx->image_codex.getImage( gbuffer.normal );
-		auto& position = gfx->image_codex.getImage( gbuffer.position );
-		auto& pbr = gfx->image_codex.getImage( gbuffer.pbr );
-		auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
+    // ----------
+    // Attachments
+    {
+        auto &gbuffer = m_gfx->swapchain.GetCurrentFrame( ).gBuffer;
+        auto &albedo = m_gfx->imageCodex.GetImage( gbuffer.albedo );
+        auto &normal = m_gfx->imageCodex.GetImage( gbuffer.normal );
+        auto &position = m_gfx->imageCodex.GetImage( gbuffer.position );
+        auto &pbr = m_gfx->imageCodex.GetImage( gbuffer.pbr );
+        auto &depth = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).depth );
 
-		VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
-		std::array<VkRenderingAttachmentInfo, 4> color_attachments = {
-			attachment_info( albedo.GetBaseView( ), &clear_color ),
-			attachment_info( normal.GetBaseView( ), &clear_color ),
-			attachment_info( position.GetBaseView( ), &clear_color ),
-			attachment_info( pbr.GetBaseView( ), &clear_color ),
-		};
-		VkRenderingAttachmentInfo depth_attachment = depth_attachment_info( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+        VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        std::array<VkRenderingAttachmentInfo, 4> color_attachments = {
+                AttachmentInfo( albedo.GetBaseView( ), &clear_color ),
+                AttachmentInfo( normal.GetBaseView( ), &clear_color ),
+                AttachmentInfo( position.GetBaseView( ), &clear_color ),
+                AttachmentInfo( pbr.GetBaseView( ), &clear_color ),
+        };
+        VkRenderingAttachmentInfo depth_attachment = DepthAttachmentInfo( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
 
-		VkRenderingInfo render_info = {
-			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-			.pNext = nullptr,
-			.renderArea = VkRect2D { VkOffset2D{ 0, 0 }, draw_extent },
-			.layerCount = 1,
-			.colorAttachmentCount = color_attachments.size( ),
-			.pColorAttachments = color_attachments.data( ),
-			.pDepthAttachment = &depth_attachment,
-			.pStencilAttachment = nullptr
-		};
-		vkCmdBeginRendering( cmd, &render_info );
-	}
+        VkRenderingInfo render_info = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .pNext = nullptr,
+                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
+                .layerCount = 1,
+                .colorAttachmentCount = color_attachments.size( ),
+                .pColorAttachments = color_attachments.data( ),
+                .pDepthAttachment = &depth_attachment,
+                .pStencilAttachment = nullptr };
+        vkCmdBeginRendering( cmd, &render_info );
+    }
 
-	// ----------
-	// Call pipeline
-	gbuffer_pipeline.draw( *gfx, cmd, draw_commands, scene_data );
+    // ----------
+    // Call pipeline
+    m_gBufferPipeline.Draw( *m_gfx, cmd, m_drawCommands, m_sceneData );
 
-	vkCmdEndRendering( cmd );
+    vkCmdEndRendering( cmd );
 
-	END_LABEL( cmd );
+    END_LABEL( cmd );
 }
 
-void VulkanEngine::SSAOPass( VkCommandBuffer cmd ) const {
-	ZoneScopedN( "SSAO Pass" );
-	START_LABEL( cmd, "SSAO Pass", vec4( 1.0f, 0.5f, 0.3f, 1.0f ) );
+void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
+    ZoneScopedN( "SSAO Pass" );
+    START_LABEL( cmd, "SSAO Pass", Vec4( 1.0f, 0.5f, 0.3f, 1.0f ) );
 
-	auto bindless = gfx->getBindlessSet( );
-	auto& output = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).ssao );
+    auto bindless = m_gfx->GetBindlessSet( );
+    auto &output = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).ssao );
 
-	output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
+    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
 
-	ssao_pipeline.bind( cmd );
-	ssao_pipeline.bindDescriptorSet( cmd, bindless, 0 );
-	ssao_pipeline.bindDescriptorSet( cmd, ssao_set, 1 );
-	ssao_pipeline.dispatch( cmd, (output.GetExtent( ).width + 15) / 16, (output.GetExtent( ).height + 15) / 16, 6 );
+    m_ssaoPipeline.Bind( cmd );
+    m_ssaoPipeline.BindDescriptorSet( cmd, bindless, 0 );
+    m_ssaoPipeline.BindDescriptorSet( cmd, m_ssaoSet, 1 );
+    m_ssaoPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16, 6 );
 
-	output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 
-	// ----------
-	// Blur
-	output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
-	DescriptorWriter writer;
-	writer.WriteImage( 0, output.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-	writer.UpdateSet( gfx->device, blur_set );
+    // ----------
+    // Blur
+    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
+    DescriptorWriter writer;
+    writer.WriteImage( 0, output.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+    writer.UpdateSet( m_gfx->device, m_blurSet );
 
-	blur_settings.source_tex = output.GetId( );
-	blur_settings.size = 2;
+    m_blurSettings.sourceTex = output.GetId( );
+    m_blurSettings.size = 2;
 
-	blur_pipeline.bind( cmd );
-	blur_pipeline.bindDescriptorSet( cmd, bindless, 0 );
-	blur_pipeline.bindDescriptorSet( cmd, blur_set, 1 );
-	blur_pipeline.pushConstants( cmd, sizeof( BlurSettings ), &blur_settings );
-	blur_pipeline.dispatch( cmd, (output.GetExtent( ).width + 15) / 16, (output.GetExtent( ).height + 15) / 16, 6 );
-	output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+    m_blurPipeline.Bind( cmd );
+    m_blurPipeline.BindDescriptorSet( cmd, bindless, 0 );
+    m_blurPipeline.BindDescriptorSet( cmd, m_blurSet, 1 );
+    m_blurPipeline.PushConstants( cmd, sizeof( BlurSettings ), &m_blurSettings );
+    m_blurPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16, 6 );
+    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 
-	END_LABEL( cmd );
+    END_LABEL( cmd );
 }
 
-void VulkanEngine::pbrPass( VkCommandBuffer cmd ) const {
-	ZoneScopedN( "PBR Pass" );
-	START_LABEL( cmd, "PBR Pass", vec4( 1.0f, 0.0f, 1.0f, 1.0f ) );
+void VulkanEngine::PbrPass( VkCommandBuffer cmd ) const {
+    ZoneScopedN( "PBR Pass" );
+    START_LABEL( cmd, "PBR Pass", Vec4( 1.0f, 0.0f, 1.0f, 1.0f ) );
 
-	using namespace vkinit;
+    using namespace vk_init;
 
-	{
-		auto& image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).hdr_color );
+    {
+        auto &image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).hdrColor );
 
-		VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 0.0f };
-		VkRenderingAttachmentInfo color_attachment = attachment_info( image.GetBaseView( ), &clear_color );
+        VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 0.0f };
+        VkRenderingAttachmentInfo color_attachment = AttachmentInfo( image.GetBaseView( ), &clear_color );
 
-		VkRenderingInfo render_info = {
-			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-			.pNext = nullptr,
-			.renderArea = VkRect2D { VkOffset2D { 0, 0 }, draw_extent },
-			.layerCount = 1,
-			.colorAttachmentCount = 1,
-			.pColorAttachments = &color_attachment,
-			.pDepthAttachment = nullptr,
-			.pStencilAttachment = nullptr
-		};
-		vkCmdBeginRendering( cmd, &render_info );
-	}
+        VkRenderingInfo render_info = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .pNext = nullptr,
+                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
+                .layerCount = 1,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = &color_attachment,
+                .pDepthAttachment = nullptr,
+                .pStencilAttachment = nullptr };
+        vkCmdBeginRendering( cmd, &render_info );
+    }
 
-	pbr_pipeline.draw( *gfx, cmd, scene_data, gpu_directional_lights, gpu_point_lights, gfx->swapchain.getCurrentFrame( ).gbuffer, ibl.getIrradiance( ), ibl.getRadiance( ), ibl.getBRDF( ) );
+    m_pbrPipeline.Draw( *m_gfx, cmd, m_sceneData, m_gpuDirectionalLights, m_gpuPointLights, m_gfx->swapchain.GetCurrentFrame( ).gBuffer, m_ibl.GetIrradiance( ), m_ibl.GetRadiance( ), m_ibl.GetBrdf( ) );
 
-	vkCmdEndRendering( cmd );
+    vkCmdEndRendering( cmd );
 
-	END_LABEL( cmd );
+    END_LABEL( cmd );
 }
 
-void VulkanEngine::skyboxPass( VkCommandBuffer cmd ) const {
-	ZoneScopedN( "Skybox Pass" );
-	START_LABEL( cmd, "Skybox Pass", vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
+void VulkanEngine::SkyboxPass( VkCommandBuffer cmd ) const {
+    ZoneScopedN( "Skybox Pass" );
+    START_LABEL( cmd, "Skybox Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
 
-	using namespace vkinit;
+    using namespace vk_init;
 
-	{
-		auto& image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).hdr_color );
-		auto& depth = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).depth );
+    {
+        auto &image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).hdrColor );
+        auto &depth = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).depth );
 
-		VkRenderingAttachmentInfo color_attachment = attachment_info( image.GetBaseView( ), nullptr );
+        VkRenderingAttachmentInfo color_attachment = AttachmentInfo( image.GetBaseView( ), nullptr );
 
-		VkRenderingAttachmentInfo depth_attachment = {
-			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-			.pNext = nullptr,
-			.imageView = depth.GetBaseView( ),
-			.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-		};
-		VkRenderingInfo render_info = {
-			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-			.pNext = nullptr,
-			.renderArea = VkRect2D { VkOffset2D { 0, 0 }, draw_extent },
-			.layerCount = 1,
-			.colorAttachmentCount = 1,
-			.pColorAttachments = &color_attachment,
-			.pDepthAttachment = &depth_attachment,
-			.pStencilAttachment = nullptr
-		};
-		vkCmdBeginRendering( cmd, &render_info );
-	}
+        VkRenderingAttachmentInfo depth_attachment = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .pNext = nullptr,
+                .imageView = depth.GetBaseView( ),
+                .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        };
+        VkRenderingInfo render_info = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .pNext = nullptr,
+                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
+                .layerCount = 1,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = &color_attachment,
+                .pDepthAttachment = &depth_attachment,
+                .pStencilAttachment = nullptr };
+        vkCmdBeginRendering( cmd, &render_info );
+    }
 
-	if ( renderer_options.render_irradiance_instead_skybox ) {
-		skybox_pipeline.draw( *gfx, cmd, ibl.getIrradiance( ), scene_data );
-	} else {
-		skybox_pipeline.draw( *gfx, cmd, ibl.getSkybox( ), scene_data );
-	}
+    if ( m_rendererOptions.renderIrradianceInsteadSkybox ) {
+        m_skyboxPipeline.Draw( *m_gfx, cmd, m_ibl.GetIrradiance( ), m_sceneData );
+    }
+    else {
+        m_skyboxPipeline.Draw( *m_gfx, cmd, m_ibl.GetSkybox( ), m_sceneData );
+    }
 
-	vkCmdEndRendering( cmd );
+    vkCmdEndRendering( cmd );
 
-	END_LABEL( cmd );
+    END_LABEL( cmd );
 }
 
-void VulkanEngine::postProcessPass( VkCommandBuffer cmd ) const {
-	auto bindless = gfx->getBindlessSet( );
-	auto& output = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).post_process_image );
+void VulkanEngine::PostProcessPass( VkCommandBuffer cmd ) const {
+    auto bindless = m_gfx->GetBindlessSet( );
+    auto &output = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
 
-	pp_config.hdr = gfx->swapchain.getCurrentFrame( ).hdr_color;
+    m_ppConfig.hdr = m_gfx->swapchain.GetCurrentFrame( ).hdrColor;
 
-	output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
+    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
 
-	post_process_pipeline.bind( cmd );
-	post_process_pipeline.bindDescriptorSet( cmd, bindless, 0 );
-	post_process_pipeline.bindDescriptorSet( cmd, post_process_set, 1 );
-	post_process_pipeline.pushConstants( cmd, sizeof( PostProcessConfig ), &pp_config );
-	post_process_pipeline.dispatch( cmd, (output.GetExtent( ).width + 15) / 16, (output.GetExtent( ).height + 15) / 16, 6 );
+    m_postProcessPipeline.Bind( cmd );
+    m_postProcessPipeline.BindDescriptorSet( cmd, bindless, 0 );
+    m_postProcessPipeline.BindDescriptorSet( cmd, m_postProcessSet, 1 );
+    m_postProcessPipeline.PushConstants( cmd, sizeof( PostProcessConfig ), &m_ppConfig );
+    m_postProcessPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16, 6 );
 
-	output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 }
 
 void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
-	ZoneScopedN( "ShadowMap Pass" );
-	START_LABEL( cmd, "ShadowMap Pass", vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
+    ZoneScopedN( "ShadowMap Pass" );
+    START_LABEL( cmd, "ShadowMap Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
 
-	using namespace vkinit;
+    using namespace vk_init;
 
-	{
-		auto& depth = gfx->image_codex.getImage( scene->directional_lights.at( 0 ).shadow_map );
+    {
+        auto &depth = m_gfx->imageCodex.GetImage( m_scene->directionalLights.at( 0 ).shadowMap );
 
-		VkRenderingAttachmentInfo depth_attachment = depth_attachment_info( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
-		VkRenderingInfo render_info = {
-			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-			.pNext = nullptr,
-			.renderArea = VkRect2D { VkOffset2D { 0, 0 }, VkExtent2D{ 2048, 2048 } },
-			.layerCount = 1,
-			.colorAttachmentCount = 0,
-			.pColorAttachments = nullptr,
-			.pDepthAttachment = &depth_attachment,
-			.pStencilAttachment = nullptr
-		};
-		vkCmdBeginRendering( cmd, &render_info );
-	}
+        VkRenderingAttachmentInfo depth_attachment = DepthAttachmentInfo( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+        VkRenderingInfo render_info = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .pNext = nullptr,
+                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, VkExtent2D{ 2048, 2048 } },
+                .layerCount = 1,
+                .colorAttachmentCount = 0,
+                .pColorAttachments = nullptr,
+                .pDepthAttachment = &depth_attachment,
+                .pStencilAttachment = nullptr };
+        vkCmdBeginRendering( cmd, &render_info );
+    }
 
-	shadowmap_pipeline.draw( *gfx, cmd, draw_commands, scene_data.light_proj, scene_data.light_view, scene->directional_lights.at( 0 ).shadow_map );
+    m_shadowMapPipeline.Draw( *m_gfx, cmd, m_drawCommands, m_sceneData.lightProj, m_sceneData.lightView, m_scene->directionalLights.at( 0 ).shadowMap );
 
-	vkCmdEndRendering( cmd );
+    vkCmdEndRendering( cmd );
 
-	END_LABEL( cmd );
-
+    END_LABEL( cmd );
 }
 
-void VulkanEngine::initDefaultData( ) {
-	initImages( );
+void VulkanEngine::InitDefaultData( ) {
+    InitImages( );
 
-	gpu_scene_data = gfx->allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
+    m_gpuSceneData = m_gfx->Allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
 
-	main_deletion_queue.pushFunction( [=, this]( ) {
-		gfx->free( gpu_scene_data );
-	} );
+    m_mainDeletionQueue.PushFunction( [=, this]( ) {
+        m_gfx->Free( m_gpuSceneData );
+    } );
 
-	pbr_pipeline.init( *gfx );
-	wireframe_pipeline.init( *gfx );
-	gbuffer_pipeline.init( *gfx );
-	skybox_pipeline.init( *gfx );
-	shadowmap_pipeline.init( *gfx );
+    m_pbrPipeline.Init( *m_gfx );
+    m_wireframePipeline.Init( *m_gfx );
+    m_gBufferPipeline.Init( *m_gfx );
+    m_skyboxPipeline.Init( *m_gfx );
+    m_shadowMapPipeline.Init( *m_gfx );
 
-	// post process pipeline
-	auto& post_process_shader = gfx->shader_storage->Get( "post_process", T_COMPUTE );
-	post_process_shader.RegisterReloadCallback( [&]( VkShaderModule shader ) {
-		VK_CHECK( vkWaitForFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence, true, 1000000000 ) );
-		post_process_pipeline.cleanup( *gfx );
+    // post process pipeline
+    auto &post_process_shader = m_gfx->shaderStorage->Get( "post_process", TCompute );
+    post_process_shader.RegisterReloadCallback( [&]( VkShaderModule shader ) {
+        VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
+        m_postProcessPipeline.Cleanup( *m_gfx );
 
-		post_process_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-		post_process_pipeline.addPushConstantRange( sizeof( PostProcessConfig ) );
-		post_process_pipeline.build( *gfx, post_process_shader.handle, "post process compute" );
-		post_process_set = gfx->AllocateSet( post_process_pipeline.GetLayout( ) );
+        m_postProcessPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+        m_postProcessPipeline.AddPushConstantRange( sizeof( PostProcessConfig ) );
+        m_postProcessPipeline.Build( *m_gfx, post_process_shader.handle, "post process compute" );
+        m_postProcessSet = m_gfx->AllocateSet( m_postProcessPipeline.GetLayout( ) );
 
-		// TODO: this everyframe for more than one inflight frame
-		DescriptorWriter writer;
-		auto& out_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).post_process_image );
-		writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-		writer.UpdateSet( gfx->device, post_process_set );
-	} );
+        // TODO: this every frame for more than one inflight frame
+        DescriptorWriter writer;
+        auto &out_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
+        writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+        writer.UpdateSet( m_gfx->device, m_postProcessSet );
+    } );
 
-	post_process_pipeline.addDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-	post_process_pipeline.addPushConstantRange( sizeof( PostProcessConfig ) );
-	post_process_pipeline.build( *gfx, post_process_shader.handle, "post process compute" );
-	post_process_set = gfx->AllocateSet( post_process_pipeline.GetLayout( ) );
+    m_postProcessPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+    m_postProcessPipeline.AddPushConstantRange( sizeof( PostProcessConfig ) );
+    m_postProcessPipeline.Build( *m_gfx, post_process_shader.handle, "post process compute" );
+    m_postProcessSet = m_gfx->AllocateSet( m_postProcessPipeline.GetLayout( ) );
 
-	// TODO: this everyframe for more than one inflight frame
-	DescriptorWriter writer;
-	auto& out_image = gfx->image_codex.getImage( gfx->swapchain.getCurrentFrame( ).post_process_image );
-	writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-	writer.UpdateSet( gfx->device, post_process_set );
+    // TODO: this every frame for more than one inflight frame
+    DescriptorWriter writer;
+    auto &out_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
+    writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+    writer.UpdateSet( m_gfx->device, m_postProcessSet );
 
-	// SSAO pipeline
-	ConstructSSAOPipeline( );
-	ConstructBlurPipeline( );
+    // SSAO pipeline
+    ConstructSsaoPipeline( );
+    ConstructBlurPipeline( );
 }
 
-void VulkanEngine::initImages( ) {
-	// 3 default textures, white, grey, black. 1 pixel each
-	uint32_t white = glm::packUnorm4x8( glm::vec4( 1, 1, 1, 1 ) );
-	white_image = gfx->image_codex.loadImageFromData( "debug_white_img", (void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+void VulkanEngine::InitImages( ) {
+    // 3 default textures, white, grey, black. 1 pixel each
+    uint32_t white = glm::packUnorm4x8( glm::vec4( 1, 1, 1, 1 ) );
+    m_whiteImage = m_gfx->imageCodex.LoadImageFromData( "debug_white_img", ( void * )&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
-	uint32_t grey = glm::packUnorm4x8( glm::vec4( 0.66f, 0.66f, 0.66f, 1 ) );
-	grey_image = gfx->image_codex.loadImageFromData( "debug_grey_img", (void*)&grey, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    uint32_t grey = glm::packUnorm4x8( glm::vec4( 0.66f, 0.66f, 0.66f, 1 ) );
+    m_greyImage = m_gfx->imageCodex.LoadImageFromData( "debug_grey_img", ( void * )&grey, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
-	uint32_t black = glm::packUnorm4x8( glm::vec4( 0, 0, 0, 0 ) );
-	black_image = gfx->image_codex.loadImageFromData( "debug_black_img", (void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    uint32_t black = glm::packUnorm4x8( glm::vec4( 0, 0, 0, 0 ) );
+    m_blackImage = m_gfx->imageCodex.LoadImageFromData( "debug_black_img", ( void * )&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
-	// checkerboard image
-	uint32_t magenta = glm::packUnorm4x8( glm::vec4( 1, 0, 1, 1 ) );
-	std::array<uint32_t, 16 * 16> pixels;  // for 16x16 checkerboard texture
-	for ( int x = 0; x < 16; x++ ) {
-		for ( int y = 0; y < 16; y++ ) {
-			pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
-		}
-	}
-	error_checkerboard_image = gfx->image_codex.loadImageFromData( "debug_checkboard_img", (void*)&white, VkExtent3D{ 16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
-
-	VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-
-	sampl.magFilter = VK_FILTER_NEAREST;
-	sampl.minFilter = VK_FILTER_NEAREST;
-
-	vkCreateSampler( gfx->device, &sampl, nullptr, &default_sampler_nearest );
-
-	sampl.magFilter = VK_FILTER_LINEAR;
-	sampl.minFilter = VK_FILTER_LINEAR;
-	vkCreateSampler( gfx->device, &sampl, nullptr, &default_sampler_linear );
-
-	main_deletion_queue.pushFunction( [&]( ) {
-		vkDestroySampler( gfx->device, default_sampler_nearest, nullptr );
-		vkDestroySampler( gfx->device, default_sampler_linear, nullptr );
-	} );
+    // checkerboard image
+    uint32_t magenta = glm::packUnorm4x8( glm::vec4( 1, 0, 1, 1 ) );
+    std::array<uint32_t, 16 * 16> pixels; // for 16x16 checkerboard texture
+    for ( int x = 0; x < 16; x++ ) {
+        for ( int y = 0; y < 16; y++ ) {
+            pixels[y * 16 + x] = ( ( x % 2 ) ^ ( y % 2 ) ) ? magenta : black;
+        }
+    }
+    m_errorCheckerboardImage = m_gfx->imageCodex.LoadImageFromData( "debug_checkboard_img", ( void * )&white, VkExtent3D{ 16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 }
 
-void VulkanEngine::initScene( ) {
-	ibl.init( *gfx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
+void VulkanEngine::InitScene( ) {
+    m_ibl.Init( *m_gfx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
-	scene = GltfLoader::load( *gfx, "../../assets/sponza.glb" );
+    m_scene = GltfLoader::Load( *m_gfx, "../../assets/sponza.glb" );
 
-	// init camera
-	if ( scene->cameras.empty( ) ) {
-		camera = std::make_unique<Camera>( vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, WIDTH, HEIGHT );
-	} else {
-		auto& c = scene->cameras[0];
-		camera = std::make_unique<Camera>( c );
-		camera->setAspectRatio( WIDTH, HEIGHT );
-	}
+    // init camera
+    if ( m_scene->cameras.empty( ) ) {
+        m_camera = std::make_unique<Camera>( Vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, WIDTH, HEIGHT );
+    }
+    else {
+        auto &c = m_scene->cameras[0];
+        m_camera = std::make_unique<Camera>( c );
+        m_camera->SetAspectRatio( WIDTH, HEIGHT );
+    }
 
-	fps_controller = std::make_unique<FirstPersonFlyingController>( camera.get( ), 0.1f, 5.0f );
-	camera_controller = fps_controller.get( );
+    m_fpsController = std::make_unique<FirstPersonFlyingController>( m_camera.get( ), 0.1f, 5.0f );
+    m_cameraController = m_fpsController.get( );
 }
 
-// Global variables to store FPS history
-std::vector<float> fpsHistory;
-std::vector<float> frameTimeHistory;
-const int historySize = 100;
+void VulkanEngine::DrawNodeHierarchy( const std::shared_ptr<Node> &node ) {
+    if ( !node )
+        return;
 
-void draw_fps_graph( bool useGraph = false ) {
-	// Set window size and flags
-	ImGui::SetNextWindowSize( ImVec2( 400, 250 ), ImGuiCond_Always );
-	ImGui::SetNextWindowSizeConstraints( ImVec2( 400, 250 ), ImVec2( 400, 250 ) );
-	ImGui::Begin( "FPS Display", nullptr,
-		ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse );
+    std::string label = node->name.empty( ) ? "Unnamed Node" : node->name;
+    label += "##" + std::to_string( reinterpret_cast<uintptr_t>( node.get( ) ) );
 
-	// Calculate FPS and frame time
-	float fps = ImGui::GetIO( ).Framerate;
-	float frameTime = 1000.0f / fps;
+    if ( !node->children.empty( ) ) {
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+        if ( m_selectedNode == node ) {
+            flags |= ImGuiTreeNodeFlags_Selected;
+        }
+        const bool node_open = ImGui::TreeNodeEx( label.c_str( ), flags );
 
-	// Update history
-	fpsHistory.push_back( fps );
-	frameTimeHistory.push_back( frameTime );
-	if ( fpsHistory.size( ) > historySize ) {
-		fpsHistory.erase( fpsHistory.begin( ) );
-		frameTimeHistory.erase( frameTimeHistory.begin( ) );
-	}
+        if ( ImGui::IsItemClicked( ) ) {
+            m_selectedNode = node;
+        }
 
-	if ( !useGraph ) {
-		// Simple text version
-		ImGui::Text( "FPS: %.1f", fps );
-		ImGui::Text( "Frame Time: %.3f ms", frameTime );
-	} else {
-		// Graph version
-		ImGui::PlotLines( "FPS", fpsHistory.data( ), (int)fpsHistory.size( ), 0,
-			nullptr, 0.0f, 200.0f, ImVec2( 0, 80 ) );
-		ImGui::PlotLines( "Frame Time (ms)", frameTimeHistory.data( ),
-			(int)frameTimeHistory.size( ), 0, nullptr, 0.0f, 33.3f,
-			ImVec2( 0, 80 ) );
+        if ( node == m_selectedNode ) {
+            ImGui::SetItemDefaultFocus( );
+        }
 
-		// Display current values
-		ImGui::Text( "Current FPS: %.1f", fps );
-		ImGui::Text( "Current Frame Time: %.3f ms", frameTime );
-	}
-
-	ImGui::End( );
+        if ( node_open ) {
+            for ( const auto &child : node->children ) {
+                DrawNodeHierarchy( child );
+            }
+            ImGui::TreePop( );
+        }
+    }
+    else {
+        if ( ImGui::Selectable( label.c_str( ), m_selectedNode == node ) ) {
+            m_selectedNode = node;
+            ImGui::SetItemDefaultFocus( );
+        }
+    }
 }
 
-std::shared_ptr<Scene::Node> selected_node = nullptr;
-void drawNodeHierarchy( const std::shared_ptr<Scene::Node>& node ) {
-	if ( !node ) return;  // Safety check in case of nullptr
+static void drawSceneHierarchy( Node &node ) {
+    node.transform.DrawDebug( node.name );
 
-	// Create a unique label for each tree node to avoid ID conflicts
-	std::string label = node->name.empty( ) ? "Unnamed Node" : node->name;
-	label += "##" + std::to_string( reinterpret_cast<uintptr_t>(node.get( )) );
-
-	// Check if the node has children
-	if ( !node->children.empty( ) ) {
-		// Create a collapsible tree node for this scene node
-		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-		if ( selected_node == node ) {
-			flags |= ImGuiTreeNodeFlags_Selected;
-		}
-		bool node_open = ImGui::TreeNodeEx( label.c_str( ), flags );
-
-		// Check if this node is clicked
-		if ( ImGui::IsItemClicked( ) ) {
-			selected_node = node;
-		}
-
-		// Highlight the selected node
-		if ( node == selected_node ) {
-			ImGui::SetItemDefaultFocus( );
-		}
-
-		// Recursively draw children nodes if the node is open
-		if ( node_open ) {
-			for ( const auto& child : node->children ) {
-				drawNodeHierarchy( child );
-			}
-			ImGui::TreePop( );
-		}
-	} else {
-		// For nodes without children, create a selectable tree leaf
-		if ( ImGui::Selectable( label.c_str( ), selected_node == node ) ) {
-			selected_node = node;
-			ImGui::SetItemDefaultFocus( );
-		}
-
-	}
-}
-
-static void drawSceneHierarchy( Scene::Node& node ) {
-	node.transform.drawDebug( node.name );
-
-	for ( auto& n : node.children ) {
-		drawSceneHierarchy( *n.get( ) );
-	}
+    for ( auto &n : node.children ) {
+        drawSceneHierarchy( *n.get( ) );
+    }
 };
 
-void VulkanEngine::run( ) {
-	bool bQuit = false;
+void VulkanEngine::Run( ) {
+    bool b_quit = false;
 
-	static ImageID selected_set = gfx->swapchain.getCurrentFrame( ).post_process_image;
-	static int selected_set_n = 0;
+    static ImageId selected_set = m_gfx->swapchain.GetCurrentFrame( ).postProcessImage;
+    static int selected_set_n = 0;
 
-	// main loop
-	while ( !bQuit ) {
-		FrameMarkNamed( "main" );
-		// begin clock
-		auto start = std::chrono::system_clock::now( );
+    // main loop
+    while ( !b_quit ) {
+        FrameMarkNamed( "main" );
+        // begin clock
+        auto start = std::chrono::system_clock::now( );
 
-		{
-			ZoneScopedN( "poll_events" );
-			EG_INPUT.poll_events( this );
-		}
+        {
+            ZoneScopedN( "poll_events" );
+            EG_INPUT.PollEvents( this );
+        }
 
-		if ( EG_INPUT.should_quit( ) ) {
-			bQuit = true;
-		}
+        if ( EG_INPUT.ShouldQuit( ) ) {
+            b_quit = true;
+        }
 
-		if ( EG_INPUT.was_key_pressed( EG_KEY::ESCAPE ) ) {
-			bQuit = true;
-		}
+        if ( EG_INPUT.WasKeyPressed( EG_KEY::ESCAPE ) ) {
+            b_quit = true;
+        }
 
-		static int savedMouseX, savedMouseY;
-		// hide mouse
-		if ( EG_INPUT.was_key_pressed( EG_KEY::MOUSE_RIGHT ) ) {
-			SDL_GetMouseState( &savedMouseX, &savedMouseY );
-			SDL_SetRelativeMouseMode( SDL_TRUE );
-			SDL_ShowCursor( SDL_DISABLE );
-		}
-		// reveal mouse
-		if ( EG_INPUT.was_key_released( EG_KEY::MOUSE_RIGHT ) ) {
-			SDL_SetRelativeMouseMode( SDL_FALSE );
-			SDL_ShowCursor( SDL_ENABLE );
-			SDL_WarpMouseInWindow( window, savedMouseX, savedMouseY );
-		}
+        static int saved_mouse_x, saved_mouse_y;
+        // hide mouse
+        if ( EG_INPUT.WasKeyPressed( EG_KEY::MOUSE_RIGHT ) ) {
+            SDL_GetMouseState( &saved_mouse_x, &saved_mouse_y );
+            SDL_SetRelativeMouseMode( SDL_TRUE );
+            SDL_ShowCursor( SDL_DISABLE );
+        }
+        // reveal mouse
+        if ( EG_INPUT.WasKeyReleased( EG_KEY::MOUSE_RIGHT ) ) {
+            SDL_SetRelativeMouseMode( SDL_FALSE );
+            SDL_ShowCursor( SDL_ENABLE );
+            SDL_WarpMouseInWindow( m_window, saved_mouse_x, saved_mouse_y );
+        }
 
-		if ( EG_INPUT.was_key_pressed( EG_KEY::K ) ) {
-			VK_CHECK( vkWaitForFences( gfx->device, 1, &gfx->swapchain.getCurrentFrame( ).fence, true, 1000000000 ) );
-			pbr_pipeline.cleanup( *gfx );
-			pbr_pipeline = PbrPipeline( );
-			pbr_pipeline.init( *gfx );
-		}
+        if ( m_dirtSwapchain ) {
+            m_gfx->swapchain.Recreate( m_gfx->swapchain.extent.width, m_gfx->swapchain.extent.height );
+            m_dirtSwapchain = false;
+        }
 
-		if ( dirt_swapchain ) {
-			gfx->swapchain.recreate( gfx->swapchain.extent.width, gfx->swapchain.extent.height );
-			dirt_swapchain = false;
-		}
+        m_cameraController->Update( m_stats.frametime / 1000.0f );
 
-		camera_controller->update( stats.frametime / 1000.0f );
+        // do not draw if we are minimized
+        if ( m_stopRendering ) {
+            // throttle the speed to avoid the endless spinning
+            std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+            continue;
+        }
 
-		// do not draw if we are minimized
-		if ( stop_rendering ) {
-			// throttle the speed to avoid the endless spinning
-			std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
-			continue;
-		}
+        UpdateScene( );
 
-		updateScene( );
+        ImGui_ImplVulkan_NewFrame( );
+        ImGui_ImplSDL2_NewFrame( );
+        ImGuizmo::SetOrthographic( false );
 
-		ImGui_ImplVulkan_NewFrame( );
-		ImGui_ImplSDL2_NewFrame( );
-		ImGuizmo::SetOrthographic( false );
+        ImGui::NewFrame( );
+        ImGuizmo::BeginFrame( );
+        {
+            // dock space
+            ImGui::DockSpaceOverViewport( 0, ImGui::GetMainViewport( ) );
 
-		ImGui::NewFrame( );
-		ImGuizmo::BeginFrame( );
-		{
-			// ----------
-			// dockspace
-			ImGui::DockSpaceOverViewport( 0, ImGui::GetMainViewport( ) );
+            ImGui::ShowDemoWindow( );
 
-			ImGui::ShowDemoWindow( );
+            {
+                // Push a style to remove the window padding
+                ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0, 0 ) );
+                if ( ImGui::Begin( "Viewport", 0, ImGuiWindowFlags_NoScrollbar ) ) {
+                    const ImVec2 viewport_size = ImGui::GetContentRegionAvail( );
 
-			// Push a style to remove the window padding
-			ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0, 0 ) );
-			if ( ImGui::Begin( "Viewport", 0, ImGuiWindowFlags_NoScrollbar ) ) {
-				ImVec2 viewport_size = ImGui::GetContentRegionAvail( );
+                    constexpr float aspect_ratio = 16.0f / 9.0f;
+                    ImVec2 image_size;
 
-				float aspect_ratio = 16.0f / 9.0f;
-				ImVec2 image_size;
+                    if ( viewport_size.x / viewport_size.y > aspect_ratio ) {
+                        image_size.y = viewport_size.y;
+                        image_size.x = image_size.y * aspect_ratio;
+                    }
+                    else {
+                        image_size.x = viewport_size.x;
+                        image_size.y = image_size.x / aspect_ratio;
+                    }
 
-				if ( viewport_size.x / viewport_size.y > aspect_ratio ) {
-					image_size.y = viewport_size.y;
-					image_size.x = image_size.y * aspect_ratio;
-				} else {
-					image_size.x = viewport_size.x;
-					image_size.y = image_size.x / aspect_ratio;
-				}
+                    ImVec2 image_pos(
+                            ( viewport_size.x - image_size.x ) * 0.5f,
+                            ( viewport_size.y - image_size.y ) * 0.5f );
 
-				ImVec2 image_pos(
-					(viewport_size.x - image_size.x) * 0.5f,
-					(viewport_size.y - image_size.y) * 0.5f
-				);
+                    ImGui::SetCursorPos( image_pos );
+                    ImGui::Image( reinterpret_cast<ImTextureID>( selected_set ), image_size );
 
-				ImGui::SetCursorPos( image_pos );
-				ImGui::Image( (ImTextureID)(selected_set), image_size );
+                    if ( m_selectedNode != nullptr ) {
+                        ImGuizmo::SetOrthographic( false );
+                        ImGuizmo::SetDrawlist( );
+                        ImGuizmo::SetRect( ImGui::GetWindowPos( ).x, ImGui::GetWindowPos( ).y, ImGui::GetWindowWidth( ), ImGui::GetWindowHeight( ) );
 
-				if ( selected_node != nullptr ) {
-					ImGuizmo::SetOrthographic( false );
-					ImGuizmo::SetDrawlist( );
-					ImGuizmo::SetRect( ImGui::GetWindowPos( ).x, ImGui::GetWindowPos( ).y, (float)ImGui::GetWindowWidth( ), (float)ImGui::GetWindowHeight( ) );
+                        auto camera_view = m_sceneData.view;
+                        auto camera_proj = m_sceneData.proj;
+                        camera_proj[1][1] *= -1;
 
-					auto camera_view = scene_data.view;
-					auto camera_proj = scene_data.proj;
-					camera_proj[1][1] *= -1;
+                        auto tc = m_selectedNode->GetTransformMatrix( );
+                        ImGuizmo::Manipulate( glm::value_ptr( camera_view ), glm::value_ptr( camera_proj ), ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::WORLD, value_ptr( tc ) );
 
-					auto tc = selected_node->getTransformMatrix( );
-					ImGuizmo::Manipulate( glm::value_ptr( camera_view ), glm::value_ptr( camera_proj ), ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::WORLD, glm::value_ptr( tc ) );
+                        Mat4 local_transform = tc;
+                        if ( const auto parent = m_selectedNode->parent.lock( ) ) {
+                            Mat4 parent_world_inverse = glm::inverse( parent->GetTransformMatrix( ) );
+                            local_transform = parent_world_inverse * tc;
+                        }
 
-					mat4 local_transform = tc;
-					if ( auto parent = selected_node->parent.lock( ) ) {
-						mat4 parent_world_inverse = glm::inverse( parent->getTransformMatrix( ) );
-						local_transform = parent_world_inverse * tc;
-					}
+                        m_selectedNode->SetTransform( local_transform );
+                    }
+                }
+                ImGui::End( );
+                ImGui::PopStyleVar( );
+            }
 
-					selected_node->setTransform( local_transform );
-				}
-				//else {
-				//	ImGuizmo::SetOrthographic( false );
-				//	ImGuizmo::SetDrawlist( );
-				//	ImGuizmo::SetRect( ImGui::GetWindowPos( ).x, ImGui::GetWindowPos( ).y, (float)ImGui::GetWindowWidth( ), (float)ImGui::GetWindowHeight( ) );
+            if ( ImGui::Begin( "Scene" ) ) {
+                DrawNodeHierarchy( m_scene->topNodes[0] );
+            }
+            ImGui::End( );
 
-				//	auto camera_view = scene_data.view;
-				//	auto camera_proj = scene_data.proj;
-				//	camera_proj[1][1] *= -1;
+            if ( EG_INPUT.WasKeyPressed( EG_KEY::Z ) ) {
+                ImGui::OpenPopup( "Viewport Context" );
+            }
+            if ( ImGui::BeginPopup( "Viewport Context" ) ) {
+                ImGui::SeparatorText( "GBuffer" );
+                if ( ImGui::RadioButton( "PBR Pass", &selected_set_n, 0 ) ) {
+                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).postProcessImage;
+                }
+                if ( ImGui::RadioButton( "Albedo", &selected_set_n, 1 ) ) {
+                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.albedo;
+                }
+                if ( ImGui::RadioButton( "Position", &selected_set_n, 2 ) ) {
+                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.position;
+                }
+                if ( ImGui::RadioButton( "Normal", &selected_set_n, 3 ) ) {
+                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.normal;
+                }
+                if ( ImGui::RadioButton( "PBR", &selected_set_n, 4 ) ) {
+                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.pbr;
+                }
+                if ( ImGui::RadioButton( "HDR", &selected_set_n, 5 ) ) {
+                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).hdrColor;
+                }
+                if ( ImGui::RadioButton( "ShadowMap", &selected_set_n, 6 ) ) {
+                    selected_set = m_scene->directionalLights.at( 0 ).shadowMap;
+                }
+                if ( ImGui::RadioButton( "Depth", &selected_set_n, 7 ) ) {
+                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).depth;
+                }
+                if ( ImGui::RadioButton( "SSAO", &selected_set_n, 8 ) ) {
+                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).ssao;
+                }
+                ImGui::Separator( );
+                ImGui::SliderFloat( "Render Scale", &m_renderScale, 0.3f, 1.f );
+                ImGui::DragFloat( "Exposure", &m_ppConfig.exposure, 0.001f, 0.00f, 10.0f );
+                ImGui::DragFloat( "Gamma", &m_ppConfig.gamma, 0.01f, 0.01f, 10.0f );
+                ImGui::Checkbox( "Wireframe", &m_rendererOptions.wireframe );
+                ImGui::Checkbox( "Frustum Culling", &m_rendererOptions.frustum );
+                ImGui::Checkbox( "Render Irradiance Map", &m_rendererOptions.renderIrradianceInsteadSkybox );
+                if ( ImGui::Checkbox( "VSync", &m_rendererOptions.vsync ) ) {
+                    if ( m_rendererOptions.vsync ) {
+                        m_gfx->swapchain.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+                    }
+                    else {
+                        m_gfx->swapchain.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+                    }
+                    m_dirtSwapchain = true;
+                }
+                ImGui::EndPopup( );
+            }
 
-				//	auto& light = directional_lights.at( 0 );
-				//	auto model = light.transform.model;
-				//	if ( ImGuizmo::Manipulate( glm::value_ptr( camera_view ), glm::value_ptr( camera_proj ), ImGuizmo::OPERATION::ROTATE, ImGuizmo::MODE::WORLD, glm::value_ptr( model ) ) ) {
-				//		glm::mat3 rotationMat = glm::mat3( model );
-				//		light.transform.euler = glm::eulerAngles( glm::quat_cast( rotationMat ) );
-				//		light.transform.model = model;
-				//	}
-				//}
-			}
-			ImGui::End( );
+            if ( ImGui::Begin( "Settings" ) ) {
+                if ( ImGui::CollapsingHeader( "Node" ) ) {
+                    ImGui::Indent( );
+                    if ( m_selectedNode ) {
+                        if ( ImGui::Button( "Deselect" ) ) {
+                            m_selectedNode = nullptr;
+                        }
 
-			// Pop the style change
-			ImGui::PopStyleVar( );
+                        if ( m_selectedNode ) {
+                            m_selectedNode->transform.DrawDebug( m_selectedNode->name );
+                        }
 
-			if ( ImGui::Begin( "Scene" ) ) {
-				drawNodeHierarchy( scene->top_nodes[0] );
-			}
-			ImGui::End( );
+                        for ( auto &light : m_scene->pointLights ) {
+                            if ( light.node == m_selectedNode.get( ) ) {
+                                light.DrawDebug( );
+                            }
+                        }
+                    }
+                    ImGui::Unindent( );
+                }
 
-			if ( EG_INPUT.was_key_pressed( EG_KEY::Z ) ) {
-				ImGui::OpenPopup( "Viewport Context" );
-			}
-			if ( ImGui::BeginPopup( "Viewport Context" ) ) {
-				ImGui::SeparatorText( "GBuffer" );
-				if ( ImGui::RadioButton( "PBR Pass", &selected_set_n, 0 ) ) {
-					selected_set = gfx->swapchain.getCurrentFrame( ).post_process_image;
-				}
-				if ( ImGui::RadioButton( "Albedo", &selected_set_n, 1 ) ) {
-					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.albedo;
-				}
-				if ( ImGui::RadioButton( "Position", &selected_set_n, 2 ) ) {
-					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.position;
-				}
-				if ( ImGui::RadioButton( "Normal", &selected_set_n, 3 ) ) {
-					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.normal;
-				}
-				if ( ImGui::RadioButton( "PBR", &selected_set_n, 4 ) ) {
-					selected_set = gfx->swapchain.getCurrentFrame( ).gbuffer.pbr;
-				}
-				if ( ImGui::RadioButton( "HDR", &selected_set_n, 5 ) ) {
-					selected_set = gfx->swapchain.getCurrentFrame( ).hdr_color;
-				}
-				if ( ImGui::RadioButton( "ShadowMap", &selected_set_n, 6 ) ) {
-					selected_set = scene->directional_lights.at( 0 ).shadow_map;
-				}
-				if ( ImGui::RadioButton( "Depth", &selected_set_n, 7 ) ) {
-					selected_set = gfx->swapchain.getCurrentFrame( ).depth;
-				}
-				if ( ImGui::RadioButton( "SSAO", &selected_set_n, 8 ) ) {
-					selected_set = gfx->swapchain.getCurrentFrame( ).ssao;
-				}
-				ImGui::Separator( );
-				ImGui::SliderFloat( "Render Scale", &render_scale, 0.3f, 1.f );
-				ImGui::DragFloat( "Exposure", &pp_config.exposure, 0.001f, 0.00f, 10.0f );
-				ImGui::DragFloat( "Gamma", &pp_config.gamma, 0.01f, 0.01f, 10.0f );
-				ImGui::Checkbox( "Wireframe", &renderer_options.wireframe );
-				ImGui::Checkbox( "Frustum Culling", &renderer_options.frustum );
-				ImGui::Checkbox( "Render Irradiance Map", &renderer_options.render_irradiance_instead_skybox );
-				if ( ImGui::Checkbox( "VSync", &renderer_options.vsync ) ) {
-					if ( renderer_options.vsync ) {
-						gfx->swapchain.present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
-					} else {
-						gfx->swapchain.present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-					}
-					dirt_swapchain = true;
-				}
-				ImGui::EndPopup( );
-			}
+                if ( ImGui::CollapsingHeader( "GPU Info" ) ) {
+                    ImGui::Indent( );
+                    m_gfx->DrawDebug( );
+                    ImGui::Unindent( );
+                }
 
-			if ( ImGui::Begin( "Settings" ) ) {
-				if ( ImGui::CollapsingHeader( "Node" ) ) {
-					ImGui::Indent( );
-					if ( selected_node ) {
-						if ( ImGui::Button( "Deselect" ) ) {
-							selected_node = nullptr;
-						}
+                if ( ImGui::CollapsingHeader( "Camera" ) ) {
+                    ImGui::SeparatorText( "Camera 3D" );
+                    m_camera->DrawDebug( );
 
-						if ( selected_node ) {
-							selected_node->transform.drawDebug( selected_node->name );
-						}
+                    ImGui::SeparatorText( "Camera Controller" );
+                    m_cameraController->DrawDebug( );
+                }
 
-						for ( auto& light : scene->point_lights ) {
-							if ( light.node == selected_node ) {
-								light.DrawDebug( );
-							}
-						}
-					}
-					ImGui::Unindent( );
-				}
+                if ( ImGui::CollapsingHeader( "Renderer" ) ) {
+                    ImGui::Indent( );
 
-				if ( ImGui::CollapsingHeader( "GPU Info" ) ) {
-					ImGui::Indent( );
-					gfx->DrawDebug( );
-					ImGui::Unindent( );
-				}
+                    m_pbrPipeline.DrawDebug( );
 
-				if ( ImGui::CollapsingHeader( "Camera" ) ) {
-					ImGui::SeparatorText( "Camera 3D" );
-					camera->drawDebug( );
+                    ImGui::Indent( );
+                    // ssao settings
+                    ImGui::Checkbox( "SSAO", &m_ssaoSettings.enable );
+                    ImGui::DragFloat( "SSAO Radius", &m_ssaoSettings.radius, 0.01f, 0.0f, 1.0f );
+                    ImGui::DragFloat( "SSAO Bias", &m_ssaoSettings.bias, 0.01f, 0.0f, 1.0f );
+                    ImGui::DragFloat( "SSAO Power", &m_ssaoSettings.power, 0.01f, 0.0f, 1.0f );
 
-					ImGui::SeparatorText( "Camera Controller" );
-					camera_controller->draw_debug( );
-				}
+                    ImGui::Unindent( );
 
-				if ( ImGui::CollapsingHeader( "Renderer" ) ) {
-					ImGui::Indent( );
+                    ImGui::Unindent( );
+                }
 
-					pbr_pipeline.DrawDebug( );
+                if ( ImGui::CollapsingHeader( "Image Codex" ) ) {
+                    ImGui::Indent( );
+                    m_gfx->imageCodex.DrawDebug( );
+                    ImGui::Unindent( );
+                }
 
-					ImGui::Indent( );
-					// ssao settings
-					ImGui::Checkbox( "SSAO", &ssao_settings.enable );
-					ImGui::DragFloat( "SSAO Radius", &ssao_settings.radius, 0.01f, 0.0f, 1.0f );
-					ImGui::DragFloat( "SSAO Bias", &ssao_settings.bias, 0.01f, 0.0f, 1.0f );
-					ImGui::DragFloat( "SSAO Power", &ssao_settings.power, 0.01f, 0.0f, 1.0f );
+                if ( ImGui::CollapsingHeader( "Directional Lights" ) ) {
+                    ImGui::Indent( );
+                    for ( auto i = 0; i < m_scene->directionalLights.size( ); i++ ) {
+                        if ( ImGui::CollapsingHeader( std::format( "Sun {}", i ).c_str( ) ) ) {
+                            ImGui::PushID( i );
 
-					ImGui::Unindent( );
+                            auto &light = m_scene->directionalLights.at( i );
+                            ImGui::ColorEdit3( "Color HSV", &light.hsv.hue, ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV | ImGuiColorEditFlags_PickerHueWheel );
+                            ImGui::DragFloat( "Power", &light.power, 0.1f );
 
-					ImGui::Unindent( );
-				}
+                            auto euler = glm::degrees( light.node->transform.euler );
+                            if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
+                                light.node->transform.euler = glm::radians( euler );
+                            }
 
-				if ( ImGui::CollapsingHeader( "Image Codex" ) ) {
-					ImGui::Indent( );
-					gfx->image_codex.DrawDebug( );
-					ImGui::Unindent( );
-				}
+                            auto shadow_map_pos = glm::normalize( light.node->transform.AsMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) * light.distance;
+                            ImGui::DragFloat3( "Pos", glm::value_ptr( shadow_map_pos ) );
 
-				if ( ImGui::CollapsingHeader( "Directional Lights" ) ) {
-					ImGui::Indent( );
-					for ( auto i = 0; i < scene->directional_lights.size( ); i++ ) {
-						if ( ImGui::CollapsingHeader( std::format( "Sun {}", i ).c_str( ) ) ) {
-							ImGui::PushID( i );
+                            ImGui::DragFloat( "Distance", &light.distance );
+                            ImGui::DragFloat( "Right", &light.right );
+                            ImGui::DragFloat( "Up", &light.up );
+                            ImGui::DragFloat( "Near", &light.nearPlane );
+                            ImGui::DragFloat( "Far", &light.farPlane );
 
-							auto& light = scene->directional_lights.at( i );
-							ImGui::ColorEdit3( "Color HSV", &light.hsv.hue, ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV | ImGuiColorEditFlags_PickerHueWheel );
-							ImGui::DragFloat( "Power", &light.power, 0.1f );
+                            ImGui::Image( reinterpret_cast<ImTextureID>( light.shadowMap ), ImVec2( 200.0f, 200.0f ) );
 
-							auto euler = glm::degrees(light.node->transform.euler );
-							if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
-								light.node->transform.euler = glm::radians( euler );
-							}
+                            ImGui::PopID( );
+                        }
+                    }
+                    ImGui::Unindent( );
+                }
+            }
+            ImGui::End( );
 
-							auto shadow_map_pos = glm::normalize( light.node->transform.asMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) * light.distance;
-							ImGui::DragFloat3( "Pos", glm::value_ptr( shadow_map_pos ) );
+            if ( ImGui::Begin( "Stats" ) ) {
+                ImGui::Text( "frametime %f ms", m_stats.frametime );
+                ImGui::Text( "draw time %f ms", m_stats.meshDrawTime );
+                ImGui::Text( "update time %f ms", m_stats.sceneUpdateTime );
+                ImGui::Text( "triangles %i", m_stats.triangleCount );
+                ImGui::Text( "draws %i", m_stats.drawcallCount );
+            }
+            ImGui::End( );
+        }
 
-							ImGui::DragFloat( "Distance", &light.distance );
-							ImGui::DragFloat( "Right", &light.right );
-							ImGui::DragFloat( "Up", &light.up );
-							ImGui::DragFloat( "Near", &light.near_plane );
-							ImGui::DragFloat( "Far", &light.far_plane );
+        ImGui::Render( );
 
-							ImGui::Image( (ImTextureID)(light.shadow_map), ImVec2( 200.0f, 200.0f ) );
+        Draw( );
 
-							ImGui::PopID( );
-						}
-					}
-					ImGui::Unindent( );
-				}
-			}
-			ImGui::End( );
+        // get clock again, compare with start clock
+        auto end = std::chrono::system_clock::now( );
 
-			if ( ImGui::Begin( "Stats" ) ) {
-				ImGui::Text( "frametime %f ms", stats.frametime );
-				ImGui::Text( "draw time %f ms", stats.mesh_draw_time );
-				ImGui::Text( "update time %f ms", stats.scene_update_time );
-				ImGui::Text( "triangles %i", stats.triangle_count );
-				ImGui::Text( "draws %i", stats.drawcall_count );
-			}
-			ImGui::End( );
-		}
+        // convert to microseconds (integer), and then come back to milliseconds
+        auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>( end - start );
+        m_stats.frametime = elapsed.count( ) / 1000.f;
 
-		ImGui::Render( );
+        if ( m_timer >= 500.0f ) {
+            m_gfx->shaderStorage->Reconstruct( );
+            m_timer = 0.0f;
+        }
 
-		draw( );
-
-		// get clock again, compare with start clock
-		auto end = std::chrono::system_clock::now( );
-
-		// convert to microseconds (integer), and then come back to miliseconds
-		auto elapsed =
-			std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-		stats.frametime = elapsed.count( ) / 1000.f;
-
-		if ( timer >= 500.0f ) {
-			gfx->shader_storage->Reconstruct( );
-			timer = 0.0f;
-		}
-
-		timer += stats.frametime;
-	}
+        m_timer += m_stats.frametime;
+    }
 }
 
-void VulkanEngine::drawImgui( VkCommandBuffer cmd, VkImageView target_image_view ) {
-	{
-		using namespace vkinit;
+void VulkanEngine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targetImageView ) {
+    {
+        using namespace vk_init;
 
-		VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
-		VkRenderingAttachmentInfo color_attachment = attachment_info( target_image_view, &clear_color );
+        constexpr VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        VkRenderingAttachmentInfo color_attachment = AttachmentInfo( targetImageView, &clear_color );
 
-		VkRenderingInfo render_info = {
-			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-			.pNext = nullptr,
-			.renderArea = VkRect2D { VkOffset2D{ 0, 0 }, draw_extent },
-			.layerCount = 1,
-			.colorAttachmentCount = 1,
-			.pColorAttachments = &color_attachment,
-			.pDepthAttachment = nullptr,
-			.pStencilAttachment = nullptr
-		};
-		vkCmdBeginRendering( cmd, &render_info );
-	}
+        const VkRenderingInfo render_info = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .pNext = nullptr,
+                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
+                .layerCount = 1,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = &color_attachment,
+                .pDepthAttachment = nullptr,
+                .pStencilAttachment = nullptr };
+        vkCmdBeginRendering( cmd, &render_info );
+    }
 
-	imgui_pipeline.draw( *gfx, cmd, ImGui::GetDrawData( ) );
+    m_imGuiPipeline.Draw( *m_gfx, cmd, ImGui::GetDrawData( ) );
 
-	vkCmdEndRendering( cmd );
+    vkCmdEndRendering( cmd );
 }
 
-static void createDrawCommands( GfxDevice& gfx, const Scene& scene, const Scene::Node& node, std::vector<MeshDrawCommand>& draw_commands ) {
-	if ( !node.mesh_ids.empty( ) ) {
-		for ( auto mesh_id : node.mesh_ids ) {
-			auto& mesh_asset = scene.meshes[mesh_id];
+static void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &node, std::vector<MeshDrawCommand> &drawCommands ) {
+    if ( !node.meshIds.empty( ) ) {
+        for ( const auto mesh_id : node.meshIds ) {
+            auto &mesh_asset = scene.meshes[mesh_id];
 
-			auto& mesh = gfx.mesh_codex.getMesh( mesh_asset.mesh );
+            auto &mesh = gfx.meshCodex.GetMesh( mesh_asset.mesh );
 
-			MeshDrawCommand mdc = {
-				.index_buffer = mesh.index_buffer.buffer,
-				.index_count = mesh.index_count,
-				.vertex_buffer_address = mesh.vertex_buffer_address,
-				.world_from_local = node.getTransformMatrix( ),
-				.material_id = scene.materials[mesh_asset.material]
-			};
-			draw_commands.push_back( mdc );
-		}
-	}
+            MeshDrawCommand mdc = {
+                    .indexBuffer = mesh.indexBuffer.buffer,
+                    .indexCount = mesh.indexCount,
+                    .vertexBufferAddress = mesh.vertexBufferAddress,
+                    .worldFromLocal = node.GetTransformMatrix( ),
+                    .materialId = scene.materials[mesh_asset.material] };
+            drawCommands.push_back( mdc );
+        }
+    }
 
-	for ( auto& n : node.children ) {
-		createDrawCommands( gfx, scene, *n.get( ), draw_commands );
-	}
+    for ( auto &n : node.children ) {
+        CreateDrawCommands( gfx, scene, *n.get( ), drawCommands );
+    }
 }
 
-vec3 GetDirectionVector( const glm::vec3& rotation ) {
-	glm::vec3 radiansAngles = glm::radians( rotation );
-	glm::mat4 rotX = glm::rotate( glm::mat4( 1.0f ), radiansAngles.x, glm::vec3( 1, 0, 0 ) );
-	glm::mat4 rotY = glm::rotate( glm::mat4( 1.0f ), radiansAngles.y, glm::vec3( 0, 1, 0 ) );
-	glm::mat4 rotZ = glm::rotate( glm::mat4( 1.0f ), radiansAngles.z, glm::vec3( 0, 0, 1 ) );
-	glm::mat4 rotationMatrix = rotZ * rotY * rotX;
-	glm::vec4 direction = rotationMatrix * glm::vec4( 0, 0, -1, 0 );
-	return glm::normalize( glm::vec3( direction ) );
-}
+void VulkanEngine::UpdateScene( ) {
+    ZoneScopedN( "update_scene" );
+    auto start = std::chrono::system_clock::now( );
 
-void VulkanEngine::updateScene( ) {
-	ZoneScopedN( "update_scene" );
-	auto start = std::chrono::system_clock::now( );
+    m_drawCommands.clear( );
+    CreateDrawCommands( *m_gfx.get( ), *m_scene, *( m_scene->topNodes[0].get( ) ), m_drawCommands );
 
-	draw_commands.clear( );
-	createDrawCommands( *gfx.get( ), *scene, *(scene->top_nodes[0].get( )), draw_commands );
+    // camera
+    m_sceneData.view = m_camera->GetViewMatrix( );
+    m_sceneData.proj = m_camera->GetProjectionMatrix( );
+    m_sceneData.viewproj = m_sceneData.proj * m_sceneData.view;
+    m_sceneData.cameraPosition = Vec4( m_camera->GetPosition( ), 0.0f );
+    m_sceneData.shadowMap = m_scene->directionalLights.at( 0 ).shadowMap;
+    auto &directional_light = m_scene->directionalLights.at( 0 );
+    auto proj = glm::ortho( -directional_light.right, directional_light.right, -directional_light.up, directional_light.up, directional_light.nearPlane, directional_light.farPlane );
 
-	// camera
-	scene_data.view = camera->getViewMatrix( );
-	scene_data.proj = camera->getProjectionMatrix( );
-	scene_data.viewproj = scene_data.proj * scene_data.view;
-	scene_data.camera_position = vec4( camera->getPosition( ), 0.0f );
-	scene_data.shadow_map = scene->directional_lights.at( 0 ).shadow_map;
-	auto& light = scene->directional_lights.at( 0 );
-	auto proj = glm::ortho( -light.right, light.right, -light.up, light.up, light.near_plane, light.far_plane );
+    auto shadow_map_pos = glm::normalize( directional_light.node->GetTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 ) ) * directional_light.distance;
+    auto view = glm::lookAt( Vec3( shadow_map_pos ), Vec3( 0.0f, 0.0f, 0.0f ), GLOBAL_UP );
+    m_sceneData.lightProj = proj;
+    m_sceneData.lightView = view;
 
-	auto shadow_map_pos = glm::normalize( light.node->getTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 ) ) * light.distance;
-	auto view = glm::lookAt( vec3( shadow_map_pos ), vec3( 0.0f, 0.0f, 0.0f ), GlobalUp );
-	scene_data.light_proj = proj;
-	scene_data.light_view = view;
+    m_gpuDirectionalLights.clear( );
+    m_sceneData.numberOfDirectionalLights = static_cast<int>( m_scene->directionalLights.size( ) );
+    for ( auto i = 0; i < m_scene->directionalLights.size( ); i++ ) {
+        GpuDirectionalLight gpu_light;
+        auto &light = m_scene->directionalLights.at( i );
 
-	gpu_directional_lights.clear( );
-	scene_data.number_of_directional_lights = static_cast<int>(scene->directional_lights.size( ));
-	for ( auto i = 0; i < scene->directional_lights.size( ); i++ ) {
-		GpuDirectionalLight gpu_light;
-		auto& light = scene->directional_lights.at( i );
+        ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x, gpu_light.color.y, gpu_light.color.z );
+        gpu_light.color *= light.power;
 
-		ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x, gpu_light.color.y, gpu_light.color.z );
-		gpu_light.color *= light.power;
+        // get direction
+        auto direction = light.node->GetTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 );
+        gpu_light.direction = direction;
+        m_gpuDirectionalLights.push_back( gpu_light );
+    }
 
-		// get direction
-		auto direction = light.node->getTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 );
-		gpu_light.direction = direction;
-		gpu_directional_lights.push_back( gpu_light );
-	}
+    m_gpuPointLights.clear( );
+    m_sceneData.numberOfPointLights = static_cast<int>( m_scene->pointLights.size( ) );
+    for ( auto i = 0; i < m_scene->pointLights.size( ); i++ ) {
+        GpuPointLightData gpu_light;
+        auto &light = m_scene->pointLights.at( i );
 
-	gpu_point_lights.clear( );
-	scene_data.number_of_point_lights = static_cast<int>(scene->point_lights.size( ));
-	for ( auto i = 0; i < scene->point_lights.size( ); i++ ) {
-		GpuPointLightData gpu_light;
-		auto& light = scene->point_lights.at( i );
+        gpu_light.position = light.node->transform.position;
 
-		gpu_light.position = light.node->transform.position;
+        ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x, gpu_light.color.y, gpu_light.color.z );
+        gpu_light.color *= light.power;
 
-		ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x, gpu_light.color.y, gpu_light.color.z );
-		gpu_light.color *= light.power;
+        gpu_light.quadratic = light.quadratic;
+        gpu_light.linear = light.linear;
+        gpu_light.constant = light.constant;
 
-		gpu_light.quadratic = light.quadratic;
-		gpu_light.linear = light.linear;
-		gpu_light.constant = light.constant;
+        m_gpuPointLights.push_back( gpu_light );
+    }
 
-		gpu_point_lights.push_back( gpu_light );
-	}
+    m_gpuSceneData.Upload( *m_gfx, &m_sceneData, sizeof( GpuSceneData ) );
 
-	gpu_scene_data.Upload( *gfx, &scene_data, sizeof( GpuSceneData ) );
+    m_ssaoBuffer.Upload( *m_gfx, &m_ssaoSettings, sizeof( SsaoSettings ) );
 
-	ssao_buffer.Upload( *gfx, &ssao_settings, sizeof( SSAOSettings ) );
-
-	auto end = std::chrono::system_clock::now( );
-	// convert to microseconds (integer), and then come back to miliseconds
-	auto elapsed =
-		std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-	stats.scene_update_time = elapsed.count( ) / 1000.f;
+    auto end = std::chrono::system_clock::now( );
+    // convert to microseconds (integer), and then come back to milliseconds
+    auto elapsed =
+            std::chrono::duration_cast<std::chrono::microseconds>( end - start );
+    m_stats.sceneUpdateTime = elapsed.count( ) / 1000.f;
 }

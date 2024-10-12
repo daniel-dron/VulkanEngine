@@ -8,80 +8,77 @@
 #define SHADER_COMP_EXT ".comp.spv"
 
 struct Shader {
-	using CallbackId = std::uint64_t;
-	using ReloadCallback = std::function<void( VkShaderModule module )>;
+    using CallbackId = std::uint64_t;
+    using ReloadCallback = std::function<void( VkShaderModule module )>;
 
-	VkShaderModule handle = VK_NULL_HANDLE;
-	unsigned long low;
-	unsigned long high;
-	std::string name;
+    VkShaderModule handle = VK_NULL_HANDLE;
+    unsigned long low;
+    unsigned long high;
+    std::string name;
 
-	Shader( ) = default;
-	Shader( VkShaderModule shader, unsigned long low, unsigned long high, const std::string& name )
-		: handle( shader ), low( low ), high( high ), name( name ) {}
+    Shader( ) = default;
+    Shader( const VkShaderModule shader, const unsigned long low, const unsigned long high, const std::string &name ) :
+        handle( shader ), low( low ), high( high ), name( name ), m_nextCallback( 0 ) {}
 
-	// delte copy
-	Shader( const Shader& ) = delete;
-	Shader& operator=( const Shader& ) = delete;
+    // delete copy
+    Shader( const Shader & ) = delete;
+    Shader &operator=( const Shader & ) = delete;
 
-	Shader( Shader&& other ) noexcept
-		: handle( std::exchange( other.handle, VK_NULL_HANDLE ) )
-		, low( other.low )
-		, high( other.high )
-		, name( other.name ) {}
-	Shader& operator=( Shader&& other ) noexcept {
-		if ( this != &other ) {
-			handle = std::exchange( other.handle, VK_NULL_HANDLE );
-			low = other.low;
-			high = other.high;
-			name = other.name;
-		}
+    Shader( Shader &&other ) noexcept :
+        handle( std::exchange( other.handle, VK_NULL_HANDLE ) ), low( other.low ), high( other.high ), name( other.name ), m_nextCallback( 0 ) {}
+    Shader &operator=( Shader &&other ) noexcept {
+        if ( this != &other ) {
+            handle = std::exchange( other.handle, VK_NULL_HANDLE );
+            low = other.low;
+            high = other.high;
+            name = other.name;
+        }
 
-		return *this;
-	}
+        return *this;
+    }
 
-	CallbackId RegisterReloadCallback( ReloadCallback callback ) const {
-		CallbackId id = next_callback++;
-		callbacks[id] = std::move( callback );
-		return id;
-	}
+    CallbackId RegisterReloadCallback( ReloadCallback callback ) const {
+        const CallbackId id = m_nextCallback++;
+        m_callbacks[id] = std::move( callback );
+        return id;
+    }
 
-	void UnregisterReloadCallback( CallbackId id ) const {
-		callbacks.erase( id );
-	}
+    void UnregisterReloadCallback( const CallbackId id ) const {
+        m_callbacks.erase( id );
+    }
 
-	void NotifyReload( ) const {
-		for ( const auto& [id, callback] : callbacks ) {
-			callback( handle );
-		}
-	}
+    void NotifyReload( ) const {
+        for ( const auto &[id, callback] : m_callbacks ) {
+            callback( handle );
+        }
+    }
 
 
 private:
-	mutable std::unordered_map<CallbackId, ReloadCallback> callbacks;
-	mutable CallbackId next_callback;
+    mutable std::unordered_map<CallbackId, ReloadCallback> m_callbacks;
+    mutable CallbackId m_nextCallback;
 };
 
 enum ShaderType {
-	T_FRAGMENT,
-	T_VERTEX,
-	T_COMPUTE
+    TFragment,
+    TVertex,
+    TCompute
 };
 
 class ShaderStorage {
 public:
-	ShaderStorage( GfxDevice* gfx );
-	void cleanup( );
+    explicit ShaderStorage( GfxDevice *gfx );
+    void Cleanup( );
 
-	const Shader& Get( std::string name, ShaderType shader_type );
-	void Reconstruct( );
+    void Add( const std::string &name );
+    const Shader &Get( const std::string &name, ShaderType shaderType );
+    void Reconstruct( );
+
 private:
-	void Add( std::string name, ShaderType shader_type );
-
-	std::unordered_map<std::string, Shader> shaders;
-	GfxDevice* gfx;
+    std::unordered_map<std::string, Shader> m_shaders;
+    GfxDevice *m_gfx;
 };
 
-namespace Shaders {
-	VkShaderModule LoadShaderModule( VkDevice device, const char* path );
+namespace shaders {
+    VkShaderModule LoadShaderModule( VkDevice device, const char *path );
 }

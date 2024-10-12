@@ -6,25 +6,25 @@ class GfxDevice;
 
 class BindlessRegistry {
 public:
-	void init( GfxDevice& gfx );
-	void cleanup( GfxDevice& gfx );
+	void Init( GfxDevice& gfx );
+	void Cleanup( const GfxDevice & gfx );
 
-	void addImage( GfxDevice& gfx, ImageID id, const VkImageView view);
-	void addSampler( GfxDevice& gfx, uint32_t id, const VkSampler sampler );
+	void AddImage( const GfxDevice & gfx, ImageId id, const VkImageView view);
+	void AddSampler( GfxDevice& gfx, uint32_t id, const VkSampler sampler );
 
-	static const size_t MAX_BINDLESS_IMAGES = 16000;
-	static const size_t MAX_SAMPLERS = 3;
-	static const size_t TEXTURE_BINDING = 0;
-	static const size_t SAMPLERS_BINDING = 1;
+	static constexpr size_t MaxBindlessImages = 16000;
+	static constexpr size_t MaxSamplers = 3;
+	static constexpr size_t TextureBinding = 0;
+	static constexpr size_t SamplersBinding = 1;
 
 	VkDescriptorPool pool;
 	VkDescriptorSetLayout layout;
 	VkDescriptorSet set;
 
-	VkSampler nearest_sampler;
-	VkSampler linear_sampler;
-	VkSampler shadow_map_sampler;
+	VkSampler nearestSampler;
+	VkSampler linearSampler;
+	VkSampler shadowMapSampler;
 
 private:
-	void initSamplers( GfxDevice& gfx );
+	void InitSamplers( GfxDevice& gfx );
 };

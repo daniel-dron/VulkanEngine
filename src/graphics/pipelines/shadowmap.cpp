@@ -1,126 +1,122 @@
 #include <pch.h>
 
-#include "shadowmap.h"
 #include <vk_initializers.h>
 #include <vk_pipelines.h>
+#include "shadowmap.h"
 
-using namespace vkinit;
-using namespace vkutil;
+#include "graphics/draw_command.h"
+#include "graphics/gfx_device.h"
 
-ShadowMap::Result<> ShadowMap::init( GfxDevice& gfx ) {
-	auto& frag_shader = gfx.shader_storage->Get( "shadowmap", T_FRAGMENT );
-	auto& vert_shader = gfx.shader_storage->Get( "shadowmap", T_VERTEX );
+using namespace vk_init;
 
-	auto ReconstructShaderCallback = [&]( VkShaderModule shader ) {
-		VK_CHECK( vkWaitForFences( gfx.device, 1, &gfx.swapchain.getCurrentFrame( ).fence, true, 1000000000 ) );
-		cleanup( gfx );
+ShadowMap::Result<> ShadowMap::Init( GfxDevice &gfx ) {
+    auto &frag_shader = gfx.shaderStorage->Get( "shadowmap", TFragment );
+    auto &vert_shader = gfx.shaderStorage->Get( "shadowmap", TVertex );
 
-		Reconstruct( gfx );
-	};
+    auto reconstruct_shader_callback = [&]( VkShaderModule shader ) {
+        VK_CHECK( vkWaitForFences( gfx.device, 1, &gfx.swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
+        Cleanup( gfx );
 
-	frag_shader.RegisterReloadCallback( ReconstructShaderCallback );
-	vert_shader.RegisterReloadCallback( ReconstructShaderCallback );
+        Reconstruct( gfx );
+    };
 
-	Reconstruct( gfx );
+    frag_shader.RegisterReloadCallback( reconstruct_shader_callback );
+    vert_shader.RegisterReloadCallback( reconstruct_shader_callback );
 
-	return {};
+    Reconstruct( gfx );
+
+    return { };
 }
 
-void ShadowMap::cleanup( GfxDevice& gfx ) {
-	vkDestroyPipelineLayout( gfx.device, layout, nullptr );
-	vkDestroyPipeline( gfx.device, pipeline, NULL );
+void ShadowMap::Cleanup( GfxDevice &gfx ) {
+    vkDestroyPipelineLayout( gfx.device, m_layout, nullptr );
+    vkDestroyPipeline( gfx.device, m_pipeline, nullptr );
 }
 
-DrawStats ShadowMap::draw( GfxDevice& gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand>& draw_commands, const glm::mat4& projection, const glm::mat4 view, ImageID target ) const {
-	DrawStats stats = {};
+DrawStats ShadowMap::Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands, const glm::mat4 &projection, const glm::mat4 &view, ImageId target ) const {
+    DrawStats stats = { };
 
-	vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
+    vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline );
 
-	auto& target_image = gfx.image_codex.getImage( target );
+    auto &target_image = gfx.imageCodex.GetImage( target );
 
-	VkViewport viewport = {
-		.x = 0,
-		.y = 0,
-		.width = static_cast<float>(target_image.GetExtent( ).width),
-		.height = static_cast<float>(target_image.GetExtent( ).height),
-		.minDepth = 0.0f,
-		.maxDepth = 1.0f,
-	};
-	vkCmdSetViewport( cmd, 0, 1, &viewport );
+    const VkViewport viewport = {
+            .x = 0,
+            .y = 0,
+            .width = static_cast<float>( target_image.GetExtent( ).width ),
+            .height = static_cast<float>( target_image.GetExtent( ).height ),
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f,
+    };
+    vkCmdSetViewport( cmd, 0, 1, &viewport );
 
-	VkRect2D scissor = {
-		.offset = {
-			.x = 0,
-			.y = 0
-		},
-		.extent = {
-			.width = target_image.GetExtent( ).width,
-			.height = target_image.GetExtent( ).height
-		}
-	};
-	vkCmdSetScissor( cmd, 0, 1, &scissor );
+    const VkRect2D scissor = {
+            .offset = {
+                    .x = 0,
+                    .y = 0,
+            },
+            .extent = { .width = target_image.GetExtent( ).width, .height = target_image.GetExtent( ).height },
+    };
+    vkCmdSetScissor( cmd, 0, 1, &scissor );
 
-	for ( const auto& draw_command : draw_commands ) {
-		vkCmdBindIndexBuffer( cmd, draw_command.index_buffer, 0, VK_INDEX_TYPE_UINT32 );
+    for ( const auto &draw_command : drawCommands ) {
+        vkCmdBindIndexBuffer( cmd, draw_command.indexBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
-		PushConstants push_constants = {
-			.projection = projection,
-			.view = view,
-			.model = draw_command.world_from_local,
-			.vertex_buffer_address = draw_command.vertex_buffer_address
-		};
-		vkCmdPushConstants( cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( PushConstants ), &push_constants );
+        PushConstants push_constants = {
+                .projection = projection,
+                .view = view,
+                .model = draw_command.worldFromLocal,
+                .vertexBufferAddress = draw_command.vertexBufferAddress,
+        };
+        vkCmdPushConstants( cmd, m_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( PushConstants ), &push_constants );
 
-		vkCmdDrawIndexed( cmd, draw_command.index_count, 1, 0, 0, 0 );
+        vkCmdDrawIndexed( cmd, draw_command.indexCount, 1, 0, 0, 0 );
 
-		stats.drawcall_count++;
-		stats.triangle_count += draw_command.index_count / 3;
-	}
+        stats.drawcallCount++;
+        stats.triangleCount += draw_command.indexCount / 3;
+    }
 
-	return stats;
-
+    return stats;
 }
 
-void ShadowMap::Reconstruct( GfxDevice& gfx ) {
-	auto& frag_shader = gfx.shader_storage->Get( "shadowmap", T_FRAGMENT );
-	auto& vert_shader = gfx.shader_storage->Get( "shadowmap", T_VERTEX );
+void ShadowMap::Reconstruct( GfxDevice &gfx ) {
+    auto &frag_shader = gfx.shaderStorage->Get( "shadowmap", TFragment );
+    auto &vert_shader = gfx.shaderStorage->Get( "shadowmap", TVertex );
 
-	VkPushConstantRange range = {
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-		.offset = 0,
-		.size = sizeof( PushConstants )
-	};
+    VkPushConstantRange range = {
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            .offset = 0,
+            .size = sizeof( PushConstants ) };
 
-	VkPipelineLayoutCreateInfo layout_info = pipeline_layout_create_info( );
-	layout_info.pSetLayouts = nullptr;
-	layout_info.setLayoutCount = 0;
-	layout_info.pPushConstantRanges = &range;
-	layout_info.pushConstantRangeCount = 1;
-	VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &layout ) );
+    VkPipelineLayoutCreateInfo layout_info = PipelineLayoutCreateInfo( );
+    layout_info.pSetLayouts = nullptr;
+    layout_info.setLayoutCount = 0;
+    layout_info.pPushConstantRanges = &range;
+    layout_info.pushConstantRangeCount = 1;
+    VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &m_layout ) );
 
-	PipelineBuilder builder;
-	builder.set_shaders( vert_shader.handle, frag_shader.handle );
-	builder.set_input_topology( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
-	builder.set_polygon_mode( VK_POLYGON_MODE_FILL );
-	builder.set_cull_mode( VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_CLOCKWISE );
-	builder.set_multisampling_none( );
-	builder.disable_blending( );
-	builder.enable_depthtest( true, VK_COMPARE_OP_LESS );
+    PipelineBuilder builder;
+    builder.SetShaders( vert_shader.handle, frag_shader.handle );
+    builder.SetInputTopology( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
+    builder.SetPolygonMode( VK_POLYGON_MODE_FILL );
+    builder.SetCullMode( VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_CLOCKWISE );
+    builder.SetMultisamplingNone( );
+    builder.DisableBlending( );
+    builder.EnableDepthTest( true, VK_COMPARE_OP_LESS );
 
-	VkFormat format = gfx.image_codex.getImage( gfx.swapchain.getCurrentFrame( ).depth ).GetFormat( );
-	builder.set_depth_format( format );
+    VkFormat format = gfx.imageCodex.GetImage( gfx.swapchain.GetCurrentFrame( ).depth ).GetFormat( );
+    builder.SetDepthFormat( format );
 
-	builder._pipelineLayout = layout;
-	pipeline = builder.build_pipeline( gfx.device );
+    builder.SetLayout( m_layout );
+    m_pipeline = builder.Build( gfx.device );
 
 #ifdef ENABLE_DEBUG_UTILS
-	const VkDebugUtilsObjectNameInfoEXT obj = {
-		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-		.pNext = nullptr,
-		.objectType = VkObjectType::VK_OBJECT_TYPE_PIPELINE,
-		.objectHandle = (uint64_t)pipeline,
-		.pObjectName = "ShadowMap Pipeline"
-	};
-	vkSetDebugUtilsObjectNameEXT( gfx.device, &obj );
+    const VkDebugUtilsObjectNameInfoEXT obj = {
+            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+            .pNext = nullptr,
+            .objectType = VK_OBJECT_TYPE_PIPELINE,
+            .objectHandle = reinterpret_cast<uint64_t>( m_pipeline ),
+            .pObjectName = "ShadowMap Pipeline" };
+    vkSetDebugUtilsObjectNameEXT( gfx.device, &obj );
 #endif
 }

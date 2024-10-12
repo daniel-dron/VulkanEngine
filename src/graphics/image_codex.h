@@ -1,48 +1,49 @@
 #pragma once
 
-#include <graphics/gpu_image.h>
 #include <graphics/bindless.h>
+#include <graphics/gpu_image.h>
 #include <vk_types.h>
 
 class GfxDevice;
 
 class ImageCodex {
 public:
-	inline static const ImageID INVALID_IMAGE_ID = std::numeric_limits<uint32_t>::max( ) - 1;
+    static constexpr ImageId InvalidImageId = std::numeric_limits<uint32_t>::max( ) - 1;
 
-	void init( GfxDevice* gfx );
-	void cleanup( );
+    void Init( GfxDevice *gfx );
+    void Cleanup( );
 
-	const std::vector<GpuImage>& getImages( );
-	const GpuImage& getImage( ImageID );
-	ImageID loadImageFromFile( const std::string& path, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
-	ImageID loadHDRFromFile( const std::string& path, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
-	ImageID loadImageFromData( const std::string& name, void* data, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
-	ImageID loadCubemapFromFile( const std::vector<std::string>& paths, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
-	ImageID loadCubemapFromData( const std::vector<std::string>& paths, const std::vector<unsigned char*> datas, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
+    const std::vector<GpuImage> &GetImages( );
+    const GpuImage &GetImage( ImageId );
+    ImageId LoadImageFromFile( const std::string &path, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
+    ImageId LoadHdrFromFile( const std::string &path, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
+    ImageId LoadImageFromData( const std::string &name, void *data, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
+    ImageId LoadCubemapFromFile( const std::vector<std::string> &paths, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
+    ImageId LoadCubemapFromData( const std::vector<std::string> &paths, const std::vector<unsigned char *> &datas, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
 
-	ImageID createEmptyImage( const std::string& name, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false );
-	ImageID createCubemap( const std::string& name, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, int mipmaps = 0 );
+    ImageId CreateEmptyImage( const std::string &name, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false );
+    ImageId CreateCubemap( const std::string &name, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, int mipmaps = 0 );
 
-	VkDescriptorSetLayout getBindlessLayout( ) const;
-	VkDescriptorSet getBindlessSet( ) const;
+    VkDescriptorSetLayout GetBindlessLayout( ) const;
+    VkDescriptorSet GetBindlessSet( ) const;
 
-	ImageID getWhiteImageId( ) const { return white; }
-	ImageID getBlackImageId( ) const { return black; }
-	ImageID getGreyImageId( ) const { return grey; }
-	ImageID getChekboardImageId( ) const { return checkboard; }
+    ImageId GetWhiteImageId( ) const { return m_white; }
+    ImageId GetBlackImageId( ) const { return m_black; }
+    ImageId GetGreyImageId( ) const { return m_grey; }
+    ImageId GetChekboardImageId( ) const { return m_checkboard; }
 
-	BindlessRegistry bindless_registry;
+    BindlessRegistry bindlessRegistry;
 
-	void DrawDebug( );
+    void DrawDebug( ) const;
+
 private:
-	void initDefaultImages( );
+    void InitDefaultImages( );
 
-	ImageID white = INVALID_IMAGE_ID;
-	ImageID black = INVALID_IMAGE_ID;
-	ImageID grey = INVALID_IMAGE_ID;
-	ImageID checkboard = INVALID_IMAGE_ID;
+    ImageId m_white = InvalidImageId;
+    ImageId m_black = InvalidImageId;
+    ImageId m_grey = InvalidImageId;
+    ImageId m_checkboard = InvalidImageId;
 
-	std::vector<GpuImage> images;
-	GfxDevice* gfx;
+    std::vector<GpuImage> m_images;
+    GfxDevice *m_gfx = nullptr;
 };

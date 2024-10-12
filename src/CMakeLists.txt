@@ -108,7 +108,9 @@ add_executable (engine
 )
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-set_property(TARGET engine PROPERTY CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+target_compile_features(engine PRIVATE cxx_std_23)
 
 source_group("graphics" FILES ${SRC_GRAPHICS})
 source_group("graphics/pipelines" FILES ${SRC_PIPELINES})

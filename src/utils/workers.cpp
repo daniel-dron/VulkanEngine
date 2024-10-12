@@ -2,25 +2,25 @@
 
 #include "workers.h"
 
-WorkerPool::WorkerPool( size_t num_threads ) {
-	for ( size_t i = 0; i < num_threads; i++ ) {
-		threads.emplace_back( [this] {
+WorkerPool::WorkerPool(const size_t numThreads ) {
+	for ( size_t i = 0; i < numThreads; i++ ) {
+		m_threads.emplace_back( [this] {
 			while ( true ) {
 				std::unique_ptr<std::function<void( )>> task;
 
 				{
-					std::unique_lock<std::mutex> lock( mutex );
-					cv.wait( lock, [this] {
-						return !tasks.empty( ) || stop.load( );
+					std::unique_lock<std::mutex> lock( m_mutex );
+					m_cv.wait( lock, [this] {
+						return !m_tasks.empty( ) || m_stop.load( );
 					} );
 
-					if ( stop.load( ) && tasks.empty( ) ) {
+					if ( m_stop.load( ) && m_tasks.empty( ) ) {
 						return;
 					}
 
-					if ( !tasks.empty( ) ) {
-						task = std::move( tasks.front( ) );
-						tasks.pop( );
+					if ( !m_tasks.empty( ) ) {
+						task = std::move( m_tasks.front( ) );
+						m_tasks.pop( );
 					}
 				}
 
@@ -33,18 +33,18 @@ WorkerPool::WorkerPool( size_t num_threads ) {
 }
 
 WorkerPool::~WorkerPool( ) {
-	stop.store( true );
-	cv.notify_all( );
+	m_stop.store( true );
+	m_cv.notify_all( );
 
-	for ( auto& thread : threads ) {
+	for ( auto& thread : m_threads ) {
 		if ( thread.joinable( ) ) {
 			thread.join( );
 		}
 	}
 }
 
-void WorkerPool::work( std::function<void( )> task ) {
-	std::unique_lock<std::mutex> lock( mutex );
-	tasks.emplace( std::make_unique<std::function<void( )>>( std::move( task ) ) );
-	cv.notify_one( );
+void WorkerPool::Work( std::function<void( )> task ) {
+	std::unique_lock<std::mutex> lock( m_mutex );
+	m_tasks.emplace( std::make_unique<std::function<void( )>>( std::move( task ) ) );
+	m_cv.notify_one( );
 }

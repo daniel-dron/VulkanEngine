@@ -3,58 +3,53 @@
 #include <array>
 #include <expected>
 
-#include <graphics/descriptors.h>
 #include "gbuffer.h"
 
 class GfxDevice;
 
 class Swapchain {
 public:
-	// -----------
-	// Errors
-	enum class Error {
-
-	};
+	enum class Error { };
 
 	template<typename T = void>
 	using Result = std::expected<void, Error>;
 
-	const static unsigned int FRAME_OVERLAP = 1;
+    static constexpr unsigned int FrameOverlap = 1;
 
 	struct FrameData {
 		VkCommandPool pool;
-		VkCommandBuffer command_buffer;
-		VkSemaphore swapchain_semaphore;
-		VkSemaphore render_semaphore;
+		VkCommandBuffer commandBuffer;
+		VkSemaphore swapchainSemaphore;
+		VkSemaphore renderSemaphore;
 		VkFence fence;
-		DeletionQueue deletion_queue;
-		ImageID hdr_color;
-		ImageID ssao;
-		ImageID post_process_image;
-		ImageID depth;
-		GBuffer gbuffer;
+		DeletionQueue deletionQueue;
+		ImageId hdrColor;
+		ImageId ssao;
+		ImageId postProcessImage;
+		ImageId depth;
+		GBuffer gBuffer;
 	};
 
 	VkSwapchainKHR swapchain;
-	std::array<FrameData, FRAME_OVERLAP> frames;
+	std::array<FrameData, FrameOverlap> frames;
 	std::vector<VkImage> images;
 	std::vector<VkImageView> views;
 	VkFormat format;
 	VkExtent2D extent;
-	VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
+	VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
 
-	uint64_t frame_number = 0;
-	FrameData& getCurrentFrame( );
+	uint64_t frameNumber = 0;
+	FrameData& GetCurrentFrame( );
 
-	Result<> init( GfxDevice* gfx, uint32_t width, uint32_t height );
-	void cleanup( );
+	Result<> Init( GfxDevice* gfx, uint32_t width, uint32_t height );
+	void Cleanup( );
 
-	Result<> recreate( uint32_t width, uint32_t height );
+	Result<> Recreate( uint32_t width, uint32_t height );
 private:
-	Result<> create( uint32_t width, uint32_t height );
-	void createFrameImages( );
-	void createGBuffers( );
+	Result<> Create( uint32_t width, uint32_t height );
+	void CreateFrameImages( );
+	void CreateGBuffers( );
 
-	VkSampler linear = nullptr;
-	GfxDevice* gfx = nullptr;
+	VkSampler m_linear = nullptr;
+	GfxDevice* m_gfx = nullptr;
 };

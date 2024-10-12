@@ -1,24 +1,25 @@
 #pragma once
 
-#include "pipeline.h"
 #include <imgui.h>
+#include "pipeline.h"
 
 class ImGuiPipeline : public Pipeline {
 public:
-	virtual Result<> init( GfxDevice& gfx ) override;
-	virtual void cleanup( GfxDevice& gfx ) override;
+    Result<> Init( GfxDevice &gfx ) override;
+    void Cleanup( GfxDevice &gfx ) override;
 
-	void draw( GfxDevice& gfx, VkCommandBuffer cmd, ImDrawData* draw_data );
+    void Draw( GfxDevice &gfx, VkCommandBuffer cmd, ImDrawData *drawData );
+
 private:
-	struct PushConstants {
-		VkDeviceAddress vertex_buffer;
-		uint32_t texture_id;
-		uint32_t is_srgb;
-		vec2 offset;
-		vec2 scale;
-	};
+    struct PushConstants {
+        VkDeviceAddress vertexBuffer;
+        uint32_t textureId;
+        uint32_t isSrgb;
+        Vec2 offset;
+        Vec2 scale;
+    };
 
-	ImageID font_texture_id;
-	std::vector<GpuBuffer> index_buffers;
-	std::vector<GpuBuffer> vertex_buffers;
+    ImageId m_fontTextureId = 0;
+    std::vector<GpuBuffer> m_indexBuffers;
+    std::vector<GpuBuffer> m_vertexBuffers;
 };

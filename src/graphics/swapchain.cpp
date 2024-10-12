@@ -2,187 +2,178 @@
 
 #include "swapchain.h"
 
-#include "gfx_device.h"
-#include "VkBootstrap.h"
-#include "vk_types.h"
 #include <vk_initializers.h>
+#include "VkBootstrap.h"
+#include "gfx_device.h"
 #include "imgui_impl_vulkan.h"
+#include "vk_types.h"
 
-Swapchain::FrameData& Swapchain::getCurrentFrame( ) {
-	return frames[frame_number % FRAME_OVERLAP];
+Swapchain::FrameData &Swapchain::GetCurrentFrame( ) {
+    return frames[frameNumber % FrameOverlap];
 }
 
-Swapchain::Result<> Swapchain::init( GfxDevice* gfx, uint32_t width, uint32_t height ) {
-	this->gfx = gfx;
-	extent = VkExtent2D{ width, height };
+Swapchain::Result<> Swapchain::Init( GfxDevice *gfx, const uint32_t width, const uint32_t height ) {
+    this->m_gfx = gfx;
+    extent = VkExtent2D{ width, height };
 
-	RETURN_IF_ERROR( create( width, height ) );
+    RETURN_IF_ERROR( Create( width, height ) );
 
-	const VkCommandPoolCreateInfo command_pool_info = vkinit::command_pool_create_info( gfx->graphics_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
-	for ( int i = 0; i < FRAME_OVERLAP; i++ ) {
-		VK_CHECK( vkCreateCommandPool( gfx->device, &command_pool_info, nullptr, &frames[i].pool ) );
+    const VkCommandPoolCreateInfo command_pool_info = vk_init::CommandPoolCreateInfo( gfx->graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
+    for ( int i = 0; i < FrameOverlap; i++ ) {
+        VK_CHECK( vkCreateCommandPool( gfx->device, &command_pool_info, nullptr, &frames[i].pool ) );
 
-		// default command buffer that will be used for rendering
-		VkCommandBufferAllocateInfo cmd_alloc_info = vkinit::command_buffer_allocate_info( frames[i].pool, 1 );
-		VK_CHECK( vkAllocateCommandBuffers( gfx->device, &cmd_alloc_info, &frames[i].command_buffer ) );
-	}
+        VkCommandBufferAllocateInfo cmd_alloc_info = vk_init::CommandBufferAllocateInfo( frames[i].pool, 1 );
+        VK_CHECK( vkAllocateCommandBuffers( gfx->device, &cmd_alloc_info, &frames[i].commandBuffer ) );
+    }
 
-	auto fenceCreateInfo = vkinit::fence_create_info( VK_FENCE_CREATE_SIGNALED_BIT );
-	auto semaphoreCreateInfo = vkinit::semaphore_create_info( );
+    auto fenceCreateInfo = vk_init::FenceCreateInfo( VK_FENCE_CREATE_SIGNALED_BIT );
+    auto semaphoreCreateInfo = vk_init::SemaphoreCreateInfo( );
 
-	for ( int i = 0; i < FRAME_OVERLAP; i++ ) {
-		VK_CHECK( vkCreateFence( gfx->device, &fenceCreateInfo, nullptr, &frames[i].fence ) );
+    for ( int i = 0; i < FrameOverlap; i++ ) {
+        VK_CHECK( vkCreateFence( gfx->device, &fenceCreateInfo, nullptr, &frames[i].fence ) );
 
-		VK_CHECK( vkCreateSemaphore( gfx->device, &semaphoreCreateInfo, nullptr, &frames[i].render_semaphore ) );
-		VK_CHECK( vkCreateSemaphore( gfx->device, &semaphoreCreateInfo, nullptr, &frames[i].swapchain_semaphore ) );
-	}
+        VK_CHECK( vkCreateSemaphore( gfx->device, &semaphoreCreateInfo, nullptr, &frames[i].renderSemaphore ) );
+        VK_CHECK( vkCreateSemaphore( gfx->device, &semaphoreCreateInfo, nullptr, &frames[i].swapchainSemaphore ) );
+    }
 
-	return {};
+    return { };
 }
 
-void Swapchain::cleanup( ) {
-	for ( uint64_t i = 0; i < FRAME_OVERLAP; i++ ) {
-		vkDestroyCommandPool( gfx->device, frames[i].pool, nullptr );
+void Swapchain::Cleanup( ) {
+    for ( uint64_t i = 0; i < FrameOverlap; i++ ) {
+        vkDestroyCommandPool( m_gfx->device, frames[i].pool, nullptr );
 
-		// sync objects
-		vkDestroyFence( gfx->device, frames[i].fence, nullptr );
-		vkDestroySemaphore( gfx->device, frames[i].render_semaphore, nullptr );
-		vkDestroySemaphore( gfx->device, frames[i].swapchain_semaphore, nullptr );
+        // sync objects
+        vkDestroyFence( m_gfx->device, frames[i].fence, nullptr );
+        vkDestroySemaphore( m_gfx->device, frames[i].renderSemaphore, nullptr );
+        vkDestroySemaphore( m_gfx->device, frames[i].swapchainSemaphore, nullptr );
 
-		frames[i].deletion_queue.flush( );
-	}
+        frames[i].deletionQueue.Flush( );
+    }
 
-	vkDestroySwapchainKHR( gfx->device, swapchain, nullptr );
+    vkDestroySwapchainKHR( m_gfx->device, swapchain, nullptr );
 
-	for ( const auto& view : views ) {
-		vkDestroyImageView( gfx->device, view, nullptr );
-	}
+    for ( const auto &view : views ) {
+        vkDestroyImageView( m_gfx->device, view, nullptr );
+    }
 
-	vkDestroySampler( gfx->device, linear, nullptr );
+    vkDestroySampler( m_gfx->device, m_linear, nullptr );
 }
 
-Swapchain::Result<> Swapchain::recreate( uint32_t width, uint32_t height ) {
+Swapchain::Result<> Swapchain::Recreate( const uint32_t width, const uint32_t height ) {
+    const auto old = swapchain;
+    const auto old_views = views;
 
-	auto old = swapchain;
-	auto old_views = views;
+    vkb::SwapchainBuilder builder{ m_gfx->chosenGpu, m_gfx->device, m_gfx->surface };
+    format = VK_FORMAT_R8G8B8A8_SRGB;
 
-	vkb::SwapchainBuilder builder{ gfx->chosen_gpu, gfx->device, gfx->surface };
-	format = VK_FORMAT_R8G8B8A8_SRGB;
+    auto swapchain_res = builder
+                                 .set_desired_format( VkSurfaceFormatKHR{
+                                         .format = format,
+                                         .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+                                 } )
+                                 .set_desired_present_mode( presentMode )
+                                 .add_image_usage_flags( VK_IMAGE_USAGE_TRANSFER_DST_BIT )
+                                 .set_old_swapchain( swapchain )
+                                 .build( );
 
-	auto swapchain_res = builder
-		.set_desired_format( VkSurfaceFormatKHR{
-			.format = format,
-			.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
-			} )
-			.set_desired_present_mode( present_mode )
-		.add_image_usage_flags( VK_IMAGE_USAGE_TRANSFER_DST_BIT )
-		.set_old_swapchain( swapchain )
-		.build( );
+    if ( !swapchain_res ) {
+        return std::unexpected( Error{ } );
+    }
 
-	if ( !swapchain_res ) {
-		return std::unexpected( Error{} );
-	}
+    auto &bs_swapchain = swapchain_res.value( );
 
-	auto& bs_swapchain = swapchain_res.value( );
+    swapchain = bs_swapchain.swapchain;
+    images = bs_swapchain.get_images( ).value( );
+    views = bs_swapchain.get_image_views( ).value( );
 
-	swapchain = bs_swapchain.swapchain;
-	images = bs_swapchain.get_images( ).value( );
-	views = bs_swapchain.get_image_views( ).value( );
+    extent = VkExtent2D{ width, height };
 
-	extent = VkExtent2D{ width, height };
+    // Recreate and destroy left over primitives
+    vkDestroySemaphore( m_gfx->device, GetCurrentFrame( ).swapchainSemaphore, nullptr );
+    constexpr VkSemaphoreCreateInfo info = {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+            .pNext = nullptr,
+    };
+    VK_CHECK( vkCreateSemaphore( m_gfx->device, &info, nullptr, &GetCurrentFrame( ).swapchainSemaphore ) );
 
-	// ----------
-	// Recreate and destroy left over primitives
-	vkDestroySemaphore( gfx->device, getCurrentFrame( ).swapchain_semaphore, nullptr );
-	const VkSemaphoreCreateInfo info = {
-		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-		.pNext = nullptr,
-	};
-	VK_CHECK( vkCreateSemaphore( gfx->device, &info, nullptr, &getCurrentFrame( ).swapchain_semaphore ) );
+    vkDestroySwapchainKHR( m_gfx->device, old, nullptr );
+    for ( const auto &view : old_views ) {
+        vkDestroyImageView( m_gfx->device, view, nullptr );
+    }
 
-	vkDestroySwapchainKHR( gfx->device, old, nullptr );
-	for ( const auto& view : old_views ) {
-		vkDestroyImageView( gfx->device, view, nullptr );
-	}
+    CreateFrameImages( );
 
-	createFrameImages( );
-
-	return {};
+    return { };
 }
 
-Swapchain::Result<> Swapchain::create( uint32_t width, uint32_t height ) {
-	vkb::SwapchainBuilder builder{ gfx->chosen_gpu, gfx->device, gfx->surface };
-	format = VK_FORMAT_R8G8B8A8_SRGB;
+Swapchain::Result<> Swapchain::Create( uint32_t width, uint32_t height ) {
+    vkb::SwapchainBuilder builder{ m_gfx->chosenGpu, m_gfx->device, m_gfx->surface };
+    format = VK_FORMAT_R8G8B8A8_SRGB;
 
-	auto swapchain_res = builder
-		.set_desired_format( VkSurfaceFormatKHR{
-			.format = format,
-			.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
-			} )
-			.set_desired_present_mode( present_mode )
-		.add_image_usage_flags( VK_IMAGE_USAGE_TRANSFER_DST_BIT )
-		.build( );
+    auto swapchain_res = builder
+                                 .set_desired_format( VkSurfaceFormatKHR{
+                                         .format = format,
+                                         .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+                                 } )
+                                 .set_desired_present_mode( presentMode )
+                                 .add_image_usage_flags( VK_IMAGE_USAGE_TRANSFER_DST_BIT )
+                                 .build( );
 
-	if ( !swapchain_res ) {
-		return std::unexpected( Error{} );
-	}
+    if ( !swapchain_res ) {
+        return std::unexpected( Error{ } );
+    }
 
-	auto& bs_swapchain = swapchain_res.value( );
+    auto &bs_swapchain = swapchain_res.value( );
 
-	swapchain = bs_swapchain.swapchain;
-	images = bs_swapchain.get_images( ).value( );
-	views = bs_swapchain.get_image_views( ).value( );
+    swapchain = bs_swapchain.swapchain;
+    images = bs_swapchain.get_images( ).value( );
+    views = bs_swapchain.get_image_views( ).value( );
 
-	createFrameImages( );
-	createGBuffers( );
+    CreateFrameImages( );
+    CreateGBuffers( );
 
-	return {};
+    return { };
 }
 
-void Swapchain::createFrameImages( ) {
-	const VkExtent3D draw_image_extent = {
-		.width = extent.width, .height = extent.height, .depth = 1 };
+void Swapchain::CreateFrameImages( ) {
+    const VkExtent3D draw_image_extent = {
+            .width = extent.width, .height = extent.height, .depth = 1 };
 
-	VkImageUsageFlags draw_image_usages{};
-	draw_image_usages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	draw_image_usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    VkImageUsageFlags draw_image_usages{ };
+    draw_image_usages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    draw_image_usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
-	VkImageUsageFlags depth_image_usages{};
-	depth_image_usages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	depth_image_usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    VkImageUsageFlags depth_image_usages{ };
+    depth_image_usages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    depth_image_usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
-	// TODO: transition to correct layout ( check validation layers )
-	for ( auto& frame : frames ) {
-		std::vector<unsigned char> empty_image_data;
-		empty_image_data.resize( extent.width * extent.height * 8, 0 );
-		frame.hdr_color = gfx->image_codex.loadImageFromData( "hdr image pbr", empty_image_data.data( ), draw_image_extent,
-			VK_FORMAT_R16G16B16A16_SFLOAT, draw_image_usages, false );
+    // TODO: transition to correct layout ( check validation layers )
+    for ( auto &frame : frames ) {
+        std::vector<unsigned char> empty_image_data;
+        empty_image_data.resize( extent.width * extent.height * 8, 0 );
+        frame.hdrColor = m_gfx->imageCodex.LoadImageFromData( "hdr image pbr", empty_image_data.data( ), draw_image_extent, VK_FORMAT_R16G16B16A16_SFLOAT, draw_image_usages, false );
 
-		frame.ssao = gfx->image_codex.createEmptyImage( "SSAO", draw_image_extent, VK_FORMAT_R32G32B32A32_SFLOAT, draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
+        frame.ssao = m_gfx->imageCodex.CreateEmptyImage( "SSAO", draw_image_extent, VK_FORMAT_R32G32B32A32_SFLOAT, draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
 
-		frame.post_process_image = gfx->image_codex.createEmptyImage( "post process", draw_image_extent,
-			VK_FORMAT_R8G8B8A8_SRGB, draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
+        frame.postProcessImage = m_gfx->imageCodex.CreateEmptyImage( "post process", draw_image_extent, VK_FORMAT_R8G8B8A8_SRGB, draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
 
-		empty_image_data.resize( extent.width * extent.height * 4, 0 );
-		frame.depth = gfx->image_codex.loadImageFromData( "main depth image", empty_image_data.data( ), draw_image_extent,
-			VK_FORMAT_D32_SFLOAT, depth_image_usages, false );
-	}
+        empty_image_data.resize( extent.width * extent.height * 4, 0 );
+        frame.depth = m_gfx->imageCodex.LoadImageFromData( "main depth image", empty_image_data.data( ), draw_image_extent, VK_FORMAT_D32_SFLOAT, depth_image_usages, false );
+    }
 }
 
-void Swapchain::createGBuffers( ) {
-	VkImageUsageFlags usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	const VkExtent3D extent = {
-		.width = this->extent.width, .height = this->extent.height, .depth = 1
-	};
+void Swapchain::CreateGBuffers( ) {
+    constexpr VkImageUsageFlags usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    const VkExtent3D extent = { .width = this->extent.width, .height = this->extent.height, .depth = 1 };
 
-	for ( auto& frame : frames ) {
-		std::vector<unsigned char> empty_data;
-		empty_data.resize( extent.width * extent.height * 4 * 2, 0 );
+    for ( auto &frame : frames ) {
+        std::vector<unsigned char> empty_data;
+        empty_data.resize( extent.width * extent.height * 4 * 2, 0 );
 
-		frame.gbuffer.position = gfx->image_codex.loadImageFromData( "gbuffer.position", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
-		frame.gbuffer.normal = gfx->image_codex.loadImageFromData( "gbuffer.normal", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
-		frame.gbuffer.pbr = gfx->image_codex.loadImageFromData( "gbuffer.pbr", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
-		frame.gbuffer.albedo = gfx->image_codex.loadImageFromData( "gbuffer.albedo", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
-
-	}
+        frame.gBuffer.position = m_gfx->imageCodex.LoadImageFromData( "gbuffer.position", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+        frame.gBuffer.normal = m_gfx->imageCodex.LoadImageFromData( "gbuffer.normal", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+        frame.gBuffer.pbr = m_gfx->imageCodex.LoadImageFromData( "gbuffer.pbr", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+        frame.gBuffer.albedo = m_gfx->imageCodex.LoadImageFromData( "gbuffer.albedo", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+    }
 }

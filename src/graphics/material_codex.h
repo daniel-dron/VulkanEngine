@@ -5,41 +5,41 @@
 class GfxDevice;
 
 struct GpuMaterial {
-	vec4 base_color;
-	vec4 metal_roughness_factors;
-	uint32_t color_tex;
-	uint32_t metal_roughness_tex;
-	uint32_t normal_tex;
-	uint32_t pad;
+    Vec4 baseColor;
+    Vec4 metalRoughnessFactors;
+    uint32_t colorTex;
+    uint32_t metalRoughnessTex;
+    uint32_t normalTex;
+    uint32_t pad;
 };
 
 struct Material {
-	vec4 base_color;
-	float metalness_factor;
-	float roughness_factor;
+    Vec4 baseColor;
+    float metalnessFactor;
+    float roughnessFactor;
 
-	ImageID color_id;
-	ImageID metal_roughness_id;
-	ImageID normal_id;
+    ImageId colorId;
+    ImageId metalRoughnessId;
+    ImageId normalId;
 
-	std::string name;
+    std::string name;
 };
 
 class MaterialCodex {
 public:
-	void init( GfxDevice& gfx );
-	void cleanup( GfxDevice& gfx );
+    void Init( GfxDevice &gfx );
+    void Cleanup( GfxDevice &gfx ) const;
 
-	MaterialID addMaterial( GfxDevice& gfx, const Material& material );
-	const Material& getMaterial( MaterialID id );
+    MaterialId AddMaterial( const GfxDevice &gfx, const Material &material );
+    const Material &GetMaterial( MaterialId id );
 
-	const GpuBuffer& getGpuBuffer( ) const { return material_gpu; }
-	VkDeviceAddress getDeviceAddress( ) const { return gpu_address; }
+    const GpuBuffer &GetGpuBuffer( ) const { return m_materialGpu; }
+    VkDeviceAddress GetDeviceAddress( ) const { return m_gpuAddress; }
 
 private:
-	GpuBuffer material_gpu;
-	static const size_t MAX_MATERIALS = 1000;
-	VkDeviceAddress gpu_address;
+    GpuBuffer m_materialGpu = { };
+    static constexpr size_t MaxMaterials = 1000;
+    VkDeviceAddress m_gpuAddress = 0;
 
-	std::vector<Material> materials;
+    std::vector<Material> m_materials;
 };

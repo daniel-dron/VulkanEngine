@@ -1,8 +1,10 @@
 #pragma once
 
-#include <vk_types.h>
 #include <expected>
 #include <mutex>
+#include <vk_types.h>
+
+#include "descriptors.h"
 #include "image_codex.h"
 #include "material_codex.h"
 #include "mesh_codex.h"
@@ -34,13 +36,13 @@ namespace Debug {
 	extern PFN_vkSetDebugUtilsObjectTagEXT vkSetDebugUtilsObjectTagEXT_ptr;
 	extern PFN_vkSubmitDebugUtilsMessageEXT vkSubmitDebugUtilsMessageEXT_ptr;
 
-	void StartLabel( VkCommandBuffer cmd, const std::string& name, vec4 color);
+	void StartLabel( VkCommandBuffer cmd, const std::string& name, Vec4 color);
 	void EndLabel( VkCommandBuffer cmd );
 }
 
 struct ImmediateExecutor {
 	VkFence fence;
-	VkCommandBuffer command_buffer;
+	VkCommandBuffer commandBuffer;
 	VkCommandPool pool;
 
 	std::mutex mutex;
@@ -52,12 +54,12 @@ struct ImmediateExecutor {
 	template<typename T = void>
 	using Result = std::expected<T, Error>;
 
-	Result<> init( GfxDevice* gfx );
-	void execute( std::function<void( VkCommandBuffer )>&& func );
-	void cleanup( );
+	Result<> Init( GfxDevice* gfx );
+	void Execute( std::function<void( VkCommandBuffer )>&& func );
+	void Cleanup( ) const;
 
 private:
-	GfxDevice* gfx;
+	GfxDevice *m_gfx = nullptr;
 };
 
 class GfxDevice {
@@ -79,37 +81,37 @@ public:
 	template<typename T = void>
 	using Result = std::expected<T, GfxDeviceError>;
 
-	Result<> init( struct SDL_Window* window );
-	void execute( std::function<void( VkCommandBuffer )>&& func );
-	GpuBuffer allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vma_usage, const std::string& name );
-	void free( const GpuBuffer& buffer );
-	void cleanup( );
+	Result<> Init( struct SDL_Window* window );
+	void Execute( std::function<void( VkCommandBuffer )>&& func );
+	GpuBuffer Allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, const std::string& name );
+	void Free( const GpuBuffer& buffer );
+	void Cleanup( );
 
 	VkDescriptorSet AllocateSet( VkDescriptorSetLayout layout );
 
-	VkDescriptorSetLayout getBindlessLayout( ) const;
-	VkDescriptorSet getBindlessSet( ) const;
+	VkDescriptorSetLayout GetBindlessLayout( ) const;
+	VkDescriptorSet GetBindlessSet( ) const;
 
-	DescriptorAllocatorGrowable set_pool;
+	DescriptorAllocatorGrowable setPool;
 
 	VkInstance instance;
-	VkPhysicalDevice chosen_gpu;
+	VkPhysicalDevice chosenGpu;
 	VkDevice device;
 
-	VkPhysicalDeviceProperties2 device_properties;
-	VkPhysicalDeviceMemoryProperties mem_properties;
+	VkPhysicalDeviceProperties2 deviceProperties;
+    VkPhysicalDeviceMemoryProperties memProperties;
 
-	VkDebugUtilsMessengerEXT debug_messenger;
-	std::unordered_map<std::string, uint64_t> allocation_counter;
+	VkDebugUtilsMessengerEXT debugMessenger;
+	std::unordered_map<std::string, uint64_t> allocationCounter;
 
-	VkQueue graphics_queue;
-	uint32_t graphics_queue_family;
+	VkQueue graphicsQueue;
+	uint32_t graphicsQueueFamily;
 
 	// TODO: implement a command buffer manager (list of commands to get pulled/pushed)
-	VkQueue compute_queue;
-	uint32_t compute_queue_family;
-	VkCommandPool compute_command_pool;
-	VkCommandBuffer compute_command;
+	VkQueue computeQueue;
+	uint32_t computeQueueFamily;
+	VkCommandPool computeCommandPool;
+	VkCommandBuffer computeCommand;
 
 	ImmediateExecutor executor;
 	VmaAllocator allocator;
@@ -117,18 +119,18 @@ public:
 	VkSurfaceKHR surface;
 	::Swapchain swapchain;
 
-	ImageCodex image_codex;
-	MaterialCodex material_codex;
-	MeshCodex mesh_codex;
+	ImageCodex imageCodex;
+	MaterialCodex materialCodex;
+	MeshCodex meshCodex;
 
-	std::unique_ptr<ShaderStorage> shader_storage;
+	std::unique_ptr<ShaderStorage> shaderStorage;
 
 	void DrawDebug( ) const;
 
 private:
-	Result<> initDevice( struct SDL_Window* window );
-	Result<> initAllocator( );
-	void initDebugFunctions( ) const;
+	Result<> InitDevice( struct SDL_Window* window );
+	Result<> InitAllocator( );
+	void InitDebugFunctions( ) const;
 
-	DeletionQueue deletion_queue;
+	DeletionQueue m_deletionQueue;
 };

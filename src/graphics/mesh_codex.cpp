@@ -2,86 +2,78 @@
 
 #include "mesh_codex.h"
 
-#include <graphics/gfx_device.h>
 #include <format>
+#include <graphics/gfx_device.h>
 
-void MeshCodex::cleanup( GfxDevice& gfx ) {
-	for ( const auto& mesh : meshes ) {
-		gfx.free( mesh.index_buffer );
-		gfx.free( mesh.vertex_buffer );
-	}
+void MeshCodex::Cleanup( GfxDevice &gfx ) const {
+    for ( const auto &mesh : m_meshes ) {
+        gfx.Free( mesh.indexBuffer );
+        gfx.Free( mesh.vertexBuffer );
+    }
 }
 
-MeshID MeshCodex::addMesh( GfxDevice& gfx, const Mesh& mesh ) {
-	auto gpu_mesh = uploadMesh( gfx, mesh );
+MeshId MeshCodex::AddMesh( GfxDevice &gfx, const Mesh &mesh ) {
+    const auto gpu_mesh = UploadMesh( gfx, mesh );
 
-	auto id = meshes.size( );
-	meshes.push_back( gpu_mesh );
+    const auto id = m_meshes.size( );
+    m_meshes.push_back( gpu_mesh );
 
-	return id;
+    return id;
 }
 
-const GpuMesh& MeshCodex::getMesh( MeshID id ) const {
-	return meshes.at( id );
+const GpuMesh &MeshCodex::GetMesh( MeshId id ) const {
+    return m_meshes.at( id );
 }
 
-GpuMesh MeshCodex::uploadMesh( GfxDevice& gfx, const Mesh& mesh ) {
-	GpuMesh gpu_mesh{};
-	gpu_mesh.aabb = mesh.aabb;
+GpuMesh MeshCodex::UploadMesh( GfxDevice &gfx, const Mesh &mesh ) const {
+    GpuMesh gpu_mesh{ };
+    gpu_mesh.aabb = mesh.aabb;
 
-	const size_t vertex_buffer_size = mesh.vertices.size( ) * sizeof( Mesh::Vertex );
-	const size_t index_buffer_size = mesh.indices.size( ) * sizeof( uint32_t );
+    const size_t vertex_buffer_size = mesh.vertices.size( ) * sizeof( Mesh::Vertex );
+    const size_t index_buffer_size = mesh.indices.size( ) * sizeof( uint32_t );
 
-	std::string name_vertex = std::format( "{}.(vtx)", meshes.size( ) );
-	std::string name_index = std::format( "{}.(idx)", meshes.size( ) );
+    std::string name_vertex = std::format( "{}.(vtx)", m_meshes.size( ) );
+    std::string name_index = std::format( "{}.(idx)", m_meshes.size( ) );
 
-	auto vertex_buffer = gfx.allocate( vertex_buffer_size,
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY, name_vertex.c_str( ) );
-	auto index_buffer = gfx.allocate( index_buffer_size,
-		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY, name_index.c_str( ) );
+    auto vertex_buffer = gfx.Allocate( vertex_buffer_size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                       VMA_MEMORY_USAGE_GPU_ONLY, name_vertex.c_str( ) );
+    auto index_buffer = gfx.Allocate( index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                      VMA_MEMORY_USAGE_GPU_ONLY, name_index.c_str( ) );
 
-	// ----------
-	// Staging
-	GpuBuffer staging = gfx.allocate( vertex_buffer_size + index_buffer_size,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, "Staging MeshCodex" );
+    // Staging
+    GpuBuffer staging = gfx.Allocate( vertex_buffer_size + index_buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, "Staging MeshCodex" );
 
-	void* data = nullptr;
-	vmaMapMemory( gfx.allocator, staging.allocation, &data );
-	memcpy( data, mesh.vertices.data( ), vertex_buffer_size );
-	memcpy( static_cast<char*>(data) + vertex_buffer_size, mesh.indices.data( ), index_buffer_size );
-	vmaUnmapMemory( gfx.allocator, staging.allocation );
+    void *data = nullptr;
+    vmaMapMemory( gfx.allocator, staging.allocation, &data );
+    memcpy( data, mesh.vertices.data( ), vertex_buffer_size );
+    memcpy( static_cast<char *>( data ) + vertex_buffer_size, mesh.indices.data( ), index_buffer_size );
+    vmaUnmapMemory( gfx.allocator, staging.allocation );
 
-	gfx.execute( [&]( const VkCommandBuffer cmd ) {
+    gfx.Execute( [&]( const VkCommandBuffer cmd ) {
+        const VkBufferCopy vertex_copy = {
+                .srcOffset = 0,
+                .dstOffset = 0,
+                .size = vertex_buffer_size,
+        };
+        vkCmdCopyBuffer( cmd, staging.buffer, vertex_buffer.buffer, 1, &vertex_copy );
 
-		VkBufferCopy vertex_copy = {
-			.srcOffset = 0,
-			.dstOffset = 0,
-			.size = vertex_buffer_size,
-		};
-		vkCmdCopyBuffer( cmd, staging.buffer, vertex_buffer.buffer, 1, &vertex_copy );
+        const VkBufferCopy index_copy = {
+                .srcOffset = vertex_buffer_size,
+                .dstOffset = 0,
+                .size = index_buffer_size };
+        vkCmdCopyBuffer( cmd, staging.buffer, index_buffer.buffer, 1, &index_copy );
+    } );
 
-		VkBufferCopy index_copy = {
-			.srcOffset = vertex_buffer_size,
-			.dstOffset = 0,
-			.size = index_buffer_size
-		};
-		vkCmdCopyBuffer( cmd, staging.buffer, index_buffer.buffer, 1, &index_copy );
+    gfx.Free( staging );
 
-	} );
+    gpu_mesh.indexBuffer = index_buffer;
+    gpu_mesh.vertexBuffer = vertex_buffer;
+    gpu_mesh.indexCount = mesh.indices.size( );
 
-	gfx.free( staging );
+    VkBufferDeviceAddressInfo address_info = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+            .buffer = vertex_buffer.buffer };
+    gpu_mesh.vertexBufferAddress = vkGetBufferDeviceAddress( gfx.device, &address_info );
 
-	gpu_mesh.index_buffer = index_buffer;
-	gpu_mesh.vertex_buffer = vertex_buffer;
-	gpu_mesh.index_count = mesh.indices.size( );
-
-	VkBufferDeviceAddressInfo address_info = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-		.buffer = vertex_buffer.buffer
-	};
-	gpu_mesh.vertex_buffer_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
-
-	return gpu_mesh;
+    return gpu_mesh;
 }

@@ -1,53 +1,52 @@
 #include <pch.h>
 
-#include "scene.h"
-#include <imgui.h>
-#include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtx/euler_angles.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
+#include <imgui.h>
+#include "scene.h"
 
-void Scene::Node::setTransform( const mat4& new_transform ) {
-	glm::vec3 skew{};
-	glm::vec4 perspective{};
-	glm::quat rotation{};
+void Node::SetTransform( const Mat4 &newTransform ) {
+    glm::vec3 skew{ };
+    glm::vec4 perspective{ };
+    glm::quat rotation{ };
 
-	glm::decompose( new_transform, transform.scale, rotation, transform.position, skew, perspective );
+    decompose( newTransform, transform.scale, rotation, transform.position, skew, perspective );
 
-	glm::extractEulerAngleXYZ( glm::mat4_cast( rotation ), transform.euler.x, transform.euler.y, transform.euler.z );
+    extractEulerAngleXYZ( glm::mat4_cast( rotation ), transform.euler.x, transform.euler.y, transform.euler.z );
 
-	transform.model = new_transform;
+    transform.model = newTransform;
 }
 
-mat4 Scene::Node::getTransformMatrix( ) const {
-	mat4 localTransform = transform.asMatrix( );
+Mat4 Node::GetTransformMatrix( ) const {
+    const Mat4 local_transform = transform.AsMatrix( );
 
-	if ( auto parentNode = parent.lock( ) ) {
-		return parentNode->getTransformMatrix( ) * localTransform;
-	} else {
-		return localTransform;
-	}
+    if ( const auto parent_node = parent.lock( ) ) {
+        return parent_node->GetTransformMatrix( ) * local_transform;
+    }
+
+    return local_transform;
 }
 
-std::shared_ptr<Scene::Node> Scene::FindNodeByName( const std::string& name ) const {
-	std::function<std::shared_ptr<Node>( const std::shared_ptr<Node>& )> searchNode =
-		[&name, &searchNode]( const std::shared_ptr<Node>& node ) -> std::shared_ptr<Node> {
-		if ( node->name == name ) {
-			return node;
-		}
-		for ( const auto& child : node->children ) {
-			auto result = searchNode( child );
-			if ( result ) {
-				return result;
-			}
-		}
-		return nullptr;
-	};
+std::shared_ptr<Node> Scene::FindNodeByName( const std::string &name ) const {
+    std::function<std::shared_ptr<Node>( const std::shared_ptr<Node> & )> search_node = [&name, &search_node]( const std::shared_ptr<Node> &node ) -> std::shared_ptr<Node> {
+        if ( node->name == name ) {
+            return node;
+        }
+        for ( const auto &child : node->children ) {
+            auto result = search_node( child );
+            if ( result ) {
+                return result;
+            }
+        }
+        return nullptr;
+    };
 
-	for ( const auto& node : top_nodes ) {
-		auto result = searchNode( node );
-		if ( result ) {
-			return result;
-		}
-	}
+    for ( const auto &node : topNodes ) {
+        auto result = search_node( node );
+        if ( result ) {
+            return result;
+        }
+    }
 
-	return nullptr;
+    return nullptr;
 }

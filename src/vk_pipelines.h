@@ -1,42 +1,44 @@
 ﻿#pragma once
-#include <vk_types.h>
+
 #include <vulkan/vulkan_core.h>
 
-namespace vkutil {
-	class PipelineBuilder {
-	public:
-		std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
+class PipelineBuilder {
+public:
+	PipelineBuilder( ) { Clear( ); }
 
-		VkPipelineInputAssemblyStateCreateInfo _inputAssembly;
-		VkPipelineRasterizationStateCreateInfo _rasterizer;
-		VkPipelineColorBlendAttachmentState _colorBlendAttachment;
-		VkPipelineMultisampleStateCreateInfo _multisampling;
-		VkPipelineLayout _pipelineLayout;
-		VkPipelineDepthStencilStateCreateInfo _depthStencil;
-		VkPipelineRenderingCreateInfo _renderInfo;
-		size_t _attachment_count = 0;
-		VkFormat _colorAttachmentFormat;
+	void Clear( );
+	void SetShaders( VkShaderModule vertexShader, VkShaderModule fragmentShader );
+	void SetInputTopology( VkPrimitiveTopology topology );
+	void SetPolygonMode( VkPolygonMode mode );
+	void SetCullMode( VkCullModeFlags cullMode, VkFrontFace frontFace );
+	void SetMultisamplingNone( );
+	void DisableBlending( );
+	void EnableBlendingAlphaBlend();
+	void EnableBlending( VkBlendOp blendOp, VkBlendFactor src, VkBlendFactor dst, VkBlendFactor srcAlpha, VkBlendFactor dstAlpha );
+	void EnableBlendingAdditive( );
+	void SetDepthFormat( VkFormat format );
+	void SetColorAttachmentFormat( VkFormat format );
+	void SetMultiview();
+	void SetColorAttachmentFormats(const VkFormat* formats, size_t count );
+	void DisableDepthTest( );
+	void EnableDepthTest( bool depthWriteEnable, VkCompareOp op );
 
-	public:
-		PipelineBuilder( ) { clear( ); }
+	VkPipeline Build( VkDevice device ) const;
 
-		void clear( );
-		void set_shaders( VkShaderModule vertexShader, VkShaderModule fragmentShader );
-		void set_input_topology( VkPrimitiveTopology topology );
-		void set_polygon_mode( VkPolygonMode mode );
-		void set_cull_mode( VkCullModeFlags cullMode, VkFrontFace frontFace );
-		void set_multisampling_none( );
-		void disable_blending( );
-		void enable_blending_alphablend( );
-		void enable_blending( VkBlendOp blend_op, VkBlendFactor src, VkBlendFactor dst, VkBlendFactor src_alpha, VkBlendFactor dst_alpha );
-		void enable_blending_additive( );
-		void set_depth_format( VkFormat format );
-		void set_color_attachment_format( VkFormat format );
-		void set_multiview( uint32_t views );
-		void set_color_attachment_formats( VkFormat* formats, size_t count );
-		void disable_depthtest( );
-		void enable_depthtest( bool depthWriteEnable, VkCompareOp op );
+	VkPipelineLayout GetLayout() const { return m_pipelineLayout; }
+	void SetLayout(const VkPipelineLayout layout) { m_pipelineLayout = layout; }
+	
+private:
+	std::vector<VkPipelineShaderStageCreateInfo> m_shaderStages;
 
-		VkPipeline build_pipeline( VkDevice device );
-	};
-};  // namespace vkutil
+	VkPipelineInputAssemblyStateCreateInfo m_inputAssembly;
+	VkPipelineRasterizationStateCreateInfo m_rasterizer;
+	VkPipelineColorBlendAttachmentState m_colorBlendAttachment;
+	VkPipelineMultisampleStateCreateInfo m_multisampling;
+	VkPipelineLayout m_pipelineLayout;
+	VkPipelineDepthStencilStateCreateInfo m_depthStencil;
+	VkPipelineRenderingCreateInfo m_renderInfo;
+	size_t m_attachmentCount = 0;
+	VkFormat m_colorAttachmentFormat;
+
+};

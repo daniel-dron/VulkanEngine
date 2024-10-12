@@ -1,182 +1,150 @@
-﻿// vulkan_guide.h : Include file for standard system include files,
-// or project specific include files.
+﻿#pragma once
 
-#pragma once
-
+#include <engine/scene.h>
+#include <graphics/ibl.h>
+#include <graphics/material_codex.h>
+#include <graphics/pipelines/gbuffer_pipeline.h>
+#include <graphics/pipelines/imgui_pipeline.h>
+#include <graphics/pipelines/pbr_pipeline.h>
+#include <graphics/pipelines/shadowmap.h>
+#include <graphics/pipelines/skybox_pipeline.h>
+#include <graphics/pipelines/wireframe_pipeline.h>
 #include <vk_types.h>
 #include <vulkan/vulkan_core.h>
 #include "camera/camera.h"
-#include <graphics/descriptors.h>
-#include "graphics/light.h"
-#include <graphics/image_codex.h>
-#include <graphics/pipelines/pbr_pipeline.h>
-#include <graphics/pipelines/wireframe_pipeline.h>
-#include <graphics/pipelines/gbuffer_pipeline.h>
-#include <graphics/pipelines/imgui_pipeline.h>
-#include <graphics/pipelines/skybox_pipeline.h>
-#include <graphics/pipelines/shadowmap.h>
 #include "graphics/gfx_device.h"
-#include <graphics/material_codex.h>
-#include <engine/scene.h>
-#include <graphics/ibl.h>
+#include <graphics/draw_command.h>
 
 class VulkanEngine;
 
 struct RendererOptions {
-	bool wireframe = false;
-	bool frustum = false;
-	bool vsync = true;
-	bool render_irradiance_instead_skybox = false;
+    bool wireframe = false;
+    bool frustum = false;
+    bool vsync = true;
+    bool renderIrradianceInsteadSkybox = false;
 };
 
-/// @brief This is the main Vulkan Engine class
 class VulkanEngine {
 public:
-	bool is_initialized{ false };
-	bool stop_rendering{ false };
-	VkExtent2D window_extent{ WIDTH, HEIGHT };
-	EngineStats stats;
+    static VulkanEngine &Get( );
 
-	struct SDL_Window* window{ nullptr };
+    void Init( );
+    void Cleanup( );
+    void Draw( );
+    void Run( );
 
-	static VulkanEngine& get( );
-
-	/// @brief Does most of the engine initialization
-	void init( );
-
-	// shuts down the engine
-	void cleanup( );
-
-	// draw loop
-	void draw( );
-
-	// run main loop
-	void run( );
-
-	std::unique_ptr<GfxDevice> gfx;
-	bool dirt_swapchain = false;
-
-	// vulkan stuff
-	DeletionQueue main_deletion_queue;
-
-	// Used as the color attachement for actual rendering
-	// will be copied into the final swapchain image
-	VkExtent2D draw_extent;
-	float render_scale = 1.f;
-
-	//
-	// Pipeline
-	//
-	VkPipelineLayout gradient_pipeline_layout;
-
-	MaterialCodex material_codex;
-	PbrPipeline pbr_pipeline;
-	WireframePipeline wireframe_pipeline;
-	GBufferPipeline gbuffer_pipeline;
-	ImGuiPipeline imgui_pipeline;
-	SkyboxPipeline skybox_pipeline;
-	ShadowMap shadowmap_pipeline;
-
-	// post process
-	struct PostProcessConfig {
-		ImageID hdr;
-		float gamma = 2.2f;
-		float exposure = 1.0f;
-	};
-	mutable	PostProcessConfig pp_config;
-	BindlessCompute post_process_pipeline;
-	VkDescriptorSet post_process_set;
-
-	// ssao
-	struct SSAOSettings {
-		bool enable = false;
-		int kernelSize = 32;
-		float radius = 0.5;
-		float bias = 0.025;
-		int blurSize = 2;
-		float power = 2;
-		int noise_texture;
-		int depth_texture;
-		int normal_texture;
-		VkDeviceAddress scene;
-	};
-	mutable SSAOSettings ssao_settings;
-	BindlessCompute ssao_pipeline;
-	VkDescriptorSet ssao_set;
-	GpuBuffer ssao_buffer;
-	GpuBuffer ssao_kernel;
-
-	// blur
-	struct BlurSettings {
-		int source_tex;
-		int size;
-	};
-	mutable BlurSettings blur_settings;
-	BindlessCompute blur_pipeline;
-	VkDescriptorSet blur_set;
-
-	// ----------
-	// scene
-	std::vector<GpuDirectionalLight> gpu_directional_lights;
-	std::vector<GpuPointLightData> gpu_point_lights;
-	GpuSceneData scene_data;
-	GpuBuffer gpu_scene_data;
-
-	ImageID white_image;
-	ImageID black_image;
-	ImageID grey_image;
-	ImageID error_checkerboard_image;
-
-	IBL ibl;
-
-	VkSampler default_sampler_linear;
-	VkSampler default_sampler_nearest;
-
-	std::vector<MeshDrawCommand> draw_commands;
-
-	std::unique_ptr<Scene> scene;
-	//Camera3D camera;
-	std::unique_ptr<Camera> camera;
-	std::unique_ptr<FirstPersonFlyingController> fps_controller;
-	CameraController* camera_controller;
-
-	RendererOptions renderer_options;
-
-	void resizeSwapchain( uint32_t width, uint32_t height );
-
-	float timer = 0;
+    void ResizeSwapchain( uint32_t width, uint32_t height );
 
 private:
-	/// @brief Initializes SDL context and creates SDL window
-	void initSdl( );
+    void InitSdl( );
+    void InitVulkan( );
 
-	/// @brief Initializes core vulkan resources
-	void initVulkan( );
+    void InitImGui( );
+    void DrawImGui( VkCommandBuffer cmd, VkImageView targetImageView );
 
-	/// @brief Initializes ImGui entire context
-	void initImgui( );
+    void ConstructSsaoPipeline( );
+    void ActuallyConstructSsaoPipeline( );
 
-	void ConstructSSAOPipeline( );
-	void ActuallyConstructSSAOPipeline();
+    void ConstructBlurPipeline( );
+    void ActuallyConstructBlurPipeline( );
 
-	void ConstructBlurPipeline( );
-	void ActuallyConstructBlurPipeline( );
+    void GBufferPass( VkCommandBuffer cmd ) const;
+    void SsaoPass( VkCommandBuffer cmd ) const;
+    void PbrPass( VkCommandBuffer cmd ) const;
+    void SkyboxPass( VkCommandBuffer cmd ) const;
+    void PostProcessPass( VkCommandBuffer cmd ) const;
+    void ShadowMapPass( VkCommandBuffer cmd ) const;
 
-	void gbufferPass( VkCommandBuffer cmd ) const;
-	void SSAOPass( VkCommandBuffer cmd ) const;
-	void pbrPass( VkCommandBuffer cmd ) const;
-	void skyboxPass( VkCommandBuffer cmd ) const;
-	void postProcessPass( VkCommandBuffer cmd ) const;
-	void ShadowMapPass( VkCommandBuffer cmd ) const;
+    void InitDefaultData( );
+    void InitImages( );
+    void InitScene( );
+    void UpdateScene( );
+    
+    void DrawNodeHierarchy( const std::shared_ptr<Node> &node );
 
-	void drawImgui( VkCommandBuffer cmd, VkImageView target_image_view );
+private:
+    bool m_isInitialized{ false };
+    bool m_stopRendering{ false };
+    VkExtent2D m_windowExtent{ WIDTH, HEIGHT };
+    EngineStats m_stats = { };
 
-	/// @brief Initializes default white, black, error images and its samplers
-	void initDefaultData( );
-	void initImages( );
+    SDL_Window *m_window{ nullptr };
 
-	void initScene( );
+    std::unique_ptr<GfxDevice> m_gfx;
+    bool m_dirtSwapchain = false;
 
-	/// @brief Updates scene data and call Draw on each scene node.
-	void updateScene( );
+    DeletionQueue m_mainDeletionQueue;
+    VkExtent2D m_drawExtent = { };
+    float m_renderScale = 1.f;
+
+    MaterialCodex m_materialCodex = { };
+    PbrPipeline m_pbrPipeline = { };
+    WireframePipeline m_wireframePipeline = { };
+    GBufferPipeline m_gBufferPipeline = { };
+    ImGuiPipeline m_imGuiPipeline = { };
+    SkyboxPipeline m_skyboxPipeline = { };
+    ShadowMap m_shadowMapPipeline = { };
+
+    // post process
+    struct PostProcessConfig {
+        ImageId hdr;
+        float gamma = 2.2f;
+        float exposure = 1.0f;
+    };
+    mutable PostProcessConfig m_ppConfig = { };
+    BindlessCompute m_postProcessPipeline = { };
+    VkDescriptorSet m_postProcessSet = nullptr;
+
+    // ssao
+    struct SsaoSettings {
+        bool enable = false;
+        int kernelSize = 32;
+        float radius = 0.5;
+        float bias = 0.025f;
+        int blurSize = 2;
+        float power = 2;
+        int noiseTexture;
+        int depthTexture;
+        int normalTexture;
+        VkDeviceAddress scene;
+    };
+    mutable SsaoSettings m_ssaoSettings = { };
+    BindlessCompute m_ssaoPipeline = { };
+    VkDescriptorSet m_ssaoSet = nullptr;
+    GpuBuffer m_ssaoBuffer = { };
+    GpuBuffer m_ssaoKernel = { };
+
+    // blur
+    struct BlurSettings {
+        int sourceTex;
+        int size;
+    };
+    mutable BlurSettings m_blurSettings = { };
+    BindlessCompute m_blurPipeline = { };
+    VkDescriptorSet m_blurSet = nullptr;
+
+    // ----------
+    // scene
+    std::vector<GpuDirectionalLight> m_gpuDirectionalLights;
+    std::vector<GpuPointLightData> m_gpuPointLights;
+    GpuSceneData m_sceneData = { };
+    GpuBuffer m_gpuSceneData = { };
+
+    ImageId m_whiteImage = ImageCodex::InvalidImageId;
+    ImageId m_blackImage = ImageCodex::InvalidImageId;
+    ImageId m_greyImage = ImageCodex::InvalidImageId;
+    ImageId m_errorCheckerboardImage = ImageCodex::InvalidImageId;
+
+    Ibl m_ibl = { };
+
+    std::vector<MeshDrawCommand> m_drawCommands;
+
+    std::shared_ptr<Node> m_selectedNode = nullptr;
+    std::unique_ptr<Scene> m_scene;
+    std::unique_ptr<Camera> m_camera;
+    std::unique_ptr<FirstPersonFlyingController> m_fpsController;
+    CameraController *m_cameraController = nullptr;
+
+    RendererOptions m_rendererOptions;
+    float m_timer = 0;
 };

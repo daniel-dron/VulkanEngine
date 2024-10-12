@@ -4,22 +4,21 @@
 
 class SkyboxPipeline : public Pipeline {
 public:
-	virtual Result<> init( GfxDevice& gfx ) override;
-	virtual void cleanup( GfxDevice& gfx ) override;
+    Result<> Init( GfxDevice &gfx ) override;
+    void Cleanup( GfxDevice &gfx ) override;
 
-	void draw( GfxDevice& gfx, VkCommandBuffer cmd, ImageID skybox_texture, const GpuSceneData& scene_data ) const;
+    void Draw( GfxDevice &gfx, VkCommandBuffer cmd, ImageId skyboxTexture, const GpuSceneData &sceneData ) const;
 
 private:
-	struct PushConstants {
-		VkDeviceAddress scene_data_address;
-		VkDeviceAddress vertex_buffer_address;
-		uint32_t texture_id;
-	};
+    struct PushConstants {
+        VkDeviceAddress sceneDataAddress;
+        VkDeviceAddress vertexBufferAddress;
+        uint32_t textureId;
+    };
 
-	void createCubeMesh( GfxDevice& gfx );
+    void CreateCubeMesh( GfxDevice &gfx );
+    void Reconstruct( GfxDevice &gfx );
 
-	void Reconstruct( GfxDevice& gfx );
-
-	MeshID cube_mesh;
-	GpuBuffer gpu_scene_data;
+    MeshId m_cubeMesh = 0;
+    GpuBuffer m_gpuSceneData = { };
 };
