@@ -109,6 +109,7 @@ private:
         float gamma = 2.2f;
         float exposure = 1.0f;
     };
+    float m_backupGamma = 2.2f;
     mutable PostProcessConfig m_ppConfig = { };
     BindlessCompute m_postProcessPipeline = { };
     VkDescriptorSet m_postProcessSet = nullptr;
@@ -167,6 +168,8 @@ private:
     RendererOptions m_rendererOptions;
 
     bool m_open = true;
+    bool m_drawEditor = true;
+    bool m_drawStats = true;
     
     float m_timer = 0;
 };

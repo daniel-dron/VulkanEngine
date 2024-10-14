@@ -519,3 +519,49 @@ void image::CopyFromBuffer( VkCommandBuffer cmd, VkBuffer buffer, VkImage image,
 
     vkCmdCopyBufferToImage( cmd, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region );
 }
+
+void image::Blit( VkCommandBuffer cmd, VkImage srcImage, VkExtent2D srcExtent, VkImage dstImage, VkExtent2D dstExtent,
+           VkFilter filter ) {
+    const VkImageBlit2 blit_region = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
+            .pNext = nullptr,
+            .srcSubresource =
+                    {
+                            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .mipLevel = 0,
+                            .baseArrayLayer = 0,
+                            .layerCount = 1,
+                    },
+            .srcOffsets =
+                    {
+                            { 0, 0, 0 },
+                            { static_cast<int32_t>( srcExtent.width ), static_cast<int32_t>( srcExtent.height ), 1 },
+                    },
+            .dstSubresource =
+                    {
+                            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .mipLevel = 0,
+                            .baseArrayLayer = 0,
+                            .layerCount = 1,
+                    },
+            .dstOffsets =
+                    {
+                            { 0, 0, 0 },
+                            { static_cast<int32_t>( dstExtent.width ), static_cast<int32_t>( dstExtent.height ), 1 },
+                    },
+    };
+
+    const VkBlitImageInfo2 blit_info = {
+            .sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2,
+            .pNext = nullptr,
+            .srcImage = srcImage,
+            .srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .dstImage = dstImage,
+            .dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            .regionCount = 1,
+            .pRegions = &blit_region,
+            .filter = filter,
+    };
+
+    vkCmdBlitImage2( cmd, &blit_info );
+}

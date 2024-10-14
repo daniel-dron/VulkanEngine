@@ -28,8 +28,11 @@ public:
     using Ptr = std::shared_ptr<GpuImage>;
 
     GpuImage( ) = delete;
-    GpuImage( GfxDevice *gfx, const std::string &name, void *data, VkExtent3D extent, VkFormat format, ImageType imageType = T2D, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT, bool generateMipmaps = false );
-    GpuImage( GfxDevice *gfx, const std::string &name, VkExtent3D extent, VkFormat format, ImageType imageType = T2D, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT, bool generateMipmaps = false );
+    GpuImage( GfxDevice *gfx, const std::string &name, void *data, VkExtent3D extent, VkFormat format,
+              ImageType imageType = T2D, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT,
+              bool generateMipmaps = false );
+    GpuImage( GfxDevice *gfx, const std::string &name, VkExtent3D extent, VkFormat format, ImageType imageType = T2D,
+              VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT, bool generateMipmaps = false );
     ~GpuImage( );
 
     // delete copy constructors
@@ -37,9 +40,14 @@ public:
     GpuImage &operator=( const GpuImage & ) = delete;
 
     // allow move constructors
-    GpuImage( GpuImage &&other ) noexcept
-        :
-        m_gfx( std::exchange( other.m_gfx, nullptr ) ), m_id( std::exchange( other.m_id, -1 ) ), m_type( std::exchange( other.m_type, TUnknown ) ), m_image( std::exchange( other.m_image, VK_NULL_HANDLE ) ), m_view( std::exchange( other.m_view, VK_NULL_HANDLE ) ), m_extent( std::exchange( other.m_extent, { } ) ), m_format( std::exchange( other.m_format, { } ) ), m_usage( std::exchange( other.m_usage, { } ) ), m_allocation( std::exchange( other.m_allocation, { } ) ), m_mipmapped( std::exchange( other.m_mipmapped, false ) ), m_mipViews( std::move( other.m_mipViews ) ), m_name( std::move( other.m_name ) ) {}
+    GpuImage( GpuImage &&other ) noexcept :
+        m_gfx( std::exchange( other.m_gfx, nullptr ) ), m_id( std::exchange( other.m_id, -1 ) ),
+        m_type( std::exchange( other.m_type, TUnknown ) ), m_image( std::exchange( other.m_image, VK_NULL_HANDLE ) ),
+        m_view( std::exchange( other.m_view, VK_NULL_HANDLE ) ), m_extent( std::exchange( other.m_extent, { } ) ),
+        m_format( std::exchange( other.m_format, { } ) ), m_usage( std::exchange( other.m_usage, { } ) ),
+        m_allocation( std::exchange( other.m_allocation, { } ) ),
+        m_mipmapped( std::exchange( other.m_mipmapped, false ) ), m_mipViews( std::move( other.m_mipViews ) ),
+        m_name( std::move( other.m_name ) ) {}
     GpuImage &operator=( GpuImage &&other ) noexcept {
         if ( this != &other ) {
             m_gfx = std::exchange( other.m_gfx, nullptr );
@@ -58,7 +66,8 @@ public:
         return *this;
     }
 
-    void TransitionLayout( VkCommandBuffer cmd, VkImageLayout currentLayout, VkImageLayout newLayout, bool depth = false ) const;
+    void TransitionLayout( VkCommandBuffer cmd, VkImageLayout currentLayout, VkImageLayout newLayout,
+                           bool depth = false ) const;
     void GenerateMipmaps( VkCommandBuffer cmd ) const;
 
     ImageId GetId( ) const { return m_id; }
@@ -107,18 +116,27 @@ private:
 namespace image {
     size_t CalculateSize( VkExtent3D extent, VkFormat format );
 
-    void Allocate2D( VmaAllocator allocator, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, uint32_t mipLevels, VkImage *image, VmaAllocation *allocation );
-    void AllocateCubemap( VmaAllocator allocator, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, uint32_t mipLevels, VkImage *image, VmaAllocation *allocation );
+    void Allocate2D( VmaAllocator allocator, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage,
+                     uint32_t mipLevels, VkImage *image, VmaAllocation *allocation );
+    void AllocateCubemap( VmaAllocator allocator, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage,
+                          uint32_t mipLevels, VkImage *image, VmaAllocation *allocation );
 
-    VkImageView CreateView2D( VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevel = 0 );
-    VkImageView CreateViewCubemap( VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevel = 0 );
+    VkImageView CreateView2D( VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
+                              uint32_t mipLevel = 0 );
+    VkImageView CreateViewCubemap( VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
+                                   uint32_t mipLevel = 0 );
 
-    void TransitionLayout( VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout, bool depth = false );
+    void TransitionLayout( VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout,
+                           bool depth = false );
 
     // expects image to be in layout VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
     // will leave image in layout VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
     void GenerateMipmaps( VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize );
 
     // expects image to be in layout VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-    void CopyFromBuffer( VkCommandBuffer cmd, VkBuffer buffer, VkImage image, VkExtent3D extent, VkImageAspectFlags aspect, VkDeviceSize offset = 0, uint32_t face = 0 );
+    void CopyFromBuffer( VkCommandBuffer cmd, VkBuffer buffer, VkImage image, VkExtent3D extent,
+                         VkImageAspectFlags aspect, VkDeviceSize offset = 0, uint32_t face = 0 );
+
+    void Blit( VkCommandBuffer cmd, VkImage srcImage, VkExtent2D srcExtent, VkImage dstImage, VkExtent2D dstExtent,
+               VkFilter filter = VK_FILTER_LINEAR );
 } // namespace image

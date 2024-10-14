@@ -471,12 +471,28 @@ void VulkanEngine::Draw( ) {
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 11 );
 
 
-    image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
-                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
-    DrawImGui( cmd, m_gfx->swapchain.views[swapchain_image_index] );
+    if ( m_drawEditor ) {
+        DrawImGui( cmd, m_gfx->swapchain.views[swapchain_image_index] );
+        image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
+                                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
+    }
+    else {
+        auto &ppi = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
+        ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 
-    image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index],
-                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
+        image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
+                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
+
+        image::Blit( cmd, ppi.GetImage( ), { ppi.GetExtent( ).width, ppi.GetExtent( ).height },
+                     m_gfx->swapchain.images[swapchain_image_index], m_gfx->swapchain.extent );
+        if ( m_drawStats ) {
+            DrawImGui( cmd, m_gfx->swapchain.views[swapchain_image_index] );
+        }
+
+        image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index],
+                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
+    }
+
     VK_CHECK( vkEndCommandBuffer( cmd ) );
 
     //
@@ -825,7 +841,7 @@ void VulkanEngine::InitImages( ) {
 void VulkanEngine::InitScene( ) {
     m_ibl.Init( *m_gfx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
-    m_scene = GltfLoader::Load( *m_gfx, "../../assets/sponza.glb" );
+    m_scene = GltfLoader::Load( *m_gfx, "../../assets/untitled.glb" );
 
     // init camera
     if ( m_scene->cameras.empty( ) ) {
@@ -912,6 +928,25 @@ void VulkanEngine::Run( ) {
             b_quit = true;
         }
 
+        if ( EG_INPUT.WasKeyPressed( EG_KEY::BACKSPACE ) ) {
+            if ( m_drawEditor ) {
+                m_drawEditor = false;
+                m_drawStats = true;
+                
+                m_backupGamma = m_ppConfig.gamma;
+                m_ppConfig.gamma = 1.0f;
+            }
+            else if ( m_drawStats == true && m_drawEditor == false ) {
+                m_drawStats = false;
+            }
+            else {
+                m_drawEditor = true;
+                m_drawStats = true;
+
+                m_ppConfig.gamma = m_backupGamma;
+            }
+        }
+
         static int saved_mouse_x, saved_mouse_y;
         // hide mouse
         if ( EG_INPUT.WasKeyPressed( EG_KEY::MOUSE_RIGHT ) ) {
@@ -948,7 +983,8 @@ void VulkanEngine::Run( ) {
 
         ImGui::NewFrame( );
         ImGuizmo::BeginFrame( );
-        {
+
+        if ( m_drawEditor ) {
             // dock space
             ImGui::DockSpaceOverViewport( 0, ImGui::GetMainViewport( ) );
 
@@ -1197,6 +1233,11 @@ void VulkanEngine::Run( ) {
             ImGui::End( );
         }
 
+        if ( m_drawEditor == false && m_drawStats == true ) {
+            auto extent = m_gfx->swapchain.extent;
+            m_visualProfiler.Render( { 0, static_cast<float>( extent.height ) - 450 }, ImVec2( 200, 450 ) );
+        }
+
         ImGui::Render( );
 
         Draw( );
@@ -1223,17 +1264,18 @@ void VulkanEngine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targe
     {
         using namespace vk_init;
 
-        constexpr VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
-        VkRenderingAttachmentInfo color_attachment = AttachmentInfo( targetImageView, &clear_color );
+        VkRenderingAttachmentInfo color_attachment = AttachmentInfo( targetImageView, nullptr );
 
-        const VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                                              .pNext = nullptr,
-                                              .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
-                                              .layerCount = 1,
-                                              .colorAttachmentCount = 1,
-                                              .pColorAttachments = &color_attachment,
-                                              .pDepthAttachment = nullptr,
-                                              .pStencilAttachment = nullptr };
+        const VkRenderingInfo render_info = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .pNext = nullptr,
+                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
+                .layerCount = 1,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = &color_attachment,
+                .pDepthAttachment = nullptr,
+                .pStencilAttachment = nullptr,
+        };
         vkCmdBeginRendering( cmd, &render_info );
     }
 
