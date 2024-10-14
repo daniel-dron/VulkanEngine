@@ -170,7 +170,7 @@ void Swapchain::CreateFrameImages( ) {
 
         frame.ssao = m_gfx->imageCodex.CreateEmptyImage( "SSAO", draw_image_extent, VK_FORMAT_R32G32B32A32_SFLOAT, draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
 
-        frame.postProcessImage = m_gfx->imageCodex.CreateEmptyImage( "post process", draw_image_extent, VK_FORMAT_R8G8B8A8_SRGB, draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
+        frame.postProcessImage = m_gfx->imageCodex.CreateEmptyImage( "post process", draw_image_extent, VK_FORMAT_R8G8B8A8_UNORM, draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
 
         empty_image_data.resize( extent.width * extent.height * 4, 0 );
         frame.depth = m_gfx->imageCodex.LoadImageFromData( "main depth image", empty_image_data.data( ), draw_image_extent, VK_FORMAT_D32_SFLOAT, depth_image_usages, false );

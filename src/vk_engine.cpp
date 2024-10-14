@@ -93,7 +93,7 @@ void VulkanEngine::Init( ) {
 
     m_visualProfiler.RegisterTask( "Main", utils::colors::CARROT, utils::VisualProfiler::Cpu );
     m_visualProfiler.RegisterTask( "Scene", utils::colors::EMERALD, utils::VisualProfiler::Cpu );
-    
+
     m_visualProfiler.RegisterTask( "ShadowMap", utils::colors::TURQUOISE, utils::VisualProfiler::Gpu );
     m_visualProfiler.RegisterTask( "GBuffer", utils::colors::ALIZARIN, utils::VisualProfiler::Gpu );
     m_visualProfiler.RegisterTask( "SSAO", utils::colors::SILVER, utils::VisualProfiler::Gpu );
@@ -471,7 +471,7 @@ void VulkanEngine::Draw( ) {
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 11 );
 
 
-    image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
     DrawImGui( cmd, m_gfx->swapchain.views[swapchain_image_index] );
 
@@ -590,7 +590,7 @@ void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
     auto bindless = m_gfx->GetBindlessSet( );
     auto &output = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).ssao );
 
-    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
+    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
 
     m_ssaoPipeline.Bind( cmd );
     m_ssaoPipeline.BindDescriptorSet( cmd, bindless, 0 );
@@ -702,7 +702,7 @@ void VulkanEngine::PostProcessPass( VkCommandBuffer cmd ) const {
 
     m_ppConfig.hdr = m_gfx->swapchain.GetCurrentFrame( ).hdrColor;
 
-    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
+    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
 
     m_postProcessPipeline.Bind( cmd );
     m_postProcessPipeline.BindDescriptorSet( cmd, bindless, 0 );

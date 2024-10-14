@@ -246,7 +246,7 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
     auto instance_prototype = builder.set_app_name( "Vulkan Engine" )
                                       .request_validation_layers( B_USE_VALIDATION_LAYERS )
                                       .enable_extension( "VK_EXT_debug_utils" )
-                                      .use_default_debug_messenger( )
+                                      .set_debug_callback( debugCallback )
                                       .require_api_version( 1, 3, 0 )
                                       .build( );
 
@@ -257,7 +257,6 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
     auto &bs_instance = instance_prototype.value( );
 
     instance = bs_instance.instance;
-    debugMessenger = bs_instance.debug_messenger;
 
     // Surface
     SDL_Vulkan_CreateSurface( window, instance, &surface );
@@ -356,17 +355,6 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
     VK_CHECK( vkCreateQueryPool( device, &query_pool_create_info, nullptr, &queryPoolTimestamps ) );
 
     InitDebugFunctions( );
-
-    VkDebugUtilsMessengerCreateInfoEXT create_info{
-            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-            .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-                    VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-            .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                    VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
-            .pfnUserCallback = debugCallback,
-            .pUserData = nullptr,
-    };
-    VK_CHECK( vkCreateDebugUtilsMessengerEXT( instance, &create_info, nullptr, &debugMessenger ) );
 
     return { };
 }

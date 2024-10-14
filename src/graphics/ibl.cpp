@@ -217,6 +217,9 @@ void Ibl::GenerateBrdf( GfxDevice &gfx, const VkCommandBuffer cmd ) const {
     const auto output = m_brdf;
     auto &output_image = gfx.imageCodex.GetImage( output );
 
+    image::TransitionLayout( cmd, output_image.GetImage( ), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                             VK_IMAGE_LAYOUT_GENERAL );
+
     m_brdfPipeline.Bind( cmd );
     m_brdfPipeline.BindDescriptorSet( cmd, bindless, 0 );
     m_brdfPipeline.BindDescriptorSet( cmd, m_brdfSet, 1 );
