@@ -93,6 +93,11 @@ file(GLOB SRC_IMGUIZMO
 file(GLOB SRC_UTILS
   utils/workers.cpp
   utils/workers.h
+  utils/ProfilerTask.h
+  utils/ImGuiProfilerRenderer.h
+  utils/circular_buffer.h
+  utils/profiler.h
+  utils/profiler.cpp
 )
 
 # Add source to this project's executable.

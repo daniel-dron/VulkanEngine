@@ -49,6 +49,7 @@
 #include <engine/loader.h>
 #include <glm/gtx/euler_angles.hpp>
 
+#include <utils/ImGuiProfilerRenderer.h>
 #include "graphics/draw_command.h"
 
 VulkanEngine *g_loadedEngine = nullptr;
@@ -90,6 +91,16 @@ void VulkanEngine::Init( ) {
     EG_INPUT.Init( );
     InitScene( );
 
+    m_visualProfiler.RegisterTask( "Main", utils::colors::CARROT, utils::VisualProfiler::Cpu );
+    m_visualProfiler.RegisterTask( "Scene", utils::colors::EMERALD, utils::VisualProfiler::Cpu );
+    
+    m_visualProfiler.RegisterTask( "ShadowMap", utils::colors::TURQUOISE, utils::VisualProfiler::Gpu );
+    m_visualProfiler.RegisterTask( "GBuffer", utils::colors::ALIZARIN, utils::VisualProfiler::Gpu );
+    m_visualProfiler.RegisterTask( "SSAO", utils::colors::SILVER, utils::VisualProfiler::Gpu );
+    m_visualProfiler.RegisterTask( "Lighting", utils::colors::AMETHYST, utils::VisualProfiler::Gpu );
+    m_visualProfiler.RegisterTask( "Skybox", utils::colors::SUN_FLOWER, utils::VisualProfiler::Gpu );
+    m_visualProfiler.RegisterTask( "Post Process", utils::colors::PETER_RIVER, utils::VisualProfiler::Gpu );
+
     m_isInitialized = true;
 }
 
@@ -98,7 +109,8 @@ void VulkanEngine::InitSdl( ) {
 
     constexpr auto window_flags = static_cast<SDL_WindowFlags>( SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE );
 
-    m_window = SDL_CreateWindow( "Vulkan Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, m_windowExtent.width, m_windowExtent.height, window_flags );
+    m_window = SDL_CreateWindow( "Vulkan Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+                                 m_windowExtent.width, m_windowExtent.height, window_flags );
 }
 
 void VulkanEngine::InitVulkan( ) {
@@ -237,13 +249,13 @@ void VulkanEngine::InitImGui( ) {
     style.ChildBorderSize = 1.0f;
     style.PopupBorderSize = 1.0f;
     style.FrameBorderSize = 1.0f;
-    style.WindowRounding = 0.0f;
-    style.ChildRounding = 0.0f;
-    style.FrameRounding = 0.0f;
-    style.PopupRounding = 0.0f;
-    style.ScrollbarRounding = 0.0f;
-    style.GrabRounding = 0.0f;
-    style.TabRounding = 0.0f;
+    style.WindowRounding = 5.0f;
+    style.ChildRounding = 5.0f;
+    style.FrameRounding = 5.0f;
+    style.PopupRounding = 5.0f;
+    style.ScrollbarRounding = 5.0f;
+    style.GrabRounding = 5.0f;
+    style.TabRounding = 5.0f;
     style.WindowTitleAlign = ImVec2( 0.0f, 0.5f );
     style.ItemSpacing = ImVec2( 8, 4 );
     style.FramePadding = ImVec2( 4, 2 );
@@ -263,17 +275,18 @@ auto RandomRange( const float min, const float max ) -> float {
     return dis( gen );
 }
 
-float Lerp( const float a, const float b, const float f ) {
-    return a + f * ( b - a );
-}
+float Lerp( const float a, const float b, const float f ) { return a + f * ( b - a ); }
 
 void VulkanEngine::ConstructSsaoPipeline( ) {
-    m_ssaoBuffer = m_gfx->Allocate( sizeof( SsaoSettings ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Settings" );
-    m_ssaoKernel = m_gfx->Allocate( sizeof( Vec3 ) * 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Kernel" );
+    m_ssaoBuffer = m_gfx->Allocate( sizeof( SsaoSettings ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                    VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Settings" );
+    m_ssaoKernel = m_gfx->Allocate( sizeof( Vec3 ) * 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                    VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Kernel" );
 
     std::vector<glm::vec3> kernels;
     for ( int i = 0; i < m_ssaoSettings.kernelSize; i++ ) {
-        glm::vec3 sample( RandomRange( 0.0, 1.0 ) * 2.0 - 1.0, RandomRange( 0.0, 1.0 ) * 2.0 - 1.0, RandomRange( 0.0, 1.0 ) );
+        glm::vec3 sample( RandomRange( 0.0, 1.0 ) * 2.0 - 1.0, RandomRange( 0.0, 1.0 ) * 2.0 - 1.0,
+                          RandomRange( 0.0, 1.0 ) );
         sample = glm::normalize( sample );
         sample *= RandomRange( 0.0, 1.0 );
 
@@ -290,7 +303,9 @@ void VulkanEngine::ConstructSsaoPipeline( ) {
         glm::vec3 noise( RandomRange( 0.0, 1.0 ), RandomRange( 0.0, 1.0 ), 0.0f );
         noise_data.push_back( glm::vec4( noise, 1.0f ) );
     }
-    m_ssaoSettings.noiseTexture = m_gfx->imageCodex.LoadImageFromData( "SSAO Noise", noise_data.data( ), VkExtent3D{ 4, 4, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_ssaoSettings.noiseTexture =
+            m_gfx->imageCodex.LoadImageFromData( "SSAO Noise", noise_data.data( ), VkExtent3D{ 4, 4, 1 },
+                                                 VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     m_ssaoSettings.depthTexture = m_gfx->swapchain.GetCurrentFrame( ).depth;
     m_ssaoSettings.normalTexture = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.normal;
@@ -322,7 +337,8 @@ void VulkanEngine::ActuallyConstructSsaoPipeline( ) {
     DescriptorWriter writer;
     writer.WriteBuffer( 0, m_ssaoBuffer.buffer, sizeof( SsaoSettings ), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
     writer.WriteBuffer( 1, m_ssaoKernel.buffer, sizeof( Vec3 ) * 64, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-    writer.WriteImage( 2, ssao_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+    writer.WriteImage( 2, ssao_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
+                       VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
     writer.UpdateSet( m_gfx->device, m_ssaoSet );
 }
 
@@ -398,7 +414,9 @@ void VulkanEngine::Draw( ) {
 
         m_gfx->swapchain.GetCurrentFrame( ).deletionQueue.Flush( );
 
-        VkResult e = ( vkAcquireNextImageKHR( m_gfx->device, m_gfx->swapchain.swapchain, 1000000000, m_gfx->swapchain.GetCurrentFrame( ).swapchainSemaphore, nullptr, &swapchain_image_index ) );
+        VkResult e = ( vkAcquireNextImageKHR( m_gfx->device, m_gfx->swapchain.swapchain, 1000000000,
+                                              m_gfx->swapchain.GetCurrentFrame( ).swapchainSemaphore, nullptr,
+                                              &swapchain_image_index ) );
         if ( e != VK_SUCCESS ) {
             return;
         }
@@ -413,31 +431,52 @@ void VulkanEngine::Draw( ) {
 
     auto &depth = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).depth );
 
-    m_drawExtent.height = static_cast<uint32_t>(
-            std::min( m_gfx->swapchain.extent.height, color.GetExtent( ).height ) *
-            m_renderScale );
-    m_drawExtent.width = static_cast<uint32_t>(
-            std::min( m_gfx->swapchain.extent.width, color.GetExtent( ).width ) * m_renderScale );
+    m_drawExtent.height = static_cast<uint32_t>( std::min( m_gfx->swapchain.extent.height, color.GetExtent( ).height ) *
+                                                 m_renderScale );
+    m_drawExtent.width = static_cast<uint32_t>( std::min( m_gfx->swapchain.extent.width, color.GetExtent( ).width ) *
+                                                m_renderScale );
 
     // commands
     const auto cmd = m_gfx->swapchain.GetCurrentFrame( ).commandBuffer;
     VK_CHECK( vkResetCommandBuffer( cmd, 0 ) );
     const auto cmd_begin_info = vk_init::CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
     VK_CHECK( vkBeginCommandBuffer( cmd, &cmd_begin_info ) );
+    vkCmdResetQueryPool( cmd, m_gfx->queryPoolTimestamps, 0, m_gfx->gpuTimestamps.size( ) );
+
 
     depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 0 );
     ShadowMapPass( cmd );
-    GBufferPass( cmd );
-    SsaoPass( cmd );
-    PbrPass( cmd );
-    SkyboxPass( cmd );
-    PostProcessPass( cmd );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 1 );
 
-    image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 2 );
+    GBufferPass( cmd );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 3 );
+
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 4 );
+    SsaoPass( cmd );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 5 );
+
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 6 );
+    PbrPass( cmd );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 7 );
+
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 8 );
+    SkyboxPass( cmd );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 9 );
+
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 10 );
+    PostProcessPass( cmd );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 11 );
+
+
+    image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL );
     DrawImGui( cmd, m_gfx->swapchain.views[swapchain_image_index] );
 
-    image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
+    image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index],
+                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
     VK_CHECK( vkEndCommandBuffer( cmd ) );
 
     //
@@ -448,14 +487,33 @@ void VulkanEngine::Draw( ) {
     // wait on _renderSemaphore. signaled when rendering has finished
     auto cmdinfo = vk_init::CommandBufferSubmitInfo( cmd );
 
-    auto waitInfo = vk_init::SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, m_gfx->swapchain.GetCurrentFrame( ).swapchainSemaphore );
-    auto signalInfo = vk_init::SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, m_gfx->swapchain.GetCurrentFrame( ).renderSemaphore );
+    auto waitInfo = vk_init::SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
+                                                  m_gfx->swapchain.GetCurrentFrame( ).swapchainSemaphore );
+    auto signalInfo = vk_init::SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+                                                    m_gfx->swapchain.GetCurrentFrame( ).renderSemaphore );
 
     auto submit = vk_init::SubmitInfo( &cmdinfo, &signalInfo, &waitInfo );
 
     // submit command buffer and execute it
     // _renderFence will now block until the commands finish
     VK_CHECK( vkQueueSubmit2( m_gfx->graphicsQueue, 1, &submit, m_gfx->swapchain.GetCurrentFrame( ).fence ) );
+
+    vkGetQueryPoolResults( m_gfx->device, m_gfx->queryPoolTimestamps, 0, m_gfx->gpuTimestamps.size( ),
+                           m_gfx->gpuTimestamps.size( ) * sizeof( uint64_t ), m_gfx->gpuTimestamps.data( ),
+                           sizeof( uint64_t ), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT );
+
+    auto time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 0 ), m_gfx->gpuTimestamps.at( 1 ) ) / 1000.0f;
+    m_visualProfiler.AddTimer( "ShadowMap", time, utils::VisualProfiler::Gpu );
+    time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 2 ), m_gfx->gpuTimestamps.at( 3 ) ) / 1000.0f;
+    m_visualProfiler.AddTimer( "GBuffer", time, utils::VisualProfiler::Gpu );
+    time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 4 ), m_gfx->gpuTimestamps.at( 5 ) ) / 1000.0f;
+    m_visualProfiler.AddTimer( "SSAO", time, utils::VisualProfiler::Gpu );
+    time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 6 ), m_gfx->gpuTimestamps.at( 7 ) ) / 1000.0f;
+    m_visualProfiler.AddTimer( "Lighting", time, utils::VisualProfiler::Gpu );
+    time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 8 ), m_gfx->gpuTimestamps.at( 9 ) ) / 1000.0f;
+    m_visualProfiler.AddTimer( "Skybox", time, utils::VisualProfiler::Gpu );
+    time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 10 ), m_gfx->gpuTimestamps.at( 11 ) ) / 1000.0f;
+    m_visualProfiler.AddTimer( "Post Process", time, utils::VisualProfiler::Gpu );
 
     //
     // present
@@ -502,17 +560,17 @@ void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) const {
                 AttachmentInfo( position.GetBaseView( ), &clear_color ),
                 AttachmentInfo( pbr.GetBaseView( ), &clear_color ),
         };
-        VkRenderingAttachmentInfo depth_attachment = DepthAttachmentInfo( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+        VkRenderingAttachmentInfo depth_attachment =
+                DepthAttachmentInfo( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
 
-        VkRenderingInfo render_info = {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                .pNext = nullptr,
-                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
-                .layerCount = 1,
-                .colorAttachmentCount = color_attachments.size( ),
-                .pColorAttachments = color_attachments.data( ),
-                .pDepthAttachment = &depth_attachment,
-                .pStencilAttachment = nullptr };
+        VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                        .pNext = nullptr,
+                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
+                                        .layerCount = 1,
+                                        .colorAttachmentCount = color_attachments.size( ),
+                                        .pColorAttachments = color_attachments.data( ),
+                                        .pDepthAttachment = &depth_attachment,
+                                        .pStencilAttachment = nullptr };
         vkCmdBeginRendering( cmd, &render_info );
     }
 
@@ -537,7 +595,8 @@ void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
     m_ssaoPipeline.Bind( cmd );
     m_ssaoPipeline.BindDescriptorSet( cmd, bindless, 0 );
     m_ssaoPipeline.BindDescriptorSet( cmd, m_ssaoSet, 1 );
-    m_ssaoPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16, 6 );
+    m_ssaoPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16,
+                             6 );
 
     output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 
@@ -555,7 +614,8 @@ void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
     m_blurPipeline.BindDescriptorSet( cmd, bindless, 0 );
     m_blurPipeline.BindDescriptorSet( cmd, m_blurSet, 1 );
     m_blurPipeline.PushConstants( cmd, sizeof( BlurSettings ), &m_blurSettings );
-    m_blurPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16, 6 );
+    m_blurPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16,
+                             6 );
     output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 
     END_LABEL( cmd );
@@ -573,19 +633,20 @@ void VulkanEngine::PbrPass( VkCommandBuffer cmd ) const {
         VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 0.0f };
         VkRenderingAttachmentInfo color_attachment = AttachmentInfo( image.GetBaseView( ), &clear_color );
 
-        VkRenderingInfo render_info = {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                .pNext = nullptr,
-                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
-                .layerCount = 1,
-                .colorAttachmentCount = 1,
-                .pColorAttachments = &color_attachment,
-                .pDepthAttachment = nullptr,
-                .pStencilAttachment = nullptr };
+        VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                        .pNext = nullptr,
+                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
+                                        .layerCount = 1,
+                                        .colorAttachmentCount = 1,
+                                        .pColorAttachments = &color_attachment,
+                                        .pDepthAttachment = nullptr,
+                                        .pStencilAttachment = nullptr };
         vkCmdBeginRendering( cmd, &render_info );
     }
 
-    m_pbrPipeline.Draw( *m_gfx, cmd, m_sceneData, m_gpuDirectionalLights, m_gpuPointLights, m_gfx->swapchain.GetCurrentFrame( ).gBuffer, m_ibl.GetIrradiance( ), m_ibl.GetRadiance( ), m_ibl.GetBrdf( ) );
+    m_pbrPipeline.Draw( *m_gfx, cmd, m_sceneData, m_gpuDirectionalLights, m_gpuPointLights,
+                        m_gfx->swapchain.GetCurrentFrame( ).gBuffer, m_ibl.GetIrradiance( ), m_ibl.GetRadiance( ),
+                        m_ibl.GetBrdf( ) );
 
     vkCmdEndRendering( cmd );
 
@@ -612,15 +673,14 @@ void VulkanEngine::SkyboxPass( VkCommandBuffer cmd ) const {
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
         };
-        VkRenderingInfo render_info = {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                .pNext = nullptr,
-                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
-                .layerCount = 1,
-                .colorAttachmentCount = 1,
-                .pColorAttachments = &color_attachment,
-                .pDepthAttachment = &depth_attachment,
-                .pStencilAttachment = nullptr };
+        VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                        .pNext = nullptr,
+                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
+                                        .layerCount = 1,
+                                        .colorAttachmentCount = 1,
+                                        .pColorAttachments = &color_attachment,
+                                        .pDepthAttachment = &depth_attachment,
+                                        .pStencilAttachment = nullptr };
         vkCmdBeginRendering( cmd, &render_info );
     }
 
@@ -648,7 +708,8 @@ void VulkanEngine::PostProcessPass( VkCommandBuffer cmd ) const {
     m_postProcessPipeline.BindDescriptorSet( cmd, bindless, 0 );
     m_postProcessPipeline.BindDescriptorSet( cmd, m_postProcessSet, 1 );
     m_postProcessPipeline.PushConstants( cmd, sizeof( PostProcessConfig ), &m_ppConfig );
-    m_postProcessPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16, 6 );
+    m_postProcessPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16,
+                                    ( output.GetExtent( ).height + 15 ) / 16, 6 );
 
     output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 }
@@ -662,20 +723,21 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
     {
         auto &depth = m_gfx->imageCodex.GetImage( m_scene->directionalLights.at( 0 ).shadowMap );
 
-        VkRenderingAttachmentInfo depth_attachment = DepthAttachmentInfo( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
-        VkRenderingInfo render_info = {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                .pNext = nullptr,
-                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, VkExtent2D{ 2048, 2048 } },
-                .layerCount = 1,
-                .colorAttachmentCount = 0,
-                .pColorAttachments = nullptr,
-                .pDepthAttachment = &depth_attachment,
-                .pStencilAttachment = nullptr };
+        VkRenderingAttachmentInfo depth_attachment =
+                DepthAttachmentInfo( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+        VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                        .pNext = nullptr,
+                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, VkExtent2D{ 2048, 2048 } },
+                                        .layerCount = 1,
+                                        .colorAttachmentCount = 0,
+                                        .pColorAttachments = nullptr,
+                                        .pDepthAttachment = &depth_attachment,
+                                        .pStencilAttachment = nullptr };
         vkCmdBeginRendering( cmd, &render_info );
     }
 
-    m_shadowMapPipeline.Draw( *m_gfx, cmd, m_drawCommands, m_sceneData.lightProj, m_sceneData.lightView, m_scene->directionalLights.at( 0 ).shadowMap );
+    m_shadowMapPipeline.Draw( *m_gfx, cmd, m_drawCommands, m_sceneData.lightProj, m_sceneData.lightView,
+                              m_scene->directionalLights.at( 0 ).shadowMap );
 
     vkCmdEndRendering( cmd );
 
@@ -685,11 +747,11 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
 void VulkanEngine::InitDefaultData( ) {
     InitImages( );
 
-    m_gpuSceneData = m_gfx->Allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
+    m_gpuSceneData = m_gfx->Allocate( sizeof( GpuSceneData ),
+                                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                      VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
 
-    m_mainDeletionQueue.PushFunction( [=, this]( ) {
-        m_gfx->Free( m_gpuSceneData );
-    } );
+    m_mainDeletionQueue.PushFunction( [=, this]( ) { m_gfx->Free( m_gpuSceneData ); } );
 
     m_pbrPipeline.Init( *m_gfx );
     m_wireframePipeline.Init( *m_gfx );
@@ -711,7 +773,8 @@ void VulkanEngine::InitDefaultData( ) {
         // TODO: this every frame for more than one inflight frame
         DescriptorWriter writer;
         auto &out_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
-        writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+        writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
+                           VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
         writer.UpdateSet( m_gfx->device, m_postProcessSet );
     } );
 
@@ -723,7 +786,8 @@ void VulkanEngine::InitDefaultData( ) {
     // TODO: this every frame for more than one inflight frame
     DescriptorWriter writer;
     auto &out_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
-    writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+    writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
+                       VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
     writer.UpdateSet( m_gfx->device, m_postProcessSet );
 
     // SSAO pipeline
@@ -734,13 +798,16 @@ void VulkanEngine::InitDefaultData( ) {
 void VulkanEngine::InitImages( ) {
     // 3 default textures, white, grey, black. 1 pixel each
     uint32_t white = glm::packUnorm4x8( glm::vec4( 1, 1, 1, 1 ) );
-    m_whiteImage = m_gfx->imageCodex.LoadImageFromData( "debug_white_img", ( void * )&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_whiteImage = m_gfx->imageCodex.LoadImageFromData( "debug_white_img", ( void * )&white, VkExtent3D{ 1, 1, 1 },
+                                                        VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     uint32_t grey = glm::packUnorm4x8( glm::vec4( 0.66f, 0.66f, 0.66f, 1 ) );
-    m_greyImage = m_gfx->imageCodex.LoadImageFromData( "debug_grey_img", ( void * )&grey, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_greyImage = m_gfx->imageCodex.LoadImageFromData( "debug_grey_img", ( void * )&grey, VkExtent3D{ 1, 1, 1 },
+                                                       VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     uint32_t black = glm::packUnorm4x8( glm::vec4( 0, 0, 0, 0 ) );
-    m_blackImage = m_gfx->imageCodex.LoadImageFromData( "debug_black_img", ( void * )&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_blackImage = m_gfx->imageCodex.LoadImageFromData( "debug_black_img", ( void * )&white, VkExtent3D{ 1, 1, 1 },
+                                                        VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     // checkerboard image
     uint32_t magenta = glm::packUnorm4x8( glm::vec4( 1, 0, 1, 1 ) );
@@ -750,13 +817,15 @@ void VulkanEngine::InitImages( ) {
             pixels[y * 16 + x] = ( ( x % 2 ) ^ ( y % 2 ) ) ? magenta : black;
         }
     }
-    m_errorCheckerboardImage = m_gfx->imageCodex.LoadImageFromData( "debug_checkboard_img", ( void * )&white, VkExtent3D{ 16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_errorCheckerboardImage =
+            m_gfx->imageCodex.LoadImageFromData( "debug_checkboard_img", ( void * )&white, VkExtent3D{ 16, 16, 1 },
+                                                 VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 }
 
 void VulkanEngine::InitScene( ) {
     m_ibl.Init( *m_gfx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
-    m_scene = GltfLoader::Load( *m_gfx, "../../assets/sponza.glb" );
+    m_scene = GltfLoader::Load( *m_gfx, "../../assets/untitled.glb" );
 
     // init camera
     if ( m_scene->cameras.empty( ) ) {
@@ -815,7 +884,7 @@ static void drawSceneHierarchy( Node &node ) {
     for ( auto &n : node.children ) {
         drawSceneHierarchy( *n.get( ) );
     }
-};
+}
 
 void VulkanEngine::Run( ) {
     bool b_quit = false;
@@ -826,6 +895,7 @@ void VulkanEngine::Run( ) {
     // main loop
     while ( !b_quit ) {
         FrameMarkNamed( "main" );
+        auto start_task = utils::GetTime( );
         // begin clock
         auto start = std::chrono::system_clock::now( );
 
@@ -902,24 +972,55 @@ void VulkanEngine::Run( ) {
                         image_size.y = image_size.x / aspect_ratio;
                     }
 
-                    ImVec2 image_pos(
-                            ( viewport_size.x - image_size.x ) * 0.5f,
-                            ( viewport_size.y - image_size.y ) * 0.5f );
+                    ImVec2 image_pos( ( viewport_size.x - image_size.x ) * 0.5f,
+                                      ( viewport_size.y - image_size.y ) * 0.5f );
 
                     ImGui::SetCursorPos( image_pos );
                     ImGui::Image( reinterpret_cast<ImTextureID>( selected_set ), image_size );
 
+                    // Overlay debug
+                    {
+                        auto text_pos = image_pos;
+                        constexpr auto padding = 20u;
+                        text_pos.x += padding;
+                        text_pos.y += padding;
+
+                        ImGui::SetCursorPos( text_pos );
+                        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "FPS: %.1f", ImGui::GetIO( ).Framerate );
+
+                        text_pos.y += 20;
+                        ImGui::SetCursorPos( text_pos );
+                        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "Frame: %d", m_gfx->swapchain.frameNumber );
+
+                        text_pos.y += 20;
+                        ImGui::SetCursorPos( text_pos );
+                        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "GPU: %s",
+                                            m_gfx->deviceProperties.properties.deviceName );
+
+                        text_pos.y += 20;
+                        ImGui::SetCursorPos( text_pos );
+                        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "Image Codex: %d/%d",
+                                            m_gfx->imageCodex.GetImages( ).size( ),
+                                            m_gfx->imageCodex.bindlessRegistry.MaxBindlessImages );
+
+                        auto window_pos = ImGui::GetWindowPos( );
+                        ImVec2 position = { window_pos.x + image_pos.x,
+                                            window_pos.y + image_pos.y + image_size.y - 450 };
+                        m_visualProfiler.Render( position, ImVec2( 200, 450 ) );
+                    }
+
                     if ( m_selectedNode != nullptr ) {
                         ImGuizmo::SetOrthographic( false );
                         ImGuizmo::SetDrawlist( );
-                        ImGuizmo::SetRect( ImGui::GetWindowPos( ).x, ImGui::GetWindowPos( ).y, ImGui::GetWindowWidth( ), ImGui::GetWindowHeight( ) );
+                        ImGuizmo::SetRect( image_pos.x, image_pos.y, image_size.x, image_size.y );
 
                         auto camera_view = m_sceneData.view;
                         auto camera_proj = m_sceneData.proj;
                         camera_proj[1][1] *= -1;
 
                         auto tc = m_selectedNode->GetTransformMatrix( );
-                        ImGuizmo::Manipulate( glm::value_ptr( camera_view ), glm::value_ptr( camera_proj ), ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::WORLD, value_ptr( tc ) );
+                        Manipulate( glm::value_ptr( camera_view ), glm::value_ptr( camera_proj ),
+                                    ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::WORLD, value_ptr( tc ) );
 
                         Mat4 local_transform = tc;
                         if ( const auto parent = m_selectedNode->parent.lock( ) ) {
@@ -1055,7 +1156,9 @@ void VulkanEngine::Run( ) {
                             ImGui::PushID( i );
 
                             auto &light = m_scene->directionalLights.at( i );
-                            ImGui::ColorEdit3( "Color HSV", &light.hsv.hue, ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV | ImGuiColorEditFlags_PickerHueWheel );
+                            ImGui::ColorEdit3( "Color HSV", &light.hsv.hue,
+                                               ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV |
+                                                       ImGuiColorEditFlags_PickerHueWheel );
                             ImGui::DragFloat( "Power", &light.power, 0.1f );
 
                             auto euler = glm::degrees( light.node->transform.euler );
@@ -1063,7 +1166,9 @@ void VulkanEngine::Run( ) {
                                 light.node->transform.euler = glm::radians( euler );
                             }
 
-                            auto shadow_map_pos = glm::normalize( light.node->transform.AsMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) * light.distance;
+                            auto shadow_map_pos =
+                                    glm::normalize( light.node->transform.AsMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) *
+                                    light.distance;
                             ImGui::DragFloat3( "Pos", glm::value_ptr( shadow_map_pos ) );
 
                             ImGui::DragFloat( "Distance", &light.distance );
@@ -1084,10 +1189,8 @@ void VulkanEngine::Run( ) {
 
             if ( ImGui::Begin( "Stats" ) ) {
                 ImGui::Text( "frametime %f ms", m_stats.frametime );
-                ImGui::Text( "draw time %f ms", m_stats.meshDrawTime );
-                ImGui::Text( "update time %f ms", m_stats.sceneUpdateTime );
-                ImGui::Text( "triangles %i", m_stats.triangleCount );
-                ImGui::Text( "draws %i", m_stats.drawcallCount );
+                ImGui::Text( "GPU: %f ms",
+                             m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 0 ), m_gfx->gpuTimestamps.at( 1 ) ) );
             }
             ImGui::End( );
         }
@@ -1109,6 +1212,8 @@ void VulkanEngine::Run( ) {
         }
 
         m_timer += m_stats.frametime;
+        const auto end_task = utils::GetTime( );
+        m_visualProfiler.AddTimer( "Main", end_task - start_task, utils::VisualProfiler::Cpu );
     }
 }
 
@@ -1119,15 +1224,14 @@ void VulkanEngine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targe
         constexpr VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
         VkRenderingAttachmentInfo color_attachment = AttachmentInfo( targetImageView, &clear_color );
 
-        const VkRenderingInfo render_info = {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                .pNext = nullptr,
-                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
-                .layerCount = 1,
-                .colorAttachmentCount = 1,
-                .pColorAttachments = &color_attachment,
-                .pDepthAttachment = nullptr,
-                .pStencilAttachment = nullptr };
+        const VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                              .pNext = nullptr,
+                                              .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
+                                              .layerCount = 1,
+                                              .colorAttachmentCount = 1,
+                                              .pColorAttachments = &color_attachment,
+                                              .pDepthAttachment = nullptr,
+                                              .pStencilAttachment = nullptr };
         vkCmdBeginRendering( cmd, &render_info );
     }
 
@@ -1136,19 +1240,19 @@ void VulkanEngine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targe
     vkCmdEndRendering( cmd );
 }
 
-static void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &node, std::vector<MeshDrawCommand> &drawCommands ) {
+static void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &node,
+                                std::vector<MeshDrawCommand> &drawCommands ) {
     if ( !node.meshIds.empty( ) ) {
         for ( const auto mesh_id : node.meshIds ) {
             auto &mesh_asset = scene.meshes[mesh_id];
 
             auto &mesh = gfx.meshCodex.GetMesh( mesh_asset.mesh );
 
-            MeshDrawCommand mdc = {
-                    .indexBuffer = mesh.indexBuffer.buffer,
-                    .indexCount = mesh.indexCount,
-                    .vertexBufferAddress = mesh.vertexBufferAddress,
-                    .worldFromLocal = node.GetTransformMatrix( ),
-                    .materialId = scene.materials[mesh_asset.material] };
+            MeshDrawCommand mdc = { .indexBuffer = mesh.indexBuffer.buffer,
+                                    .indexCount = mesh.indexCount,
+                                    .vertexBufferAddress = mesh.vertexBufferAddress,
+                                    .worldFromLocal = node.GetTransformMatrix( ),
+                                    .materialId = scene.materials[mesh_asset.material] };
             drawCommands.push_back( mdc );
         }
     }
@@ -1160,7 +1264,7 @@ static void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &
 
 void VulkanEngine::UpdateScene( ) {
     ZoneScopedN( "update_scene" );
-    auto start = std::chrono::system_clock::now( );
+    auto start = utils::GetTime( );
 
     m_drawCommands.clear( );
     CreateDrawCommands( *m_gfx.get( ), *m_scene, *( m_scene->topNodes[0].get( ) ), m_drawCommands );
@@ -1172,9 +1276,11 @@ void VulkanEngine::UpdateScene( ) {
     m_sceneData.cameraPosition = Vec4( m_camera->GetPosition( ), 0.0f );
     m_sceneData.shadowMap = m_scene->directionalLights.at( 0 ).shadowMap;
     auto &directional_light = m_scene->directionalLights.at( 0 );
-    auto proj = glm::ortho( -directional_light.right, directional_light.right, -directional_light.up, directional_light.up, directional_light.nearPlane, directional_light.farPlane );
+    auto proj = glm::ortho( -directional_light.right, directional_light.right, -directional_light.up,
+                            directional_light.up, directional_light.nearPlane, directional_light.farPlane );
 
-    auto shadow_map_pos = glm::normalize( directional_light.node->GetTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 ) ) * directional_light.distance;
+    auto shadow_map_pos = glm::normalize( directional_light.node->GetTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 ) ) *
+            directional_light.distance;
     auto view = glm::lookAt( Vec3( shadow_map_pos ), Vec3( 0.0f, 0.0f, 0.0f ), GLOBAL_UP );
     m_sceneData.lightProj = proj;
     m_sceneData.lightView = view;
@@ -1185,7 +1291,8 @@ void VulkanEngine::UpdateScene( ) {
         GpuDirectionalLight gpu_light;
         auto &light = m_scene->directionalLights.at( i );
 
-        ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x, gpu_light.color.y, gpu_light.color.z );
+        ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x,
+                                     gpu_light.color.y, gpu_light.color.z );
         gpu_light.color *= light.power;
 
         // get direction
@@ -1202,7 +1309,8 @@ void VulkanEngine::UpdateScene( ) {
 
         gpu_light.position = light.node->transform.position;
 
-        ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x, gpu_light.color.y, gpu_light.color.z );
+        ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x,
+                                     gpu_light.color.y, gpu_light.color.z );
         gpu_light.color *= light.power;
 
         gpu_light.quadratic = light.quadratic;
@@ -1216,9 +1324,6 @@ void VulkanEngine::UpdateScene( ) {
 
     m_ssaoBuffer.Upload( *m_gfx, &m_ssaoSettings, sizeof( SsaoSettings ) );
 
-    auto end = std::chrono::system_clock::now( );
-    // convert to microseconds (integer), and then come back to milliseconds
-    auto elapsed =
-            std::chrono::duration_cast<std::chrono::microseconds>( end - start );
-    m_stats.sceneUpdateTime = elapsed.count( ) / 1000.f;
+    const auto end = utils::GetTime( );
+    m_visualProfiler.AddTimer( "Scene", end - start, utils::VisualProfiler::Cpu );
 }

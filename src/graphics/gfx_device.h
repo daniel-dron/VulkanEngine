@@ -105,6 +105,8 @@ public:
 	VkDescriptorSetLayout GetBindlessLayout( ) const;
 	VkDescriptorSet GetBindlessSet( ) const;
 
+    float GetTimestampInMs(uint64_t start, uint64_t end ) const;
+
 	DescriptorAllocatorGrowable setPool;
 
 	VkInstance instance;
@@ -137,6 +139,9 @@ public:
 	MeshCodex meshCodex;
 
 	std::unique_ptr<ShaderStorage> shaderStorage;
+
+    VkQueryPool queryPoolTimestamps = nullptr;
+    std::array<uint64_t, 12> gpuTimestamps;
 
 	void DrawDebug( ) const;
 

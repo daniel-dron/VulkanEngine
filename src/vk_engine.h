@@ -14,6 +14,7 @@
 #pragma once
 
 #include <engine/scene.h>
+#include <graphics/draw_command.h>
 #include <graphics/ibl.h>
 #include <graphics/material_codex.h>
 #include <graphics/pipelines/gbuffer_pipeline.h>
@@ -22,11 +23,12 @@
 #include <graphics/pipelines/shadowmap.h>
 #include <graphics/pipelines/skybox_pipeline.h>
 #include <graphics/pipelines/wireframe_pipeline.h>
+#include <utils/ImGuiProfilerRenderer.h>
 #include <vk_types.h>
 #include <vulkan/vulkan_core.h>
 #include "camera/camera.h"
 #include "graphics/gfx_device.h"
-#include <graphics/draw_command.h>
+#include "utils/profiler.h"
 
 class VulkanEngine;
 
@@ -72,7 +74,7 @@ private:
     void InitImages( );
     void InitScene( );
     void UpdateScene( );
-    
+
     void DrawNodeHierarchy( const std::shared_ptr<Node> &node );
 
 private:
@@ -158,6 +160,7 @@ private:
     std::unique_ptr<FirstPersonFlyingController> m_fpsController;
     CameraController *m_cameraController = nullptr;
 
+    utils::VisualProfiler m_visualProfiler = utils::VisualProfiler( 300 );
     RendererOptions m_rendererOptions;
     float m_timer = 0;
 };

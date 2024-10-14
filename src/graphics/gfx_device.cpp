@@ -37,19 +37,17 @@ ImmediateExecutor::Result<> ImmediateExecutor::Init( GfxDevice *gfx ) {
     VK_CHECK( vkCreateFence( gfx->device, &fence_info, nullptr, &fence ) );
 
     // Pool and buffer creation
-    const VkCommandPoolCreateInfo pool_info = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-            .queueFamilyIndex = gfx->graphicsQueueFamily };
+    const VkCommandPoolCreateInfo pool_info = { .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+                                                .pNext = nullptr,
+                                                .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+                                                .queueFamilyIndex = gfx->graphicsQueueFamily };
     VK_CHECK( vkCreateCommandPool( gfx->device, &pool_info, nullptr, &pool ) );
 
-    const VkCommandBufferAllocateInfo buffer_info = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .pNext = nullptr,
-            .commandPool = pool,
-            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            .commandBufferCount = 1 };
+    const VkCommandBufferAllocateInfo buffer_info = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+                                                      .pNext = nullptr,
+                                                      .commandPool = pool,
+                                                      .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+                                                      .commandBufferCount = 1 };
     VK_CHECK( vkAllocateCommandBuffers( gfx->device, &buffer_info, &commandBuffer ) );
 
     return { };
@@ -111,9 +109,8 @@ GfxDevice::Result<> GfxDevice::Init( SDL_Window *window ) {
     shaderStorage = std::make_unique<ShaderStorage>( this );
 
     // descriptor pool
-    std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> ratios = {
-            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1.0f },
-            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1.0f } };
+    std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> ratios = { { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1.0f },
+                                                                       { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1.0f } };
     setPool.Init( device, 10, ratios );
 
     executor.Init( this );
@@ -126,20 +123,16 @@ GfxDevice::Result<> GfxDevice::Init( SDL_Window *window ) {
     return { };
 }
 
-void GfxDevice::Execute( std::function<void( VkCommandBuffer )> &&func ) {
-    executor.Execute( std::move( func ) );
-}
+void GfxDevice::Execute( std::function<void( VkCommandBuffer )> &&func ) { executor.Execute( std::move( func ) ); }
 
-GpuBuffer GfxDevice::Allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, const std::string &name ) {
+GpuBuffer GfxDevice::Allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage,
+                               const std::string &name ) {
     const VkBufferCreateInfo info = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .pNext = nullptr,
-            .size = size,
-            .usage = usage };
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, .pNext = nullptr, .size = size, .usage = usage };
 
-    const VmaAllocationCreateInfo vma_info = {
-            .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-            .usage = vmaUsage };
+    const VmaAllocationCreateInfo vma_info = { .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT |
+                                                       VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                               .usage = vmaUsage };
 
     GpuBuffer buffer{ };
     VK_CHECK( vmaCreateBuffer( allocator, &info, &vma_info, &buffer.buffer, &buffer.allocation, &buffer.info ) );
@@ -147,12 +140,11 @@ GpuBuffer GfxDevice::Allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryU
 
 #ifdef ENABLE_DEBUG_UTILS
     allocationCounter[name]++;
-    const VkDebugUtilsObjectNameInfoEXT obj = {
-            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-            .pNext = nullptr,
-            .objectType = VK_OBJECT_TYPE_BUFFER,
-            .objectHandle = reinterpret_cast<uint64_t>( buffer.buffer ),
-            .pObjectName = name.c_str( ) };
+    const VkDebugUtilsObjectNameInfoEXT obj = { .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+                                                .pNext = nullptr,
+                                                .objectType = VK_OBJECT_TYPE_BUFFER,
+                                                .objectHandle = reinterpret_cast<uint64_t>( buffer.buffer ),
+                                                .pObjectName = name.c_str( ) };
     vkSetDebugUtilsObjectNameEXT( device, &obj );
 #endif
 
@@ -177,6 +169,7 @@ void GfxDevice::Cleanup( ) {
     setPool.DestroyPools( device );
     shaderStorage->Cleanup( );
     vkFreeCommandBuffers( device, computeCommandPool, 1, &computeCommand );
+    vkDestroyQueryPool( device, queryPoolTimestamps, nullptr );
     vkDestroyCommandPool( device, computeCommandPool, nullptr );
     vmaDestroyAllocator( allocator );
     vkDestroySurfaceKHR( instance, surface, nullptr );
@@ -185,16 +178,15 @@ void GfxDevice::Cleanup( ) {
     vkDestroyInstance( instance, nullptr );
 }
 
-VkDescriptorSet GfxDevice::AllocateSet( VkDescriptorSetLayout layout ) {
-    return setPool.Allocate( device, layout );
-}
+VkDescriptorSet GfxDevice::AllocateSet( VkDescriptorSetLayout layout ) { return setPool.Allocate( device, layout ); }
 
-VkDescriptorSetLayout GfxDevice::GetBindlessLayout( ) const {
-    return imageCodex.GetBindlessLayout( );
-}
+VkDescriptorSetLayout GfxDevice::GetBindlessLayout( ) const { return imageCodex.GetBindlessLayout( ); }
 
-VkDescriptorSet GfxDevice::GetBindlessSet( ) const {
-    return imageCodex.GetBindlessSet( );
+VkDescriptorSet GfxDevice::GetBindlessSet( ) const { return imageCodex.GetBindlessSet( ); }
+
+float GfxDevice::GetTimestampInMs( uint64_t start, uint64_t end ) const {
+    const auto period = deviceProperties.properties.limits.timestampPeriod;
+    return ( end - start ) * period / 1000000.0f;
 }
 
 void GfxDevice::DrawDebug( ) const {
@@ -202,10 +194,8 @@ void GfxDevice::DrawDebug( ) const {
     const auto limits = props.limits;
 
     ImGui::Text( "Device Name: %s", props.deviceName );
-    ImGui::Text( "Driver Version: %d.%d.%d",
-                 VK_VERSION_MAJOR( props.driverVersion ),
-                 VK_VERSION_MINOR( props.driverVersion ),
-                 VK_VERSION_PATCH( props.driverVersion ) );
+    ImGui::Text( "Driver Version: %d.%d.%d", VK_VERSION_MAJOR( props.driverVersion ),
+                 VK_VERSION_MINOR( props.driverVersion ), VK_VERSION_PATCH( props.driverVersion ) );
 
     VkDeviceSize total_vram = 0;
     VkDeviceSize total_system_ram = 0;
@@ -225,10 +215,8 @@ void GfxDevice::DrawDebug( ) const {
     ImGui::Text( "Max Push Constants Size: %zu bytes", limits.maxPushConstantsSize );
 
     ImGui::Text( "Max Compute Shared Memory Size: %zu bytes", limits.maxComputeSharedMemorySize );
-    ImGui::Text( "Max Compute Work Group Count: %d x %d x %d",
-                 limits.maxComputeWorkGroupCount[0],
-                 limits.maxComputeWorkGroupCount[1],
-                 limits.maxComputeWorkGroupCount[2] );
+    ImGui::Text( "Max Compute Work Group Count: %d x %d x %d", limits.maxComputeWorkGroupCount[0],
+                 limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] );
     ImGui::Text( "Max Compute Work Group Invocations: %d", limits.maxComputeWorkGroupInvocations );
 
     ImGui::Text( "Max Framebuffer Width: %d", limits.maxFramebufferWidth );
@@ -237,7 +225,8 @@ void GfxDevice::DrawDebug( ) const {
     ImGui::Text( "Max Image Array Layers: %d", limits.maxImageArrayLayers );
 
     ImGui::Text( "Geometry Shader Support: %s", ( props.limits.maxGeometryShaderInvocations > 0 ) ? "Yes" : "No" );
-    ImGui::Text( "Tessellation Shader Support: %s", ( props.limits.maxTessellationGenerationLevel > 0 ) ? "Yes" : "No" );
+    ImGui::Text( "Tessellation Shader Support: %s",
+                 ( props.limits.maxTessellationGenerationLevel > 0 ) ? "Yes" : "No" );
 }
 
 GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
@@ -274,6 +263,7 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
             .descriptorBindingSampledImageUpdateAfterBind = true,
             .descriptorBindingPartiallyBound = true,
             .runtimeDescriptorArray = true,
+            .hostQueryReset = true,
             .bufferDeviceAddress = true,
     };
     VkPhysicalDeviceVulkan11Features features_11{
@@ -286,8 +276,7 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
     };
 
     PhysicalDeviceSelector selector{ bs_instance };
-    auto physical_device_res = selector
-                                       .set_minimum_version( 1, 3 )
+    auto physical_device_res = selector.set_minimum_version( 1, 3 )
                                        .set_required_features_13( features_13 )
                                        .set_required_features_12( features_12 )
                                        .set_required_features_11( features_11 )
@@ -295,6 +284,7 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
                                        .add_required_extension( "VK_EXT_descriptor_indexing" )
                                        .add_required_extension( "VK_KHR_synchronization2" )
                                        .add_required_extension( "VK_KHR_multiview" )
+                                       .add_required_extension( "VK_EXT_host_query_reset" )
                                        .set_surface( surface )
                                        .select( );
     if ( !physical_device_res ) {
@@ -310,6 +300,9 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
 
     deviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
     vkGetPhysicalDeviceProperties2( physical_device, &deviceProperties );
+
+    assert( deviceProperties.properties.limits.timestampPeriod != 0 &&
+            "Timestamp queries not supported on this device!" );
 
     vkGetPhysicalDeviceMemoryProperties( chosenGpu, &memProperties );
 
@@ -336,10 +329,20 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
 
     computeQueue = bs_device.get_queue( QueueType::compute ).value( );
     computeQueueFamily = bs_device.get_queue_index( QueueType::compute ).value( );
-    const VkCommandPoolCreateInfo command_pool_info = vk_init::CommandPoolCreateInfo( computeQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
+    const VkCommandPoolCreateInfo command_pool_info =
+            vk_init::CommandPoolCreateInfo( computeQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
     VK_CHECK( vkCreateCommandPool( device, &command_pool_info, nullptr, &computeCommandPool ) );
     VkCommandBufferAllocateInfo cmd_alloc_info = vk_init::CommandBufferAllocateInfo( computeCommandPool, 1 );
     VK_CHECK( vkAllocateCommandBuffers( device, &cmd_alloc_info, &computeCommand ) );
+
+    // Query Pool
+    VkQueryPoolCreateInfo query_pool_create_info = {
+            .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+            .pNext = nullptr,
+            .queryType = VK_QUERY_TYPE_TIMESTAMP,
+            .queryCount = static_cast<uint32_t>( gpuTimestamps.size( ) ),
+    };
+    VK_CHECK( vkCreateQueryPool( device, &query_pool_create_info, nullptr, &queryPoolTimestamps ) );
 
     return { };
 }
@@ -362,17 +365,28 @@ GfxDevice::Result<> GfxDevice::InitAllocator( ) {
 void GfxDevice::InitDebugFunctions( ) const {
     // ----------
     // debug utils functions
-    Debug::vkCmdBeginDebugUtilsLabelEXT_ptr = ( PFN_vkCmdBeginDebugUtilsLabelEXT )vkGetInstanceProcAddr( instance, "vkCmdBeginDebugUtilsLabelEXT" );
-    Debug::vkCmdEndDebugUtilsLabelEXT_ptr = ( PFN_vkCmdEndDebugUtilsLabelEXT )vkGetInstanceProcAddr( instance, "vkCmdEndDebugUtilsLabelEXT" );
-    Debug::vkCmdInsertDebugUtilsLabelEXT_ptr = ( PFN_vkCmdInsertDebugUtilsLabelEXT )vkGetInstanceProcAddr( instance, "vkCmdInsertDebugUtilsLabelEXT" );
-    Debug::vkCreateDebugUtilsMessengerEXT_ptr = ( PFN_vkCreateDebugUtilsMessengerEXT )vkGetInstanceProcAddr( instance, "vkCreateDebugUtilsMessengerEXT" );
-    Debug::vkDestroyDebugUtilsMessengerEXT_ptr = ( PFN_vkDestroyDebugUtilsMessengerEXT )vkGetInstanceProcAddr( instance, "vkDestroyDebugUtilsMessengerEXT" );
-    Debug::vkQueueBeginDebugUtilsLabelEXT_ptr = ( PFN_vkQueueBeginDebugUtilsLabelEXT )vkGetInstanceProcAddr( instance, "vkQueueBeginDebugUtilsLabelEXT" );
-    Debug::vkQueueEndDebugUtilsLabelEXT_ptr = ( PFN_vkQueueEndDebugUtilsLabelEXT )vkGetInstanceProcAddr( instance, "vkQueueEndDebugUtilsLabelEXT" );
-    Debug::vkQueueInsertDebugUtilsLabelEXT_ptr = ( PFN_vkQueueInsertDebugUtilsLabelEXT )vkGetInstanceProcAddr( instance, "vkQueueInsertDebugUtilsLabelEXT" );
-    Debug::vkSetDebugUtilsObjectNameEXT_ptr = ( PFN_vkSetDebugUtilsObjectNameEXT )vkGetInstanceProcAddr( instance, "vkSetDebugUtilsObjectNameEXT" );
-    Debug::vkSetDebugUtilsObjectTagEXT_ptr = ( PFN_vkSetDebugUtilsObjectTagEXT )vkGetInstanceProcAddr( instance, "vkSetDebugUtilsObjectTagEXT" );
-    Debug::vkSubmitDebugUtilsMessageEXT_ptr = ( PFN_vkSubmitDebugUtilsMessageEXT )vkGetInstanceProcAddr( instance, "vkSubmitDebugUtilsMessageEXT" );
+    Debug::vkCmdBeginDebugUtilsLabelEXT_ptr =
+            ( PFN_vkCmdBeginDebugUtilsLabelEXT )vkGetInstanceProcAddr( instance, "vkCmdBeginDebugUtilsLabelEXT" );
+    Debug::vkCmdEndDebugUtilsLabelEXT_ptr =
+            ( PFN_vkCmdEndDebugUtilsLabelEXT )vkGetInstanceProcAddr( instance, "vkCmdEndDebugUtilsLabelEXT" );
+    Debug::vkCmdInsertDebugUtilsLabelEXT_ptr =
+            ( PFN_vkCmdInsertDebugUtilsLabelEXT )vkGetInstanceProcAddr( instance, "vkCmdInsertDebugUtilsLabelEXT" );
+    Debug::vkCreateDebugUtilsMessengerEXT_ptr =
+            ( PFN_vkCreateDebugUtilsMessengerEXT )vkGetInstanceProcAddr( instance, "vkCreateDebugUtilsMessengerEXT" );
+    Debug::vkDestroyDebugUtilsMessengerEXT_ptr =
+            ( PFN_vkDestroyDebugUtilsMessengerEXT )vkGetInstanceProcAddr( instance, "vkDestroyDebugUtilsMessengerEXT" );
+    Debug::vkQueueBeginDebugUtilsLabelEXT_ptr =
+            ( PFN_vkQueueBeginDebugUtilsLabelEXT )vkGetInstanceProcAddr( instance, "vkQueueBeginDebugUtilsLabelEXT" );
+    Debug::vkQueueEndDebugUtilsLabelEXT_ptr =
+            ( PFN_vkQueueEndDebugUtilsLabelEXT )vkGetInstanceProcAddr( instance, "vkQueueEndDebugUtilsLabelEXT" );
+    Debug::vkQueueInsertDebugUtilsLabelEXT_ptr =
+            ( PFN_vkQueueInsertDebugUtilsLabelEXT )vkGetInstanceProcAddr( instance, "vkQueueInsertDebugUtilsLabelEXT" );
+    Debug::vkSetDebugUtilsObjectNameEXT_ptr =
+            ( PFN_vkSetDebugUtilsObjectNameEXT )vkGetInstanceProcAddr( instance, "vkSetDebugUtilsObjectNameEXT" );
+    Debug::vkSetDebugUtilsObjectTagEXT_ptr =
+            ( PFN_vkSetDebugUtilsObjectTagEXT )vkGetInstanceProcAddr( instance, "vkSetDebugUtilsObjectTagEXT" );
+    Debug::vkSubmitDebugUtilsMessageEXT_ptr =
+            ( PFN_vkSubmitDebugUtilsMessageEXT )vkGetInstanceProcAddr( instance, "vkSubmitDebugUtilsMessageEXT" );
 }
 
 namespace Debug {
@@ -397,9 +411,7 @@ namespace Debug {
         };
         vkCmdBeginDebugUtilsLabelEXT( cmd, &label );
     }
-    void EndLabel( VkCommandBuffer cmd ) {
-        vkCmdEndDebugUtilsLabelEXT( cmd );
-    }
+    void EndLabel( VkCommandBuffer cmd ) { vkCmdEndDebugUtilsLabelEXT( cmd ); }
 } // namespace Debug
 
 // definitions for linkage to the vulkan library
@@ -415,11 +427,14 @@ void vkCmdInsertDebugUtilsLabelEXT( VkCommandBuffer commandBuffer, const VkDebug
     return Debug::vkCmdInsertDebugUtilsLabelEXT_ptr( commandBuffer, pLabelInfo );
 }
 
-VkResult vkCreateDebugUtilsMessengerEXT( VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pMessenger ) {
+VkResult vkCreateDebugUtilsMessengerEXT( VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
+                                         const VkAllocationCallbacks *pAllocator,
+                                         VkDebugUtilsMessengerEXT *pMessenger ) {
     return Debug::vkCreateDebugUtilsMessengerEXT_ptr( instance, pCreateInfo, pAllocator, pMessenger );
 }
 
-void vkDestroyDebugUtilsMessengerEXT( VkInstance instance, VkDebugUtilsMessengerEXT messenger, const VkAllocationCallbacks *pAllocator ) {
+void vkDestroyDebugUtilsMessengerEXT( VkInstance instance, VkDebugUtilsMessengerEXT messenger,
+                                      const VkAllocationCallbacks *pAllocator ) {
     return Debug::vkDestroyDebugUtilsMessengerEXT_ptr( instance, messenger, pAllocator );
 }
 
@@ -427,9 +442,7 @@ void vkQueueBeginDebugUtilsLabelEXT( VkQueue queue, const VkDebugUtilsLabelEXT *
     return Debug::vkQueueBeginDebugUtilsLabelEXT_ptr( queue, pLabelInfo );
 }
 
-void vkQueueEndDebugUtilsLabelEXT( VkQueue queue ) {
-    return Debug::vkQueueEndDebugUtilsLabelEXT_ptr( queue );
-}
+void vkQueueEndDebugUtilsLabelEXT( VkQueue queue ) { return Debug::vkQueueEndDebugUtilsLabelEXT_ptr( queue ); }
 
 void vkQueueInsertDebugUtilsLabelEXT( VkQueue queue, const VkDebugUtilsLabelEXT *pLabelInfo ) {
     return Debug::vkQueueInsertDebugUtilsLabelEXT_ptr( queue, pLabelInfo );
@@ -443,6 +456,8 @@ VkResult vkSetDebugUtilsObjectTagEXT( VkDevice device, const VkDebugUtilsObjectT
     return Debug::vkSetDebugUtilsObjectTagEXT_ptr( device, pTagInfo );
 }
 
-void vkSubmitDebugUtilsMessageEXT( VkInstance instance, VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData ) {
+void vkSubmitDebugUtilsMessageEXT( VkInstance instance, VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                                   VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+                                   const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData ) {
     return Debug::vkSubmitDebugUtilsMessageEXT_ptr( instance, messageSeverity, messageTypes, pCallbackData );
 }
