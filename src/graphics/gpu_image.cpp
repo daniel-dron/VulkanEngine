@@ -18,6 +18,8 @@
 #include <graphics/gfx_device.h>
 #include <vk_types.h>
 
+#include "vk_engine.h"
+
 GpuImage::GpuImage( GfxDevice *gfx, const std::string &name, void *data, const VkExtent3D extent, const VkFormat format, const ImageType imageType, const VkImageUsageFlags usage, bool generateMipmaps ) :
     m_gfx( gfx ), m_name( name ), m_extent( extent ), m_format( format ), m_usage( usage ), m_mipmapped( generateMipmaps ) {
 

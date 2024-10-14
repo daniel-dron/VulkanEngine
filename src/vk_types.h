@@ -28,7 +28,7 @@
   do {                                                                    \
     VkResult err = x;                                                     \
     if (err) {                                                            \
-      fmt::println("{} {} Detected Vulkan error: {}", __FILE__, __LINE__, \
+      VulkanEngine::Get( ).console.AddLog("{} {} Detected Vulkan error: {}", __FILE__, __LINE__, \
                    string_VkResult(err));                                 \
       abort();                                                            \
     }                                                                     \

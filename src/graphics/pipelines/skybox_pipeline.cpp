@@ -18,6 +18,7 @@
 #include <vk_initializers.h>
 #include <vk_pipelines.h>
 #include "compute_pipeline.h"
+#include "vk_engine.h"
 
 using namespace vk_init;
 

@@ -26,13 +26,15 @@
 #include <graphics/image_codex.h>
 #include <graphics/light.h>
 
+#include "vk_engine.h"
+
 static std::vector<Material> LoadMaterials( const aiScene *scene ) {
     const auto n_materials = scene->mNumMaterials;
 
     std::vector<Material> materials;
     materials.reserve( n_materials );
 
-    fmt::println( "Loading {} materials", n_materials );
+    VulkanEngine::Get( ).console.AddLog( "Loading {} materials", n_materials );
 
     for ( auto i = 0; i < n_materials; i++ ) {
         Material material;
@@ -109,7 +111,8 @@ static std::vector<ImageId> LoadImages( GfxDevice &gfx, const aiScene *scene ) {
                 }
 
                 int width, height, channels;
-                unsigned char *data = stbi_load_from_memory( reinterpret_cast<stbi_uc *>( texture->pcData ), size, &width, &height, &channels, 4 );
+                unsigned char *data = stbi_load_from_memory( reinterpret_cast<stbi_uc *>( texture->pcData ), size,
+                                                             &width, &height, &channels, 4 );
 
                 if ( data ) {
                     const VkExtent3D extent_3d = {
@@ -121,16 +124,18 @@ static std::vector<ImageId> LoadImages( GfxDevice &gfx, const aiScene *scene ) {
                     {
                         // TODO: use a staged pool for batched gpu loading
                         std::lock_guard<std::mutex> lock( gfxMutex );
-                        images[i] = gfx.imageCodex.LoadImageFromData( name, data, extent_3d, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true );
+                        images[i] = gfx.imageCodex.LoadImageFromData( name, data, extent_3d, VK_FORMAT_R8G8B8A8_UNORM,
+                                                                      VK_IMAGE_USAGE_SAMPLED_BIT, true );
                     }
 
                     stbi_image_free( data );
                 }
                 else {
-                    fmt::println( "Failed to load image {}\n\t{}", name, stbi_failure_reason( ) );
+                    VulkanEngine::Get( ).console.AddLog( "Failed to load image {}\n\t{}", name,
+                                                         stbi_failure_reason( ) );
                 }
 
-                fmt::println( "Loaded Texture: {} {}", i, name );
+                VulkanEngine::Get( ).console.AddLog( "Loaded Texture: {} {}", i, name );
             } );
         }
     }
@@ -138,8 +143,10 @@ static std::vector<ImageId> LoadImages( GfxDevice &gfx, const aiScene *scene ) {
     return images;
 }
 
-void ProcessMaterials( std::vector<Material> &preprocessedMaterials, const std::vector<ImageId> &images, GfxDevice &gfx, const aiScene *aiScene ) {
-    for ( auto &[base_color, metalness_factor, roughness_factor, color_id, metal_roughness_id, normal_id, name] : preprocessedMaterials ) {
+void ProcessMaterials( std::vector<Material> &preprocessedMaterials, const std::vector<ImageId> &images, GfxDevice &gfx,
+                       const aiScene *aiScene ) {
+    for ( auto &[base_color, metalness_factor, roughness_factor, color_id, metal_roughness_id, normal_id, name] :
+          preprocessedMaterials ) {
         if ( color_id != ImageCodex::InvalidImageId ) {
             const auto texture = aiScene->mTextures[color_id];
             auto &t = gfx.imageCodex.GetImage( images.at( color_id ) );
@@ -224,7 +231,8 @@ static std::vector<MaterialId> UploadMaterials( GfxDevice &gfx, const std::vecto
     return gpu_materials;
 }
 
-static std::vector<Scene::MeshAsset> MatchMaterialMeshes( const aiScene *scene, const std::vector<MeshId> &meshes, const std::vector<MaterialId> &materials ) {
+static std::vector<Scene::MeshAsset> MatchMaterialMeshes( const aiScene *scene, const std::vector<MeshId> &meshes,
+                                                          const std::vector<MaterialId> &materials ) {
     std::vector<Scene::MeshAsset> mesh_assets;
 
     for ( auto i = 0; i < scene->mNumMeshes; i++ ) {
@@ -260,7 +268,7 @@ static std::shared_ptr<Node> LoadNode( const aiNode *node ) {
     auto sceneNode = std::make_shared<Node>( );
 
     sceneNode->name = node->mName.C_Str( );
-    fmt::println( "{}", sceneNode->name.c_str( ) );
+    VulkanEngine::Get( ).console.AddLog( "{}", sceneNode->name.c_str( ) );
 
     auto transform = AssimpToGlm( node->mTransformation );
     if ( node->mTransformation == aiMatrix4x4( ) ) {
@@ -389,7 +397,8 @@ static void LoadLights( GfxDevice &gfx, const aiScene *aiScene, Scene &scene ) {
             PointLight light{ };
             light.node = node.get( );
 
-            RgBtoHsv( ai_light->mColor.r, ai_light->mColor.g, ai_light->mColor.b, light.hsv.hue, light.hsv.saturation, light.hsv.value );
+            RgBtoHsv( ai_light->mColor.r, ai_light->mColor.g, ai_light->mColor.b, light.hsv.hue, light.hsv.saturation,
+                      light.hsv.value );
             ConvertHsvToImGui( light.hsv.hue, light.hsv.saturation, light.hsv.value );
             light.power = ( ai_light->mPower / 683.0f ) * 4.0f * 3.14159265359f;
 
@@ -403,11 +412,14 @@ static void LoadLights( GfxDevice &gfx, const aiScene *aiScene, Scene &scene ) {
             DirectionalLight light;
             light.node = node.get( );
 
-            RgBtoHsv( ai_light->mColor.r, ai_light->mColor.g, ai_light->mColor.b, light.hsv.hue, light.hsv.saturation, light.hsv.value );
+            RgBtoHsv( ai_light->mColor.r, ai_light->mColor.g, ai_light->mColor.b, light.hsv.hue, light.hsv.saturation,
+                      light.hsv.value );
             ConvertHsvToImGui( light.hsv.hue, light.hsv.saturation, light.hsv.value );
             light.power = ( ai_light->mPower / 683.0f );
 
-            light.shadowMap = gfx.imageCodex.CreateEmptyImage( "shadowmap", VkExtent3D{ 2048, 2048, 1 }, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false );
+            light.shadowMap = gfx.imageCodex.CreateEmptyImage(
+                    "shadowmap", VkExtent3D{ 2048, 2048, 1 }, VK_FORMAT_D32_SFLOAT,
+                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
             scene.directionalLights.emplace_back( light );
         }
@@ -421,18 +433,21 @@ std::unique_ptr<Scene> GltfLoader::Load( GfxDevice &gfx, const std::string &path
     scene.name = path;
 
     Assimp::Importer importer;
-    const auto ai_scene = importer.ReadFile( path, aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_FlipUVs | aiProcess_FlipWindingOrder | aiProcess_GenBoundingBoxes | aiProcess_OptimizeGraph | aiProcess_OptimizeMeshes );
+    const auto ai_scene = importer.ReadFile( path,
+                                             aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_FlipUVs |
+                                                     aiProcess_FlipWindingOrder | aiProcess_GenBoundingBoxes |
+                                                     aiProcess_OptimizeGraph | aiProcess_OptimizeMeshes );
 
-    fmt::println( "Loading meshes..." );
+    VulkanEngine::Get( ).console.AddLog( "Loading meshes..." );
     const std::vector<MeshId> meshes = LoadMeshes( gfx, ai_scene );
 
-    fmt::println( "Loading materials..." );
+    VulkanEngine::Get( ).console.AddLog( "Loading materials..." );
     std::vector<Material> materials = LoadMaterials( ai_scene );
 
-    fmt::println( "Loading images..." );
+    VulkanEngine::Get( ).console.AddLog( "Loading images..." );
     const std::vector<ImageId> images = LoadImages( gfx, ai_scene );
 
-    fmt::println( "Matching materials..." );
+    VulkanEngine::Get( ).console.AddLog( "Matching materials..." );
     ProcessMaterials( materials, images, gfx, ai_scene );
 
     const auto gpu_materials = UploadMaterials( gfx, materials );

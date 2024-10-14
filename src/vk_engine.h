@@ -29,6 +29,7 @@
 #include "camera/camera.h"
 #include "graphics/gfx_device.h"
 #include "utils/profiler.h"
+#include <utils/imgui_console.h>
 
 class VulkanEngine;
 
@@ -49,6 +50,8 @@ public:
     void Run( );
 
     void ResizeSwapchain( uint32_t width, uint32_t height );
+    
+    ImGuiConsole console;
 
 private:
     void InitSdl( );
@@ -162,5 +165,8 @@ private:
 
     utils::VisualProfiler m_visualProfiler = utils::VisualProfiler( 300 );
     RendererOptions m_rendererOptions;
+
+    bool m_open = true;
+    
     float m_timer = 0;
 };

@@ -21,6 +21,8 @@
 #include <imgui.h>
 #include <vk_initializers.h>
 
+#include "vk_engine.h"
+
 using namespace vkb;
 
 constexpr bool B_USE_VALIDATION_LAYERS = true;
@@ -104,8 +106,6 @@ GfxDevice::Result<> GfxDevice::Init( SDL_Window *window ) {
     RETURN_IF_ERROR( InitDevice( window ) );
     RETURN_IF_ERROR( InitAllocator( ) );
 
-    InitDebugFunctions( );
-
     shaderStorage = std::make_unique<ShaderStorage>( this );
 
     // descriptor pool
@@ -174,7 +174,7 @@ void GfxDevice::Cleanup( ) {
     vmaDestroyAllocator( allocator );
     vkDestroySurfaceKHR( instance, surface, nullptr );
     vkDestroyDevice( device, nullptr );
-    vkb::destroy_debug_utils_messenger( instance, debugMessenger );
+    destroy_debug_utils_messenger( instance, debugMessenger );
     vkDestroyInstance( instance, nullptr );
 }
 
@@ -227,6 +227,17 @@ void GfxDevice::DrawDebug( ) const {
     ImGui::Text( "Geometry Shader Support: %s", ( props.limits.maxGeometryShaderInvocations > 0 ) ? "Yes" : "No" );
     ImGui::Text( "Tessellation Shader Support: %s",
                  ( props.limits.maxTessellationGenerationLevel > 0 ) ? "Yes" : "No" );
+}
+
+VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback( VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                                              VkDebugUtilsMessageTypeFlagsEXT messageType,
+                                              const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+                                              void *pUserData ) {
+
+    auto &engine = VulkanEngine::Get( );
+    engine.console.AddLog( "{}", pCallbackData->pMessage );
+
+    return VK_FALSE;
 }
 
 GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
@@ -295,7 +306,7 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
     chosenGpu = physical_device;
 
     for ( const auto &ext : physical_device.get_available_extensions( ) ) {
-        fmt::println( "{}", ext.c_str( ) );
+        VulkanEngine::Get( ).console.AddLog( "{}", ext.c_str( ) );
     }
 
     deviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
@@ -321,7 +332,7 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
 
     // Access maxDescriptorSetCount
     uint32_t max_descriptor_set_count = properties.limits.maxDescriptorSetSampledImages;
-    fmt::println( "Max sampled images: {}", max_descriptor_set_count );
+    VulkanEngine::Get( ).console.AddLog( "Max sampled images: {}", max_descriptor_set_count );
 
     // Queue
     graphicsQueue = bs_device.get_queue( QueueType::graphics ).value( );
@@ -343,6 +354,19 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
             .queryCount = static_cast<uint32_t>( gpuTimestamps.size( ) ),
     };
     VK_CHECK( vkCreateQueryPool( device, &query_pool_create_info, nullptr, &queryPoolTimestamps ) );
+
+    InitDebugFunctions( );
+
+    VkDebugUtilsMessengerCreateInfoEXT create_info{
+            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                    VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+            .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                    VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+            .pfnUserCallback = debugCallback,
+            .pUserData = nullptr,
+    };
+    VK_CHECK( vkCreateDebugUtilsMessengerEXT( instance, &create_info, nullptr, &debugMessenger ) );
 
     return { };
 }

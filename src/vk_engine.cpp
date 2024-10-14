@@ -825,7 +825,7 @@ void VulkanEngine::InitImages( ) {
 void VulkanEngine::InitScene( ) {
     m_ibl.Init( *m_gfx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
-    m_scene = GltfLoader::Load( *m_gfx, "../../assets/untitled.glb" );
+    m_scene = GltfLoader::Load( *m_gfx, "../../assets/sponza.glb" );
 
     // init camera
     if ( m_scene->cameras.empty( ) ) {
@@ -953,6 +953,8 @@ void VulkanEngine::Run( ) {
             ImGui::DockSpaceOverViewport( 0, ImGui::GetMainViewport( ) );
 
             ImGui::ShowDemoWindow( );
+
+            console.Draw( "Console", &m_open );
 
             {
                 // Push a style to remove the window padding

@@ -19,10 +19,11 @@
 
 #include <Windows.h>
 
+#include "vk_engine.h"
+
 FILETIME GetTimestamp( const char *path );
 
-ShaderStorage::ShaderStorage( GfxDevice *gfx ) :
-    m_gfx( gfx ) {}
+ShaderStorage::ShaderStorage( GfxDevice *gfx ) : m_gfx( gfx ) {}
 
 void ShaderStorage::Cleanup( ) {
     if ( m_shaders.empty( ) ) {
@@ -71,7 +72,7 @@ void ShaderStorage::Reconstruct( ) {
             shader.low = timestamp.dwLowDateTime;
             shader.high = timestamp.dwHighDateTime;
 
-            fmt::println( "SHADER [{}] has been reloaded", shader.name.c_str( ) );
+            VulkanEngine::Get( ).console.AddLog( "SHADER [{}] has been reloaded", shader.name.c_str( ) );
 
             shader.NotifyReload( );
         }
@@ -87,7 +88,7 @@ void ShaderStorage::Add( const std::string &name ) {
     const FILETIME timestamp = GetTimestamp( name.c_str( ) );
     m_shaders[name] = Shader( module, timestamp.dwLowDateTime, timestamp.dwHighDateTime, name );
 
-    fmt::println( "[SHADER STORAGE]: Added {} shader", m_shaders[name].name.c_str( ) );
+    VulkanEngine::Get( ).console.AddLog( "[SHADER STORAGE]: Added {} shader", m_shaders[name].name.c_str( ) );
 }
 
 VkShaderModule shaders::LoadShaderModule( const VkDevice device, const char *path ) {
@@ -119,7 +120,8 @@ VkShaderModule shaders::LoadShaderModule( const VkDevice device, const char *pat
 }
 
 FILETIME GetTimestamp( const char *path ) {
-    const auto handle = CreateFileA( path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr );
+    const auto handle =
+            CreateFileA( path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr );
     if ( !handle ) {
         throw "no shader";
     }

@@ -21,6 +21,7 @@
 #include "../draw_command.h"
 #include "graphics/gfx_device.h"
 #include "graphics/shader_storage.h"
+#include "vk_engine.h"
 
 using namespace vk_init;
 

@@ -21,6 +21,7 @@
 #include <imgui.h>
 
 #include "graphics/gfx_device.h"
+#include "vk_engine.h"
 
 using namespace vk_init;
 

@@ -14,6 +14,8 @@
 #include <pch.h>
 
 #include "compute_pipeline.h"
+
+#include "vk_engine.h"
 #include "vk_initializers.h"
 
 void BindlessCompute::AddDescriptorSetLayout( uint32_t binding, VkDescriptorType type ) {

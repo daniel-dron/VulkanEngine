@@ -19,6 +19,7 @@
 #include "VkBootstrap.h"
 #include "gfx_device.h"
 #include "imgui_impl_vulkan.h"
+#include "vk_engine.h"
 #include "vk_types.h"
 
 Swapchain::FrameData &Swapchain::GetCurrentFrame( ) {

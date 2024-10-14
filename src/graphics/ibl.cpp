@@ -22,10 +22,12 @@
 #include <imgui.h>
 #include <vk_pipelines.h>
 
+#include "vk_engine.h"
 #include "vk_initializers.h"
 
 void Ibl::Init( GfxDevice &gfx, const std::string &path ) {
-    m_hdrTexture = gfx.imageCodex.LoadHdrFromFile( path, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_hdrTexture =
+            gfx.imageCodex.LoadHdrFromFile( path, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     const VkCommandBufferAllocateInfo cmd_alloc_info = vk_init::CommandBufferAllocateInfo( gfx.computeCommandPool, 1 );
     VK_CHECK( vkAllocateCommandBuffers( gfx.device, &cmd_alloc_info, &m_computeCommand ) );
@@ -37,7 +39,7 @@ void Ibl::Init( GfxDevice &gfx, const std::string &path ) {
 
     InitComputes( gfx );
 
-    fmt::println( "Dispatching IBL computes!" );
+    VulkanEngine::Get( ).console.AddLog( "Dispatching IBL computes!" );
     // dispatch computes
     {
         VK_CHECK( vkResetCommandBuffer( m_computeCommand, 0 ) );
@@ -81,7 +83,8 @@ void Ibl::InitComputes( GfxDevice &gfx ) {
 
         DescriptorWriter writer;
         auto &skybox_image = gfx.imageCodex.GetImage( m_skybox );
-        writer.WriteImage( 0, skybox_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+        writer.WriteImage( 0, skybox_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
+                           VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
         writer.UpdateSet( gfx.device, m_equiSet );
     }
 
@@ -95,7 +98,8 @@ void Ibl::InitComputes( GfxDevice &gfx ) {
 
         DescriptorWriter writer;
         auto &irradiance_image = gfx.imageCodex.GetImage( m_irradiance );
-        writer.WriteImage( 0, irradiance_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+        writer.WriteImage( 0, irradiance_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
+                           VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
         writer.UpdateSet( gfx.device, m_irradianceSet );
     }
 
@@ -112,7 +116,8 @@ void Ibl::InitComputes( GfxDevice &gfx ) {
             m_radianceSets[i] = gfx.AllocateSet( m_radiancePipeline.GetLayout( ) );
 
             DescriptorWriter writer;
-            writer.WriteImage( 0, radiance_image.GetMipView( i ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+            writer.WriteImage( 0, radiance_image.GetMipView( i ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
+                               VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
             writer.UpdateSet( gfx.device, m_radianceSets[i] );
         }
     }
@@ -126,7 +131,8 @@ void Ibl::InitComputes( GfxDevice &gfx ) {
 
         DescriptorWriter writer;
         auto &brdf_image = gfx.imageCodex.GetImage( m_brdf );
-        writer.WriteImage( 0, brdf_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+        writer.WriteImage( 0, brdf_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
+                           VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
         writer.UpdateSet( gfx.device, m_brdfSet );
     }
 }
@@ -136,10 +142,14 @@ void Ibl::InitTextures( GfxDevice &gfx ) {
     usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
     usages |= VK_IMAGE_USAGE_STORAGE_BIT;
 
-    m_skybox = gfx.imageCodex.CreateCubemap( "Skybox", VkExtent3D{ 2048, 2048, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, usages );
-    m_irradiance = gfx.imageCodex.CreateCubemap( "Irradiance", VkExtent3D{ 32, 32, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, usages );
-    m_radiance = gfx.imageCodex.CreateCubemap( "Radiance", VkExtent3D{ 128, 128, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, usages, 6 );
-    m_brdf = gfx.imageCodex.CreateEmptyImage( "BRDF", VkExtent3D{ 512, 512, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, usages );
+    m_skybox = gfx.imageCodex.CreateCubemap( "Skybox", VkExtent3D{ 2048, 2048, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT,
+                                             usages );
+    m_irradiance = gfx.imageCodex.CreateCubemap( "Irradiance", VkExtent3D{ 32, 32, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT,
+                                                 usages );
+    m_radiance = gfx.imageCodex.CreateCubemap( "Radiance", VkExtent3D{ 128, 128, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT,
+                                               usages, 6 );
+    m_brdf =
+            gfx.imageCodex.CreateEmptyImage( "BRDF", VkExtent3D{ 512, 512, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, usages );
 }
 
 void Ibl::GenerateSkybox( GfxDevice &gfx, const VkCommandBuffer cmd ) const {
@@ -153,7 +163,8 @@ void Ibl::GenerateSkybox( GfxDevice &gfx, const VkCommandBuffer cmd ) const {
     m_equirectangularPipeline.BindDescriptorSet( cmd, bindless, 0 );
     m_equirectangularPipeline.BindDescriptorSet( cmd, m_equiSet, 1 );
     m_equirectangularPipeline.PushConstants( cmd, sizeof( ImageId ), &input );
-    m_equirectangularPipeline.Dispatch( cmd, ( output_image.GetExtent( ).width + 15 ) / 16, ( output_image.GetExtent( ).height + 15 ) / 16, 6 );
+    m_equirectangularPipeline.Dispatch( cmd, ( output_image.GetExtent( ).width + 15 ) / 16,
+                                        ( output_image.GetExtent( ).height + 15 ) / 16, 6 );
 }
 
 void Ibl::GenerateIrradiance( GfxDevice &gfx, const VkCommandBuffer cmd ) const {
@@ -166,7 +177,8 @@ void Ibl::GenerateIrradiance( GfxDevice &gfx, const VkCommandBuffer cmd ) const 
     m_irradiancePipeline.BindDescriptorSet( cmd, bindless, 0 );
     m_irradiancePipeline.BindDescriptorSet( cmd, m_irradianceSet, 1 );
     m_irradiancePipeline.PushConstants( cmd, sizeof( ImageId ), &input );
-    m_irradiancePipeline.Dispatch( cmd, ( output_image.GetExtent( ).width + 15 ) / 16, ( output_image.GetExtent( ).height + 15 ) / 16, 6 );
+    m_irradiancePipeline.Dispatch( cmd, ( output_image.GetExtent( ).width + 15 ) / 16,
+                                   ( output_image.GetExtent( ).height + 15 ) / 16, 6 );
 }
 
 void Ibl::GenerateRadiance( GfxDevice &gfx, const VkCommandBuffer cmd ) const {
@@ -195,7 +207,8 @@ void Ibl::GenerateRadiance( GfxDevice &gfx, const VkCommandBuffer cmd ) const {
 
         m_radiancePipeline.BindDescriptorSet( cmd, set, 1 );
         m_radiancePipeline.PushConstants( cmd, sizeof( RadiancePushConstants ), &pc );
-        m_radiancePipeline.Dispatch( cmd, ( output_image.GetExtent( ).width + 15 ) / 16, ( output_image.GetExtent( ).height + 15 ) / 16, 6 );
+        m_radiancePipeline.Dispatch( cmd, ( output_image.GetExtent( ).width + 15 ) / 16,
+                                     ( output_image.GetExtent( ).height + 15 ) / 16, 6 );
     }
 }
 
@@ -207,5 +220,6 @@ void Ibl::GenerateBrdf( GfxDevice &gfx, const VkCommandBuffer cmd ) const {
     m_brdfPipeline.Bind( cmd );
     m_brdfPipeline.BindDescriptorSet( cmd, bindless, 0 );
     m_brdfPipeline.BindDescriptorSet( cmd, m_brdfSet, 1 );
-    m_brdfPipeline.Dispatch( cmd, ( output_image.GetExtent( ).width + 15 ) / 16, ( output_image.GetExtent( ).height + 15 ) / 16, 1 );
+    m_brdfPipeline.Dispatch( cmd, ( output_image.GetExtent( ).width + 15 ) / 16,
+                             ( output_image.GetExtent( ).height + 15 ) / 16, 1 );
 }

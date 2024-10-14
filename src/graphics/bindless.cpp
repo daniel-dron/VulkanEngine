@@ -16,6 +16,8 @@
 #include <graphics/gfx_device.h>
 #include "bindless.h"
 
+#include "vk_engine.h"
+
 void BindlessRegistry::Init( GfxDevice &gfx ) {
     // Create descriptor pool
     {

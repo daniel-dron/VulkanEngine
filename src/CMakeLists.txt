@@ -98,6 +98,7 @@ file(GLOB SRC_UTILS
   utils/circular_buffer.h
   utils/profiler.h
   utils/profiler.cpp
+  utils/imgui_console.h
 )
 
 # Add source to this project's executable.
