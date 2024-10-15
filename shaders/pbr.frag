@@ -90,7 +90,33 @@ vec4 sampleTextureCubeLinearLod(uint texID, vec3 p, float lod) {
     return textureLod(nonuniformEXT(samplerCube(textureCubes[texID], samplers[LINEAR_SAMPLER_ID])), p, lod);
 }
 
-vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, vec3 normal, vec3 view_dir, float shadow) {
+float CalculateShadowForDirectionalLight(DirectionalLight light, vec3 position_world) {
+    vec4 light_space_pos = light.proj * light.view * vec4(position_world, 1.0);
+
+    vec3 projCoords = light_space_pos.xyz / light_space_pos.w;
+    float current_depth = projCoords.z;
+
+    projCoords = projCoords * 0.5f + 0.5f;
+    float bias = 0.005;
+    // float closest_depth = sampleTexture2DLinear(pc.scene.shadowmap, projCoords.xy).r + bias;
+
+    float shadow = 0.0f;
+    vec2 texelSize = vec2(1.0 / 2048.0f);
+    for(int x = -2; x <= 2; ++x)
+    {
+        for(int y = -2; y <= 2; ++y)
+        {
+            float closest_depth = sampleTexture2DLinear(light.shadowmap, projCoords.xy + vec2(x, y) * texelSize).r + bias;
+            shadow += current_depth > closest_depth ? 1.0f : 0.0f;
+        }
+    }
+    shadow = shadow / 25.0f;
+    shadow = 1.0f - shadow;
+
+    return shadow;
+}
+
+vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, vec3 normal, vec3 view_dir) {
     float ssao = sampleTexture2DLinear(pc.ssao_tex, in_uvs).r;
 
     vec3 N = normal;
@@ -132,7 +158,9 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
         float pdf = 1.0 / (2.0 * 3.14159 * (1.0 - cos(theta_max)));
 
         // Divide by PDF
-        Lo += (kD * albedo / PI + specular) * radiance * NdotL * shadow;// / pdf;
+        float s = CalculateShadowForDirectionalLight(light, position);
+
+        Lo += (kD * albedo / PI + specular) * radiance * NdotL * s;
     }
 
     for (int i = 0; i < pc.scene.number_of_point_lights; i++) {
@@ -195,17 +223,6 @@ vec4 reconstructWorldPosition(vec2 screenPos, float depth, mat4 invView, mat4 in
     return worldSpacePos;
 }
 
-float ShadowCalculation( vec4 light_space_pos ) {
-    vec3 proj_coords = light_space_pos.xyz / light_space_pos.w;
-
-    proj_coords = proj_coords * 0.5f + 0.5f;
-
-    float closest_depth = sampleTexture2DLinear(pc.scene.shadowmap, proj_coords.xy).r;
-    float current_depth = proj_coords.z;
-
-    return current_depth > closest_depth ? 1.0f : 0.0f;
-}
-
 void main() {
     vec3 albedo = sampleTexture2DLinear(pc.albedo_tex, in_uvs).rgb;
     vec3 normal = sampleTexture2DLinear(pc.normal_tex, in_uvs).rgb;
@@ -216,30 +233,7 @@ void main() {
 
     float roughness = pbr_values.g;
     float metallic = pbr_values.b;
-    
-    vec3 position_world = sampleTexture2DLinear(pc.position_tex, in_uvs).xyz;
-    vec4 light_space_pos = pc.scene.light_proj * pc.scene.light_view * vec4(position_world, 1.0);
 
-    vec3 projCoords = light_space_pos.xyz / light_space_pos.w;
-    float current_depth = projCoords.z;
-
-    projCoords = projCoords * 0.5f + 0.5f;
-    float bias = 0.005;
-    // float closest_depth = sampleTexture2DLinear(pc.scene.shadowmap, projCoords.xy).r + bias;
-
-    float shadow = 0.0f;
-    vec2 texelSize = vec2(1.0 / 2048.0f);
-    for(int x = -2; x <= 2; ++x)
-    {
-        for(int y = -2; y <= 2; ++y)
-        {
-            float closest_depth = sampleTexture2DLinear(pc.scene.shadowmap, projCoords.xy + vec2(x, y) * texelSize).r + bias;
-            shadow += current_depth > closest_depth ? 1.0f : 0.0f;
-        }
-    }
-    shadow = shadow / 25.0f;
-    shadow = 1.0f - shadow;
-
-    vec3 color = pbr(albedo, vec3(0.0f, 0.0f, 0.0f), metallic, roughness, 1.0f, normal, view_dir, shadow);
+    vec3 color = pbr(albedo, vec3(0.0f, 0.0f, 0.0f), metallic, roughness, 1.0f, normal, view_dir);
     out_color = vec4(color, 1.0f);
 }

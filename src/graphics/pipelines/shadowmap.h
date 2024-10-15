@@ -22,7 +22,8 @@ public:
     Result<> Init( GfxDevice &gfx ) override;
     void Cleanup( GfxDevice &gfx ) override;
 
-    DrawStats Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands, const glm::mat4 &projection, const glm::mat4 &view, ImageId target ) const;
+    DrawStats Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands,
+                    const std::vector<GpuDirectionalLight> &lights ) const;
 
 private:
     struct PushConstants {

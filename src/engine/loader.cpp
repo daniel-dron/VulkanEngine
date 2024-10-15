@@ -188,8 +188,8 @@ static MeshId LoadMesh( GfxDevice &gfx, aiMesh *aiMesh ) {
         vertex.uvX = aiMesh->mTextureCoords[0][i].x;
         vertex.uvY = aiMesh->mTextureCoords[0][i].y;
 
-        vertex.tangent = { aiMesh->mTangents[i].x, aiMesh->mTangents[i].y, aiMesh->mTangents[i].z };
-        vertex.biTangent = { aiMesh->mBitangents[i].x, aiMesh->mBitangents[i].y, aiMesh->mBitangents[i].z };
+        vertex.tangent = { aiMesh->mTangents[i].x, -aiMesh->mTangents[i].y, aiMesh->mTangents[i].z };
+        vertex.biTangent = { aiMesh->mBitangents[i].x, -aiMesh->mBitangents[i].y, aiMesh->mBitangents[i].z };
         mesh.vertices.push_back( vertex );
     }
 

@@ -15,6 +15,12 @@ struct DirectionalLight {
 	vec3 direction;
 	int pad1;
 	vec4 color;
+	mat4 proj;
+	mat4 view;
+	int shadowmap;
+	int pad2;
+	int pad3;
+	int pad4;
 };
 
 layout (buffer_reference, scalar) readonly buffer SceneBuffer {
@@ -32,5 +38,4 @@ layout (buffer_reference, scalar) readonly buffer SceneBuffer {
     MaterialsBuffer materials;
 	int number_of_directional_lights;
 	int number_of_point_lights;
-	int shadowmap;
 } sceneBuffer;

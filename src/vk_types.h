@@ -119,6 +119,12 @@ struct GpuDirectionalLight {
 	Vec3 direction;
 	int pad1;
 	Vec4 color;
+    Mat4 proj;
+    Mat4 view;
+    ImageId shadowMap;
+    int pad2;
+    int pad3;
+    int pad4;
 };
 
 struct GpuSceneData {
@@ -136,7 +142,6 @@ struct GpuSceneData {
 	VkDeviceAddress materials;
 	int numberOfDirectionalLights;
 	int numberOfPointLights;
-	ImageId shadowMap;
 };
 
 struct DrawStats {

@@ -736,26 +736,7 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
 
     using namespace vk_init;
 
-    {
-        auto &depth = m_gfx->imageCodex.GetImage( m_scene->directionalLights.at( 0 ).shadowMap );
-
-        VkRenderingAttachmentInfo depth_attachment =
-                DepthAttachmentInfo( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
-        VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                                        .pNext = nullptr,
-                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, VkExtent2D{ 2048, 2048 } },
-                                        .layerCount = 1,
-                                        .colorAttachmentCount = 0,
-                                        .pColorAttachments = nullptr,
-                                        .pDepthAttachment = &depth_attachment,
-                                        .pStencilAttachment = nullptr };
-        vkCmdBeginRendering( cmd, &render_info );
-    }
-
-    m_shadowMapPipeline.Draw( *m_gfx, cmd, m_drawCommands, m_sceneData.lightProj, m_sceneData.lightView,
-                              m_scene->directionalLights.at( 0 ).shadowMap );
-
-    vkCmdEndRendering( cmd );
+    m_shadowMapPipeline.Draw( *m_gfx, cmd, m_drawCommands,  m_gpuDirectionalLights);
 
     END_LABEL( cmd );
 }
@@ -841,7 +822,7 @@ void VulkanEngine::InitImages( ) {
 void VulkanEngine::InitScene( ) {
     m_ibl.Init( *m_gfx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
-    m_scene = GltfLoader::Load( *m_gfx, "../../assets/untitled.glb" );
+    m_scene = GltfLoader::Load( *m_gfx, "../../assets/cerberus.glb" );
 
     // init camera
     if ( m_scene->cameras.empty( ) ) {
@@ -932,7 +913,7 @@ void VulkanEngine::Run( ) {
             if ( m_drawEditor ) {
                 m_drawEditor = false;
                 m_drawStats = true;
-                
+
                 m_backupGamma = m_ppConfig.gamma;
                 m_ppConfig.gamma = 1.0f;
             }
@@ -1318,16 +1299,6 @@ void VulkanEngine::UpdateScene( ) {
     m_sceneData.proj = m_camera->GetProjectionMatrix( );
     m_sceneData.viewproj = m_sceneData.proj * m_sceneData.view;
     m_sceneData.cameraPosition = Vec4( m_camera->GetPosition( ), 0.0f );
-    m_sceneData.shadowMap = m_scene->directionalLights.at( 0 ).shadowMap;
-    auto &directional_light = m_scene->directionalLights.at( 0 );
-    auto proj = glm::ortho( -directional_light.right, directional_light.right, -directional_light.up,
-                            directional_light.up, directional_light.nearPlane, directional_light.farPlane );
-
-    auto shadow_map_pos = glm::normalize( directional_light.node->GetTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 ) ) *
-            directional_light.distance;
-    auto view = glm::lookAt( Vec3( shadow_map_pos ), Vec3( 0.0f, 0.0f, 0.0f ), GLOBAL_UP );
-    m_sceneData.lightProj = proj;
-    m_sceneData.lightView = view;
 
     m_gpuDirectionalLights.clear( );
     m_sceneData.numberOfDirectionalLights = static_cast<int>( m_scene->directionalLights.size( ) );
@@ -1342,6 +1313,16 @@ void VulkanEngine::UpdateScene( ) {
         // get direction
         auto direction = light.node->GetTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 );
         gpu_light.direction = direction;
+
+        auto proj = glm::ortho( -light.right, light.right, -light.up, light.up, light.nearPlane, light.farPlane );
+        auto shadow_map_pos =
+                glm::normalize( light.node->GetTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 ) ) * light.distance;
+        auto view = glm::lookAt( Vec3( shadow_map_pos ), Vec3( 0.0f, 0.0f, 0.0f ), GLOBAL_UP );
+        gpu_light.proj = proj;
+        gpu_light.view = view;
+
+        gpu_light.shadowMap = light.shadowMap;
+
         m_gpuDirectionalLights.push_back( gpu_light );
     }
 
