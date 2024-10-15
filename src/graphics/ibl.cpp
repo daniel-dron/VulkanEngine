@@ -58,7 +58,7 @@ void Ibl::Init( GfxDevice &gfx, const std::string &path ) {
     }
 }
 
-void Ibl::Clean( const GfxDevice &gfx ) const {
+void Ibl::Clean( const GfxDevice &gfx ) {
     vkFreeCommandBuffers( gfx.device, gfx.computeCommandPool, 1, &m_computeCommand );
     vkDestroyFence( gfx.device, m_computeFence, nullptr );
 

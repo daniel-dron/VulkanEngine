@@ -73,7 +73,7 @@ void BindlessCompute::Build( const GfxDevice &gfx, VkShaderModule shader, const 
 #endif
 }
 
-void BindlessCompute::Cleanup( const GfxDevice &gfx ) const {
+void BindlessCompute::Cleanup( const GfxDevice &gfx ) {
     if ( m_pipeline != VK_NULL_HANDLE ) {
         vkDestroyPipeline( gfx.device, m_pipeline, nullptr );
     }
@@ -85,6 +85,8 @@ void BindlessCompute::Cleanup( const GfxDevice &gfx ) const {
     if ( m_layout != VK_NULL_HANDLE ) {
         vkDestroyDescriptorSetLayout( gfx.device, m_descriptorLayout, nullptr );
     }
+
+    m_layoutBuilder.Clear( );
 }
 
 

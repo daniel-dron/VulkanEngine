@@ -22,7 +22,7 @@ class GfxDevice;
 class Ibl {
 public:
     void Init( GfxDevice &gfx, const std::string &path );
-    void Clean( const GfxDevice &gfx ) const;
+    void Clean( const GfxDevice &gfx ) ;
 
     ImageId GetSkybox( ) const { return m_skybox; }
     ImageId GetIrradiance( ) const { return m_irradiance; }

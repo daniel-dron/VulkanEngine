@@ -29,7 +29,7 @@ public:
     void PushConstants( VkCommandBuffer cmd, uint32_t size, const void *value ) const;
     void Dispatch( VkCommandBuffer cmd, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ ) const;
 
-    void Cleanup( const GfxDevice &gfx ) const;
+    void Cleanup( const GfxDevice &gfx );
 
 private:
     VkPipelineLayout m_layout = VK_NULL_HANDLE;

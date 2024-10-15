@@ -614,11 +614,11 @@ void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
     m_ssaoPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16,
                              6 );
 
-    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 
     // ----------
     // Blur
-    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
+    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
     DescriptorWriter writer;
     writer.WriteImage( 0, output.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
     writer.UpdateSet( m_gfx->device, m_blurSet );
@@ -632,7 +632,7 @@ void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
     m_blurPipeline.PushConstants( cmd, sizeof( BlurSettings ), &m_blurSettings );
     m_blurPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16,
                              6 );
-    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 
     END_LABEL( cmd );
 }
@@ -736,7 +736,7 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
 
     using namespace vk_init;
 
-    m_shadowMapPipeline.Draw( *m_gfx, cmd, m_drawCommands,  m_gpuDirectionalLights);
+    m_shadowMapPipeline.Draw( *m_gfx, cmd, m_drawCommands, m_gpuDirectionalLights );
 
     END_LABEL( cmd );
 }
@@ -790,6 +790,9 @@ void VulkanEngine::InitDefaultData( ) {
     // SSAO pipeline
     ConstructSsaoPipeline( );
     ConstructBlurPipeline( );
+
+    m_rendererOptions.ssaoResolution = { m_gfx->swapchain.extent.width, m_gfx->swapchain.extent.height };
+
 }
 
 void VulkanEngine::InitImages( ) {
@@ -822,7 +825,7 @@ void VulkanEngine::InitImages( ) {
 void VulkanEngine::InitScene( ) {
     m_ibl.Init( *m_gfx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
-    m_scene = GltfLoader::Load( *m_gfx, "../../assets/cerberus.glb" );
+    m_scene = GltfLoader::Load( *m_gfx, "../../assets/sponza.glb" );
 
     // init camera
     if ( m_scene->cameras.empty( ) ) {
@@ -1153,6 +1156,18 @@ void VulkanEngine::Run( ) {
                     ImGui::Indent( );
                     // ssao settings
                     ImGui::Checkbox( "SSAO", &m_ssaoSettings.enable );
+                    if ( ImGui::DragFloat2( "Resolution", &m_rendererOptions.ssaoResolution.x, 1, 100,
+                                            m_gfx->swapchain.extent.width ) ) {
+                        auto &image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).ssao );
+                        image.Resize( VkExtent3D{ static_cast<uint32_t>( m_rendererOptions.ssaoResolution.x ),
+                                                  static_cast<uint32_t>( m_rendererOptions.ssaoResolution.y ), 1 } );
+
+                        VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true,
+                                                   1000000000 ) );
+                        m_ssaoPipeline.Cleanup( *m_gfx );
+
+                        ActuallyConstructSsaoPipeline( );
+                    }
                     ImGui::DragFloat( "SSAO Radius", &m_ssaoSettings.radius, 0.01f, 0.0f, 1.0f );
                     ImGui::DragFloat( "SSAO Bias", &m_ssaoSettings.bias, 0.01f, 0.0f, 1.0f );
                     ImGui::DragFloat( "SSAO Power", &m_ssaoSettings.power, 0.01f, 0.0f, 1.0f );

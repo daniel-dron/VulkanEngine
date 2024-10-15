@@ -71,6 +71,52 @@ GpuImage::~GpuImage( ) {
     vmaDestroyImage( m_gfx->allocator, GetImage( ), GetAllocation( ) );
 }
 
+void GpuImage::Resize( VkExtent3D size ) {
+    assert( size.width > 0 && size.height > 0 );
+
+    // backup old needed data
+    VkImage original_image = m_image;
+    VkImageView original_view = m_view;
+    std::vector<VkImageView> original_mip_views = m_mipViews;
+    VkExtent3D original_extent = m_extent;
+    VmaAllocation original_allocation = m_allocation;
+
+    m_extent = size;
+
+    if ( m_type == T2D ) {
+        ActuallyCreateEmptyImage2D( );
+        
+        const bool depth = m_format == VK_FORMAT_D32_SFLOAT;
+        m_gfx->Execute( [&]( VkCommandBuffer cmd ) {
+            image::TransitionLayout( cmd, original_image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, depth );
+            image::TransitionLayout( cmd, m_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, depth );
+            image::Blit( cmd, original_image, { original_extent.width, original_extent.height }, m_image,
+                         { m_extent.width, m_extent.height } );
+
+            if ( m_mipmapped ) {
+                GenerateMipmaps( cmd );
+                TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, depth );
+            }
+            else {
+                TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, depth );
+            }
+        } );
+
+        m_gfx->imageCodex.bindlessRegistry.AddImage( *m_gfx, m_id, m_view );
+    }
+
+    // destroy old stuff
+    vkDestroyImageView( m_gfx->device, original_view, nullptr );
+
+    for ( const auto view : original_mip_views ) {
+        vkDestroyImageView( m_gfx->device, view, nullptr );
+    }
+
+    vmaDestroyImage( m_gfx->allocator, original_image, original_allocation );
+}
+
 void GpuImage::TransitionLayout( VkCommandBuffer cmd, VkImageLayout currentLayout, VkImageLayout newLayout,
                                  bool depth ) const {
     image::TransitionLayout( cmd, m_image, currentLayout, newLayout, depth );
@@ -521,7 +567,7 @@ void image::CopyFromBuffer( VkCommandBuffer cmd, VkBuffer buffer, VkImage image,
 }
 
 void image::Blit( VkCommandBuffer cmd, VkImage srcImage, VkExtent2D srcExtent, VkImage dstImage, VkExtent2D dstExtent,
-           VkFilter filter ) {
+                  VkFilter filter ) {
     const VkImageBlit2 blit_region = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
             .pNext = nullptr,

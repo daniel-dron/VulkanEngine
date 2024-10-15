@@ -35,7 +35,7 @@ void ImageCodex::Cleanup( ) {
 
 const std::vector<GpuImage> &ImageCodex::GetImages( ) { return m_images; }
 
-const GpuImage &ImageCodex::GetImage( const ImageId id ) { return m_images[id]; }
+GpuImage &ImageCodex::GetImage( const ImageId id ) { return m_images[id]; }
 
 ImageId ImageCodex::LoadImageFromFile( const std::string &path, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped ) {
     // search for already loaded image

@@ -27,7 +27,7 @@ public:
     void Cleanup( );
 
     const std::vector<GpuImage> &GetImages( );
-    const GpuImage &GetImage( ImageId );
+    GpuImage &GetImage( ImageId );
     ImageId LoadImageFromFile( const std::string &path, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
     ImageId LoadHdrFromFile( const std::string &path, VkFormat format, VkImageUsageFlags usage, bool mipmapped );
     ImageId LoadImageFromData( const std::string &name, void *data, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, bool mipmapped );

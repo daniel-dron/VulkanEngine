@@ -38,6 +38,7 @@ struct RendererOptions {
     bool frustum = false;
     bool vsync = true;
     bool renderIrradianceInsteadSkybox = false;
+    Vec2 ssaoResolution;
 };
 
 class VulkanEngine {

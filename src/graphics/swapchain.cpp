@@ -22,9 +22,7 @@
 #include "vk_engine.h"
 #include "vk_types.h"
 
-Swapchain::FrameData &Swapchain::GetCurrentFrame( ) {
-    return frames[frameNumber % FrameOverlap];
-}
+Swapchain::FrameData &Swapchain::GetCurrentFrame( ) { return frames[frameNumber % FrameOverlap]; }
 
 Swapchain::Result<> Swapchain::Init( GfxDevice *gfx, const uint32_t width, const uint32_t height ) {
     this->m_gfx = gfx;
@@ -32,12 +30,22 @@ Swapchain::Result<> Swapchain::Init( GfxDevice *gfx, const uint32_t width, const
 
     RETURN_IF_ERROR( Create( width, height ) );
 
-    const VkCommandPoolCreateInfo command_pool_info = vk_init::CommandPoolCreateInfo( gfx->graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
+    const VkCommandPoolCreateInfo command_pool_info =
+            vk_init::CommandPoolCreateInfo( gfx->graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
     for ( int i = 0; i < FrameOverlap; i++ ) {
         VK_CHECK( vkCreateCommandPool( gfx->device, &command_pool_info, nullptr, &frames[i].pool ) );
 
         VkCommandBufferAllocateInfo cmd_alloc_info = vk_init::CommandBufferAllocateInfo( frames[i].pool, 1 );
         VK_CHECK( vkAllocateCommandBuffers( gfx->device, &cmd_alloc_info, &frames[i].commandBuffer ) );
+
+        const VkDebugUtilsObjectNameInfoEXT obj = {
+                .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+                .pNext = nullptr,
+                .objectType = VK_OBJECT_TYPE_COMMAND_BUFFER,
+                .objectHandle = reinterpret_cast<uint64_t>( frames[i].commandBuffer ),
+                .pObjectName = "Main CMD",
+        };
+        vkSetDebugUtilsObjectNameEXT( m_gfx->device, &obj );
     }
 
     auto fenceCreateInfo = vk_init::FenceCreateInfo( VK_FENCE_CREATE_SIGNALED_BIT );
@@ -81,11 +89,10 @@ Swapchain::Result<> Swapchain::Recreate( const uint32_t width, const uint32_t he
     vkb::SwapchainBuilder builder{ m_gfx->chosenGpu, m_gfx->device, m_gfx->surface };
     format = VK_FORMAT_R8G8B8A8_SRGB;
 
-    auto swapchain_res = builder
-                                 .set_desired_format( VkSurfaceFormatKHR{
-                                         .format = format,
-                                         .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
-                                 } )
+    auto swapchain_res = builder.set_desired_format( VkSurfaceFormatKHR{
+                                                             .format = format,
+                                                             .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+                                                     } )
                                  .set_desired_present_mode( presentMode )
                                  .add_image_usage_flags( VK_IMAGE_USAGE_TRANSFER_DST_BIT )
                                  .set_old_swapchain( swapchain )
@@ -125,11 +132,10 @@ Swapchain::Result<> Swapchain::Create( uint32_t width, uint32_t height ) {
     vkb::SwapchainBuilder builder{ m_gfx->chosenGpu, m_gfx->device, m_gfx->surface };
     format = VK_FORMAT_R8G8B8A8_SRGB;
 
-    auto swapchain_res = builder
-                                 .set_desired_format( VkSurfaceFormatKHR{
-                                         .format = format,
-                                         .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
-                                 } )
+    auto swapchain_res = builder.set_desired_format( VkSurfaceFormatKHR{
+                                                             .format = format,
+                                                             .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+                                                     } )
                                  .set_desired_present_mode( presentMode )
                                  .add_image_usage_flags( VK_IMAGE_USAGE_TRANSFER_DST_BIT )
                                  .build( );
@@ -151,8 +157,7 @@ Swapchain::Result<> Swapchain::Create( uint32_t width, uint32_t height ) {
 }
 
 void Swapchain::CreateFrameImages( ) {
-    const VkExtent3D draw_image_extent = {
-            .width = extent.width, .height = extent.height, .depth = 1 };
+    const VkExtent3D draw_image_extent = { .width = extent.width, .height = extent.height, .depth = 1 };
 
     VkImageUsageFlags draw_image_usages{ };
     draw_image_usages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -166,14 +171,21 @@ void Swapchain::CreateFrameImages( ) {
     for ( auto &frame : frames ) {
         std::vector<unsigned char> empty_image_data;
         empty_image_data.resize( extent.width * extent.height * 8, 0 );
-        frame.hdrColor = m_gfx->imageCodex.LoadImageFromData( "hdr image pbr", empty_image_data.data( ), draw_image_extent, VK_FORMAT_R16G16B16A16_SFLOAT, draw_image_usages, false );
+        frame.hdrColor =
+                m_gfx->imageCodex.LoadImageFromData( "hdr image pbr", empty_image_data.data( ), draw_image_extent,
+                                                     VK_FORMAT_R16G16B16A16_SFLOAT, draw_image_usages, false );
 
-        frame.ssao = m_gfx->imageCodex.CreateEmptyImage( "SSAO", draw_image_extent, VK_FORMAT_R32G32B32A32_SFLOAT, draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
+        frame.ssao = m_gfx->imageCodex.CreateEmptyImage( "SSAO", draw_image_extent, VK_FORMAT_R32G32B32A32_SFLOAT,
+                                                         draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
 
-        frame.postProcessImage = m_gfx->imageCodex.CreateEmptyImage( "post process", draw_image_extent, VK_FORMAT_R8G8B8A8_UNORM, draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
+        frame.postProcessImage =
+                m_gfx->imageCodex.CreateEmptyImage( "post process", draw_image_extent, VK_FORMAT_R8G8B8A8_UNORM,
+                                                    draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
 
         empty_image_data.resize( extent.width * extent.height * 4, 0 );
-        frame.depth = m_gfx->imageCodex.LoadImageFromData( "main depth image", empty_image_data.data( ), draw_image_extent, VK_FORMAT_D32_SFLOAT, depth_image_usages, false );
+        frame.depth =
+                m_gfx->imageCodex.LoadImageFromData( "main depth image", empty_image_data.data( ), draw_image_extent,
+                                                     VK_FORMAT_D32_SFLOAT, depth_image_usages, false );
     }
 }
 
@@ -185,9 +197,13 @@ void Swapchain::CreateGBuffers( ) {
         std::vector<unsigned char> empty_data;
         empty_data.resize( extent.width * extent.height * 4 * 2, 0 );
 
-        frame.gBuffer.position = m_gfx->imageCodex.LoadImageFromData( "gbuffer.position", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
-        frame.gBuffer.normal = m_gfx->imageCodex.LoadImageFromData( "gbuffer.normal", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
-        frame.gBuffer.pbr = m_gfx->imageCodex.LoadImageFromData( "gbuffer.pbr", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
-        frame.gBuffer.albedo = m_gfx->imageCodex.LoadImageFromData( "gbuffer.albedo", empty_data.data( ), extent, VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+        frame.gBuffer.position = m_gfx->imageCodex.LoadImageFromData( "gbuffer.position", empty_data.data( ), extent,
+                                                                      VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+        frame.gBuffer.normal = m_gfx->imageCodex.LoadImageFromData( "gbuffer.normal", empty_data.data( ), extent,
+                                                                    VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+        frame.gBuffer.pbr = m_gfx->imageCodex.LoadImageFromData( "gbuffer.pbr", empty_data.data( ), extent,
+                                                                 VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+        frame.gBuffer.albedo = m_gfx->imageCodex.LoadImageFromData( "gbuffer.albedo", empty_data.data( ), extent,
+                                                                    VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
     }
 }

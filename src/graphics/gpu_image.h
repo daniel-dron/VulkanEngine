@@ -70,6 +70,8 @@ public:
                            bool depth = false ) const;
     void GenerateMipmaps( VkCommandBuffer cmd ) const;
 
+    void Resize( VkExtent3D size );
+
     ImageId GetId( ) const { return m_id; }
     void SetId( const ImageId new_id ) { m_id = new_id; }
     ImageType GetType( ) const { return m_type; }
