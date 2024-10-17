@@ -22,8 +22,14 @@
 
 struct PointLight;
 
+struct AABoundingBox {
+    Vec3 min; // The point with the lowest coordinate in each cardinal direction (x, y, z)
+    Vec3 max; // The point with the highest coordinate in each cardinal direction (x, y, z)
+};
+
 struct Node {
     std::vector<int> meshIds;
+    std::vector<AABoundingBox> boundingBoxes;
 
     std::string name;
 

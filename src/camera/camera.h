@@ -15,6 +15,11 @@
 
 #include <vk_types.h>
 
+struct Frustum {
+    enum side { LEFT = 0, RIGHT = 1, TOP = 2, BOTTOM = 3, BACK = 4, FRONT = 5 };
+    Vec4 planes[6];
+};
+
 class Camera {
 public:
     Camera( const Vec3 &position, float yaw, float pitch, float width, float height );
@@ -30,11 +35,14 @@ public:
     const Mat4 &GetViewMatrix( );
     const Mat4 &GetProjectionMatrix( );
 
+    const Frustum& GetFrustum( );
+
     void DrawDebug( );
 
 private:
     void UpdateVectors( );
     void UpdateMatrices( );
+    void CalculateFrustum( );
 
     Vec3 m_position = { 0.0f, 0.0f, 0.0f };
     Vec3 m_front = GLOBAL_FRONT;
@@ -60,6 +68,8 @@ private:
 
     float m_nearPlane = 0.01f;
     float m_farPlane = 200.0f;
+
+    Frustum m_frustum = { };
 
     bool m_dirtyMatrices = true;
 };

@@ -95,21 +95,13 @@ void Camera::Rotate( float deltaYaw, float deltaPitch, float deltaRoll ) {
     UpdateVectors( );
 }
 
-const Vec3 &Camera::GetFront( ) const {
-    return m_front;
-}
+const Vec3 &Camera::GetFront( ) const { return m_front; }
 
-const Vec3 &Camera::GetRight( ) const {
-    return m_right;
-}
+const Vec3 &Camera::GetRight( ) const { return m_right; }
 
-const Vec3 &Camera::GetPosition( ) const {
-    return m_position;
-}
+const Vec3 &Camera::GetPosition( ) const { return m_position; }
 
-void Camera::SetPosition( const Vec3 &newPosition ) {
-    m_position = newPosition;
-}
+void Camera::SetPosition( const Vec3 &newPosition ) { m_position = newPosition; }
 
 const Mat4 &Camera::GetViewMatrix( ) {
     if ( m_dirtyMatrices ) {
@@ -125,6 +117,14 @@ const Mat4 &Camera::GetProjectionMatrix( ) {
     }
 
     return m_projectionMatrix;
+}
+
+const Frustum& Camera::GetFrustum( ) {
+    if ( m_dirtyMatrices ) {
+        UpdateMatrices( );
+    }
+
+    return m_frustum;
 }
 
 void Camera::UpdateVectors( ) {
@@ -150,7 +150,54 @@ void Camera::UpdateMatrices( ) {
     m_projectionMatrix = glm::perspective( glm::radians( m_fov ), m_aspectRatio, m_nearPlane, m_farPlane );
     m_projectionMatrix[1][1] *= -1;
 
+    CalculateFrustum( );
+
     m_dirtyMatrices = false;
+}
+
+void Camera::CalculateFrustum( ) {
+    Mat4 matrix = m_projectionMatrix * m_viewMatrix;
+
+    enum side { LEFT = 0, RIGHT = 1, TOP = 2, BOTTOM = 3, BACK = 4, FRONT = 5 };
+    Frustum frustum = { };
+    auto &planes = frustum.planes;
+
+    planes[LEFT].x = matrix[0].w + matrix[0].x;
+    planes[LEFT].y = matrix[1].w + matrix[1].x;
+    planes[LEFT].z = matrix[2].w + matrix[2].x;
+    planes[LEFT].w = matrix[3].w + matrix[3].x;
+
+    planes[RIGHT].x = matrix[0].w - matrix[0].x;
+    planes[RIGHT].y = matrix[1].w - matrix[1].x;
+    planes[RIGHT].z = matrix[2].w - matrix[2].x;
+    planes[RIGHT].w = matrix[3].w - matrix[3].x;
+
+    planes[TOP].x = matrix[0].w - matrix[0].y;
+    planes[TOP].y = matrix[1].w - matrix[1].y;
+    planes[TOP].z = matrix[2].w - matrix[2].y;
+    planes[TOP].w = matrix[3].w - matrix[3].y;
+
+    planes[BOTTOM].x = matrix[0].w + matrix[0].y;
+    planes[BOTTOM].y = matrix[1].w + matrix[1].y;
+    planes[BOTTOM].z = matrix[2].w + matrix[2].y;
+    planes[BOTTOM].w = matrix[3].w + matrix[3].y;
+
+    planes[BACK].x = matrix[0].w + matrix[0].z;
+    planes[BACK].y = matrix[1].w + matrix[1].z;
+    planes[BACK].z = matrix[2].w + matrix[2].z;
+    planes[BACK].w = matrix[3].w + matrix[3].z;
+
+    planes[FRONT].x = matrix[0].w - matrix[0].z;
+    planes[FRONT].y = matrix[1].w - matrix[1].z;
+    planes[FRONT].z = matrix[2].w - matrix[2].z;
+    planes[FRONT].w = matrix[3].w - matrix[3].z;
+
+    for ( auto i = 0; i < 6; i++ ) {
+        float length = sqrtf( planes[i].x * planes[i].x + planes[i].y * planes[i].y + planes[i].z * planes[i].z );
+        planes[i] /= length;
+    }
+
+    m_frustum = frustum;
 }
 
 void Camera::DrawDebug( ) {
@@ -212,6 +259,17 @@ void Camera::DrawDebug( ) {
     // Set dirty flag if any relevant value changed
     if ( value_changed ) {
         UpdateVectors( );
+    }
+
+    // Frustum plane
+    Frustum frustum = GetFrustum( );
+    const char *planeNames[] = { "Left", "Right", "Bottom", "Top", "Near", "Far" };
+    for ( int i = 0; i < 6; ++i ) {
+        auto &plane = frustum.planes[i];
+
+        ImGui::Text( "%s Plane:", planeNames[i] );
+        ImGui::DragFloat4( "", &plane.x );
+        ImGui::Separator( );
     }
 
     // Dirty flag display

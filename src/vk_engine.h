@@ -24,21 +24,21 @@
 #include <graphics/pipelines/skybox_pipeline.h>
 #include <graphics/pipelines/wireframe_pipeline.h>
 #include <utils/ImGuiProfilerRenderer.h>
+#include <utils/imgui_console.h>
 #include <vk_types.h>
 #include <vulkan/vulkan_core.h>
 #include "camera/camera.h"
 #include "graphics/gfx_device.h"
 #include "utils/profiler.h"
-#include <utils/imgui_console.h>
 
 class VulkanEngine;
 
 struct RendererOptions {
     bool wireframe = false;
-    bool frustum = false;
     bool vsync = true;
     bool renderIrradianceInsteadSkybox = false;
     Vec2 ssaoResolution;
+    bool frustumCulling = true;
 };
 
 class VulkanEngine {
@@ -51,7 +51,7 @@ public:
     void Run( );
 
     void ResizeSwapchain( uint32_t width, uint32_t height );
-    
+
     ImGuiConsole console;
 
 private:
@@ -66,6 +66,9 @@ private:
 
     void ConstructBlurPipeline( );
     void ActuallyConstructBlurPipeline( );
+
+    void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &node,
+                             std::vector<MeshDrawCommand> &drawCommands );
 
     void GBufferPass( VkCommandBuffer cmd ) const;
     void SsaoPass( VkCommandBuffer cmd ) const;
@@ -171,6 +174,6 @@ private:
     bool m_open = true;
     bool m_drawEditor = true;
     bool m_drawStats = true;
-    
+
     float m_timer = 0;
 };

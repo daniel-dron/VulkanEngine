@@ -264,7 +264,7 @@ inline glm::mat4 AssimpToGlm( const aiMatrix4x4 &from ) {
     return to;
 }
 
-static std::shared_ptr<Node> LoadNode( const aiNode *node ) {
+static std::shared_ptr<Node> LoadNode( const aiScene *ai_scene, const aiNode *node ) {
     auto sceneNode = std::make_shared<Node>( );
 
     sceneNode->name = node->mName.C_Str( );
@@ -283,12 +283,20 @@ static std::shared_ptr<Node> LoadNode( const aiNode *node ) {
     else {
         for ( auto i = 0; i < node->mNumMeshes; i++ ) {
             const auto mesh = node->mMeshes[i];
+            const auto &aabb = ai_scene->mMeshes[mesh]->mAABB;
+
+            AABoundingBox bounding_box = {
+                    .min = { aabb.mMin.x, aabb.mMin.y, aabb.mMin.z },
+                    .max = { aabb.mMax.x, aabb.mMax.y, aabb.mMax.z },
+            };
+
+            sceneNode->boundingBoxes.push_back( std::move( bounding_box ) );
             sceneNode->meshIds.push_back( mesh );
         }
     }
 
     for ( auto i = 0; i < node->mNumChildren; i++ ) {
-        auto child = LoadNode( node->mChildren[i] );
+        auto child = LoadNode( ai_scene, node->mChildren[i] );
         child->parent = sceneNode;
         sceneNode->children.push_back( child );
     }
@@ -299,7 +307,7 @@ static std::shared_ptr<Node> LoadNode( const aiNode *node ) {
 static void LoadHierarchy( const aiScene *ai_scene, Scene &scene ) {
     const auto root_node = ai_scene->mRootNode;
 
-    scene.topNodes.push_back( LoadNode( root_node ) );
+    scene.topNodes.push_back( LoadNode( ai_scene, root_node ) );
 }
 
 static void LoadCameras( const aiScene *aiScene, Scene &scene ) {
@@ -435,8 +443,7 @@ std::unique_ptr<Scene> GltfLoader::Load( GfxDevice &gfx, const std::string &path
     Assimp::Importer importer;
     const auto ai_scene = importer.ReadFile( path,
                                              aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_FlipUVs |
-                                                     aiProcess_FlipWindingOrder | aiProcess_GenBoundingBoxes |
-                                                     aiProcess_OptimizeGraph | aiProcess_OptimizeMeshes );
+                                                     aiProcess_FlipWindingOrder | aiProcess_GenBoundingBoxes );
 
     VulkanEngine::Get( ).console.AddLog( "Loading meshes..." );
     const std::vector<MeshId> meshes = LoadMeshes( gfx, ai_scene );

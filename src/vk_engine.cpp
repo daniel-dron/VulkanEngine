@@ -92,6 +92,7 @@ void VulkanEngine::Init( ) {
     InitScene( );
 
     m_visualProfiler.RegisterTask( "Main", utils::colors::CARROT, utils::VisualProfiler::Cpu );
+    m_visualProfiler.RegisterTask( "Create Commands", utils::colors::EMERALD, utils::VisualProfiler::Cpu );
     m_visualProfiler.RegisterTask( "Scene", utils::colors::EMERALD, utils::VisualProfiler::Cpu );
 
     m_visualProfiler.RegisterTask( "ShadowMap", utils::colors::TURQUOISE, utils::VisualProfiler::Gpu );
@@ -406,13 +407,37 @@ void VulkanEngine::Cleanup( ) {
 void VulkanEngine::Draw( ) {
     ZoneScopedN( "draw" );
 
+    // wait for last frame rendering phase. 1 sec timeout
+    VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
+    m_gfx->swapchain.GetCurrentFrame( ).deletionQueue.Flush( );
+    // Reset after acquire the next image from the swapchain
+    // In case of error, this fence would never get passed to the queue, thus
+    // never triggering leaving us with a timeout next time we wait for fence
+    VK_CHECK( vkResetFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence ) );
+
+    // Query the pool timings
+    if ( m_gfx->swapchain.frameNumber != 0 ) {
+        vkGetQueryPoolResults( m_gfx->device, m_gfx->queryPoolTimestamps, 0, m_gfx->gpuTimestamps.size( ),
+                               m_gfx->gpuTimestamps.size( ) * sizeof( uint64_t ), m_gfx->gpuTimestamps.data( ),
+                               sizeof( uint64_t ), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT );
+
+        auto time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 0 ), m_gfx->gpuTimestamps.at( 1 ) ) / 1000.0f;
+        m_visualProfiler.AddTimer( "ShadowMap", time, utils::VisualProfiler::Gpu );
+        time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 2 ), m_gfx->gpuTimestamps.at( 3 ) ) / 1000.0f;
+        m_visualProfiler.AddTimer( "GBuffer", time, utils::VisualProfiler::Gpu );
+        time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 4 ), m_gfx->gpuTimestamps.at( 5 ) ) / 1000.0f;
+        m_visualProfiler.AddTimer( "SSAO", time, utils::VisualProfiler::Gpu );
+        time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 6 ), m_gfx->gpuTimestamps.at( 7 ) ) / 1000.0f;
+        m_visualProfiler.AddTimer( "Lighting", time, utils::VisualProfiler::Gpu );
+        time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 8 ), m_gfx->gpuTimestamps.at( 9 ) ) / 1000.0f;
+        m_visualProfiler.AddTimer( "Skybox", time, utils::VisualProfiler::Gpu );
+        time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 10 ), m_gfx->gpuTimestamps.at( 11 ) ) / 1000.0f;
+        m_visualProfiler.AddTimer( "Post Process", time, utils::VisualProfiler::Gpu );
+    }
+
     uint32_t swapchain_image_index;
     {
         ZoneScopedN( "vsync" );
-        // wait for last frame rendering phase. 1 sec timeout
-        VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
-
-        m_gfx->swapchain.GetCurrentFrame( ).deletionQueue.Flush( );
 
         VkResult e = ( vkAcquireNextImageKHR( m_gfx->device, m_gfx->swapchain.swapchain, 1000000000,
                                               m_gfx->swapchain.GetCurrentFrame( ).swapchainSemaphore, nullptr,
@@ -420,11 +445,6 @@ void VulkanEngine::Draw( ) {
         if ( e != VK_SUCCESS ) {
             return;
         }
-
-        // Reset after acquire the next image from the swapchain
-        // In case of error, this fence would never get passed to the queue, thus
-        // never triggering leaving us with a timeout next time we wait for fence
-        VK_CHECK( vkResetFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence ) );
     }
 
     auto &color = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).hdrColor );
@@ -442,7 +462,6 @@ void VulkanEngine::Draw( ) {
     const auto cmd_begin_info = vk_init::CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
     VK_CHECK( vkBeginCommandBuffer( cmd, &cmd_begin_info ) );
     vkCmdResetQueryPool( cmd, m_gfx->queryPoolTimestamps, 0, m_gfx->gpuTimestamps.size( ) );
-
 
     depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
@@ -513,23 +532,6 @@ void VulkanEngine::Draw( ) {
     // submit command buffer and execute it
     // _renderFence will now block until the commands finish
     VK_CHECK( vkQueueSubmit2( m_gfx->graphicsQueue, 1, &submit, m_gfx->swapchain.GetCurrentFrame( ).fence ) );
-
-    vkGetQueryPoolResults( m_gfx->device, m_gfx->queryPoolTimestamps, 0, m_gfx->gpuTimestamps.size( ),
-                           m_gfx->gpuTimestamps.size( ) * sizeof( uint64_t ), m_gfx->gpuTimestamps.data( ),
-                           sizeof( uint64_t ), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT );
-
-    auto time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 0 ), m_gfx->gpuTimestamps.at( 1 ) ) / 1000.0f;
-    m_visualProfiler.AddTimer( "ShadowMap", time, utils::VisualProfiler::Gpu );
-    time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 2 ), m_gfx->gpuTimestamps.at( 3 ) ) / 1000.0f;
-    m_visualProfiler.AddTimer( "GBuffer", time, utils::VisualProfiler::Gpu );
-    time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 4 ), m_gfx->gpuTimestamps.at( 5 ) ) / 1000.0f;
-    m_visualProfiler.AddTimer( "SSAO", time, utils::VisualProfiler::Gpu );
-    time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 6 ), m_gfx->gpuTimestamps.at( 7 ) ) / 1000.0f;
-    m_visualProfiler.AddTimer( "Lighting", time, utils::VisualProfiler::Gpu );
-    time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 8 ), m_gfx->gpuTimestamps.at( 9 ) ) / 1000.0f;
-    m_visualProfiler.AddTimer( "Skybox", time, utils::VisualProfiler::Gpu );
-    time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 10 ), m_gfx->gpuTimestamps.at( 11 ) ) / 1000.0f;
-    m_visualProfiler.AddTimer( "Post Process", time, utils::VisualProfiler::Gpu );
 
     //
     // present
@@ -792,7 +794,6 @@ void VulkanEngine::InitDefaultData( ) {
     ConstructBlurPipeline( );
 
     m_rendererOptions.ssaoResolution = { m_gfx->swapchain.extent.width, m_gfx->swapchain.extent.height };
-
 }
 
 void VulkanEngine::InitImages( ) {
@@ -825,7 +826,7 @@ void VulkanEngine::InitImages( ) {
 void VulkanEngine::InitScene( ) {
     m_ibl.Init( *m_gfx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
-    m_scene = GltfLoader::Load( *m_gfx, "../../assets/sponza.glb" );
+    m_scene = GltfLoader::Load( *m_gfx, "../../assets/untitled.glb" );
 
     // init camera
     if ( m_scene->cameras.empty( ) ) {
@@ -1099,7 +1100,6 @@ void VulkanEngine::Run( ) {
                 ImGui::DragFloat( "Exposure", &m_ppConfig.exposure, 0.001f, 0.00f, 10.0f );
                 ImGui::DragFloat( "Gamma", &m_ppConfig.gamma, 0.01f, 0.01f, 10.0f );
                 ImGui::Checkbox( "Wireframe", &m_rendererOptions.wireframe );
-                ImGui::Checkbox( "Frustum Culling", &m_rendererOptions.frustum );
                 ImGui::Checkbox( "Render Irradiance Map", &m_rendererOptions.renderIrradianceInsteadSkybox );
                 if ( ImGui::Checkbox( "VSync", &m_rendererOptions.vsync ) ) {
                     if ( m_rendererOptions.vsync ) {
@@ -1153,26 +1153,33 @@ void VulkanEngine::Run( ) {
 
                     m_pbrPipeline.DrawDebug( );
 
-                    ImGui::Indent( );
-                    // ssao settings
-                    ImGui::Checkbox( "SSAO", &m_ssaoSettings.enable );
-                    if ( ImGui::DragFloat2( "Resolution", &m_rendererOptions.ssaoResolution.x, 1, 100,
-                                            m_gfx->swapchain.extent.width ) ) {
-                        auto &image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).ssao );
-                        image.Resize( VkExtent3D{ static_cast<uint32_t>( m_rendererOptions.ssaoResolution.x ),
-                                                  static_cast<uint32_t>( m_rendererOptions.ssaoResolution.y ), 1 } );
+                    if ( ImGui::CollapsingHeader( "SSAO" ) ) {
+                        ImGui::Indent( );
 
-                        VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true,
-                                                   1000000000 ) );
-                        m_ssaoPipeline.Cleanup( *m_gfx );
+                        ImGui::Checkbox( "SSAO", &m_ssaoSettings.enable );
+                        if ( ImGui::DragFloat2( "Resolution", &m_rendererOptions.ssaoResolution.x, 1, 100,
+                                                m_gfx->swapchain.extent.width ) ) {
+                            auto &image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).ssao );
+                            image.Resize( VkExtent3D{ static_cast<uint32_t>( m_rendererOptions.ssaoResolution.x ),
+                                                      static_cast<uint32_t>( m_rendererOptions.ssaoResolution.y ),
+                                                      1 } );
 
-                        ActuallyConstructSsaoPipeline( );
+                            VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence,
+                                                       true, 1000000000 ) );
+                            m_ssaoPipeline.Cleanup( *m_gfx );
+
+                            ActuallyConstructSsaoPipeline( );
+                        }
+                        ImGui::DragFloat( "SSAO Radius", &m_ssaoSettings.radius, 0.01f, 0.0f, 1.0f );
+                        ImGui::DragFloat( "SSAO Bias", &m_ssaoSettings.bias, 0.01f, 0.0f, 1.0f );
+                        ImGui::DragFloat( "SSAO Power", &m_ssaoSettings.power, 0.01f, 0.0f, 1.0f );
+
+                        ImGui::Unindent( );
                     }
-                    ImGui::DragFloat( "SSAO Radius", &m_ssaoSettings.radius, 0.01f, 0.0f, 1.0f );
-                    ImGui::DragFloat( "SSAO Bias", &m_ssaoSettings.bias, 0.01f, 0.0f, 1.0f );
-                    ImGui::DragFloat( "SSAO Power", &m_ssaoSettings.power, 0.01f, 0.0f, 1.0f );
 
-                    ImGui::Unindent( );
+                    if ( ImGui::CollapsingHeader( "Frustum Culling" ) ) {
+                        ImGui::Checkbox( "Enable", &m_rendererOptions.frustumCulling );
+                    }
 
                     ImGui::Unindent( );
                 }
@@ -1280,10 +1287,57 @@ void VulkanEngine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targe
     vkCmdEndRendering( cmd );
 }
 
-static void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &node,
-                                std::vector<MeshDrawCommand> &drawCommands ) {
+inline float dot( const Vec3 &v, const Vec4 &p ) { return v.x * p.x + v.y * p.y + v.z * p.z + p.w; }
+
+bool IsVisible( const Mat4 &transform, const AABoundingBox *aabb, const Frustum &frustum ) {
+    Vec3 points[] = {
+            { aabb->min.x, aabb->min.y, aabb->min.z }, { aabb->max.x, aabb->min.y, aabb->min.z },
+            { aabb->max.x, aabb->max.y, aabb->min.z }, { aabb->min.x, aabb->max.y, aabb->min.z },
+
+            { aabb->min.x, aabb->min.y, aabb->max.z }, { aabb->max.x, aabb->min.y, aabb->max.z },
+            { aabb->max.x, aabb->max.y, aabb->max.z }, { aabb->min.x, aabb->max.y, aabb->max.z },
+    };
+
+    // transform points to world space
+    for ( int i = 0; i < 8; ++i ) {
+        points[i] = transform * Vec4( points[i], 1.0f );
+    }
+
+    // for each plane…
+    for ( int i = 0; i < 6; ++i ) {
+        bool inside = false;
+
+        for ( int j = 0; j < 8; ++j ) {
+            if ( dot( Vec3( points[j] ), Vec3( frustum.planes[i] ) ) + frustum.planes[i].w > 0 ) {
+                inside = true;
+                break;
+            }
+        }
+
+        if ( !inside ) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void VulkanEngine::CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &node,
+                                       std::vector<MeshDrawCommand> &drawCommands ) {
     if ( !node.meshIds.empty( ) ) {
+
+        int i = 0;
         for ( const auto mesh_id : node.meshIds ) {
+            auto model = node.GetTransformMatrix( );
+
+            if ( m_rendererOptions.frustumCulling ) {
+                auto &aabb = node.boundingBoxes[i++];
+                auto visible = IsVisible( model, &aabb, m_camera->GetFrustum( ) );
+                if ( !visible ) {
+                    continue;
+                }
+            }
+
             auto &mesh_asset = scene.meshes[mesh_id];
 
             auto &mesh = gfx.meshCodex.GetMesh( mesh_asset.mesh );
@@ -1291,7 +1345,7 @@ static void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &
             MeshDrawCommand mdc = { .indexBuffer = mesh.indexBuffer.buffer,
                                     .indexCount = mesh.indexCount,
                                     .vertexBufferAddress = mesh.vertexBufferAddress,
-                                    .worldFromLocal = node.GetTransformMatrix( ),
+                                    .worldFromLocal = model,
                                     .materialId = scene.materials[mesh_asset.material] };
             drawCommands.push_back( mdc );
         }
@@ -1304,12 +1358,18 @@ static void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &
 
 void VulkanEngine::UpdateScene( ) {
     ZoneScopedN( "update_scene" );
-    auto start = utils::GetTime( );
 
     m_drawCommands.clear( );
-    CreateDrawCommands( *m_gfx.get( ), *m_scene, *( m_scene->topNodes[0].get( ) ), m_drawCommands );
+    {
+        auto start_commands = utils::GetTime( );
+        CreateDrawCommands( *m_gfx.get( ), *m_scene, *( m_scene->topNodes[0].get( ) ), m_drawCommands );
+        auto end_commands = utils::GetTime( );
+        m_visualProfiler.AddTimer( "Create Commands", end_commands - start_commands, utils::VisualProfiler::Cpu );
+    }
 
     // camera
+    auto start = utils::GetTime( );
+
     m_sceneData.view = m_camera->GetViewMatrix( );
     m_sceneData.proj = m_camera->GetProjectionMatrix( );
     m_sceneData.viewproj = m_sceneData.proj * m_sceneData.view;
