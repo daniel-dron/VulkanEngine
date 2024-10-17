@@ -39,6 +39,8 @@ struct RendererOptions {
     bool renderIrradianceInsteadSkybox = false;
     Vec2 ssaoResolution;
     bool frustumCulling = true;
+    bool useFrozenFrustum = false;
+    Frustum lastSavedFrustum = { };
 };
 
 class VulkanEngine {

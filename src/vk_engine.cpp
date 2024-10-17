@@ -1179,6 +1179,10 @@ void VulkanEngine::Run( ) {
 
                     if ( ImGui::CollapsingHeader( "Frustum Culling" ) ) {
                         ImGui::Checkbox( "Enable", &m_rendererOptions.frustumCulling );
+                        ImGui::Checkbox( "Freeze", &m_rendererOptions.useFrozenFrustum );
+                        if ( ImGui::Button( "Reload Frozen Frustum" ) ) {
+                            m_rendererOptions.lastSavedFrustum = m_camera->GetFrustum( );
+                        }
                     }
 
                     ImGui::Unindent( );
@@ -1332,7 +1336,9 @@ void VulkanEngine::CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const
 
             if ( m_rendererOptions.frustumCulling ) {
                 auto &aabb = node.boundingBoxes[i++];
-                auto visible = IsVisible( model, &aabb, m_camera->GetFrustum( ) );
+                auto visible = IsVisible( model, &aabb,
+                                          m_rendererOptions.useFrozenFrustum ? m_rendererOptions.lastSavedFrustum
+                                                                             : m_camera->GetFrustum( ) );
                 if ( !visible ) {
                     continue;
                 }
