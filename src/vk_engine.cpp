@@ -611,7 +611,7 @@ void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
     auto bindless = m_gfx->GetBindlessSet( );
     auto &output = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).ssao );
 
-    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
+    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
 
     m_ssaoPipeline.Bind( cmd );
     m_ssaoPipeline.BindDescriptorSet( cmd, bindless, 0 );
@@ -619,11 +619,9 @@ void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
     m_ssaoPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16,
                              6 );
 
-    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 
     // ----------
     // Blur
-    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
     DescriptorWriter writer;
     writer.WriteImage( 0, output.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
     writer.UpdateSet( m_gfx->device, m_blurSet );
@@ -637,7 +635,7 @@ void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
     m_blurPipeline.PushConstants( cmd, sizeof( BlurSettings ), &m_blurSettings );
     m_blurPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16,
                              6 );
-    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 
     END_LABEL( cmd );
 }
