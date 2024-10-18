@@ -40,6 +40,7 @@ struct RendererOptions {
     Vec2 ssaoResolution;
     bool frustumCulling = true;
     bool useFrozenFrustum = false;
+    bool reRenderShadowMaps = false;
     Frustum lastSavedFrustum = { };
 };
 
@@ -69,8 +70,7 @@ private:
     void ConstructBlurPipeline( );
     void ActuallyConstructBlurPipeline( );
 
-    void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &node,
-                             std::vector<MeshDrawCommand> &drawCommands );
+    void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &node );
 
     void GBufferPass( VkCommandBuffer cmd ) const;
     void SsaoPass( VkCommandBuffer cmd ) const;
@@ -163,6 +163,7 @@ private:
     Ibl m_ibl = { };
 
     std::vector<MeshDrawCommand> m_drawCommands;
+    std::vector<MeshDrawCommand> m_shadowMapCommands;
 
     std::shared_ptr<Node> m_selectedNode = nullptr;
     std::unique_ptr<Scene> m_scene;

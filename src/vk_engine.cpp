@@ -466,7 +466,10 @@ void VulkanEngine::Draw( ) {
     depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 0 );
-    ShadowMapPass( cmd );
+    if ( m_gfx->swapchain.frameNumber == 0 || m_rendererOptions.reRenderShadowMaps ) {
+        m_rendererOptions.reRenderShadowMaps = false;
+        ShadowMapPass( cmd );
+    }
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 1 );
 
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 2 );
@@ -738,7 +741,7 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
 
     using namespace vk_init;
 
-    m_shadowMapPipeline.Draw( *m_gfx, cmd, m_drawCommands, m_gpuDirectionalLights );
+    m_shadowMapPipeline.Draw( *m_gfx, cmd, m_shadowMapCommands, m_gpuDirectionalLights );
 
     END_LABEL( cmd );
 }
@@ -1207,7 +1210,9 @@ void VulkanEngine::Run( ) {
                             ImGui::DragFloat( "Power", &light.power, 0.1f );
 
                             auto euler = glm::degrees( light.node->transform.euler );
+
                             if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
+                                m_rendererOptions.reRenderShadowMaps = true;
                                 light.node->transform.euler = glm::radians( euler );
                             }
 
@@ -1216,11 +1221,11 @@ void VulkanEngine::Run( ) {
                                     light.distance;
                             ImGui::DragFloat3( "Pos", glm::value_ptr( shadow_map_pos ) );
 
-                            ImGui::DragFloat( "Distance", &light.distance );
-                            ImGui::DragFloat( "Right", &light.right );
-                            ImGui::DragFloat( "Up", &light.up );
-                            ImGui::DragFloat( "Near", &light.nearPlane );
-                            ImGui::DragFloat( "Far", &light.farPlane );
+                            m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Distance", &light.distance );
+                            m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Right", &light.right );
+                            m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Up", &light.up );
+                            m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Near", &light.nearPlane );
+                            m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Far", &light.farPlane );
 
                             ImGui::Image( reinterpret_cast<ImTextureID>( light.shadowMap ), ImVec2( 200.0f, 200.0f ) );
 
@@ -1326,13 +1331,21 @@ bool IsVisible( const Mat4 &transform, const AABoundingBox *aabb, const Frustum 
     return true;
 }
 
-void VulkanEngine::CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &node,
-                                       std::vector<MeshDrawCommand> &drawCommands ) {
+void VulkanEngine::CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &node ) {
     if ( !node.meshIds.empty( ) ) {
 
         int i = 0;
         for ( const auto mesh_id : node.meshIds ) {
             auto model = node.GetTransformMatrix( );
+
+            auto &mesh_asset = scene.meshes[mesh_id];
+            auto &mesh = gfx.meshCodex.GetMesh( mesh_asset.mesh );
+            MeshDrawCommand mdc = { .indexBuffer = mesh.indexBuffer.buffer,
+                                    .indexCount = mesh.indexCount,
+                                    .vertexBufferAddress = mesh.vertexBufferAddress,
+                                    .worldFromLocal = model,
+                                    .materialId = scene.materials[mesh_asset.material] };
+            m_shadowMapCommands.push_back( mdc );
 
             if ( m_rendererOptions.frustumCulling ) {
                 auto &aabb = node.boundingBoxes[i++];
@@ -1342,23 +1355,13 @@ void VulkanEngine::CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const
                 if ( !visible ) {
                     continue;
                 }
+                m_drawCommands.push_back( mdc );
             }
-
-            auto &mesh_asset = scene.meshes[mesh_id];
-
-            auto &mesh = gfx.meshCodex.GetMesh( mesh_asset.mesh );
-
-            MeshDrawCommand mdc = { .indexBuffer = mesh.indexBuffer.buffer,
-                                    .indexCount = mesh.indexCount,
-                                    .vertexBufferAddress = mesh.vertexBufferAddress,
-                                    .worldFromLocal = model,
-                                    .materialId = scene.materials[mesh_asset.material] };
-            drawCommands.push_back( mdc );
         }
     }
 
     for ( auto &n : node.children ) {
-        CreateDrawCommands( gfx, scene, *n.get( ), drawCommands );
+        CreateDrawCommands( gfx, scene, *n.get( ) );
     }
 }
 
@@ -1366,9 +1369,10 @@ void VulkanEngine::UpdateScene( ) {
     ZoneScopedN( "update_scene" );
 
     m_drawCommands.clear( );
+    m_shadowMapCommands.clear( );
     {
         auto start_commands = utils::GetTime( );
-        CreateDrawCommands( *m_gfx.get( ), *m_scene, *( m_scene->topNodes[0].get( ) ), m_drawCommands );
+        CreateDrawCommands( *m_gfx.get( ), *m_scene, *( m_scene->topNodes[0].get( ) ) );
         auto end_commands = utils::GetTime( );
         m_visualProfiler.AddTimer( "Create Commands", end_commands - start_commands, utils::VisualProfiler::Cpu );
     }
