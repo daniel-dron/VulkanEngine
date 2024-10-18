@@ -15,6 +15,11 @@
 
 #include <vk_types.h>
 
+struct VisibilityLODResult {
+    bool isVisible;
+    int lodLevelToRender;
+};
+
 struct MeshDrawCommand {
 	VkBuffer indexBuffer;
 	uint32_t indexCount;

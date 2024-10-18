@@ -181,7 +181,7 @@ void SkyboxPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, ImageId skyboxTe
     vkCmdSetScissor( cmd, 0, 1, &scissor );
 
     auto &mesh = gfx.meshCodex.GetMesh( m_cubeMesh );
-    vkCmdBindIndexBuffer( cmd, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32 );
+    vkCmdBindIndexBuffer( cmd, mesh.indexBuffer[0].buffer, 0, VK_INDEX_TYPE_UINT32 );
 
     const VkBufferDeviceAddressInfo address_info = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
@@ -197,5 +197,5 @@ void SkyboxPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, ImageId skyboxTe
     };
     vkCmdPushConstants( cmd, m_layout, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( PushConstants ), &push_constants );
 
-    vkCmdDrawIndexed( cmd, mesh.indexCount, 1, 0, 0, 0 );
+    vkCmdDrawIndexed( cmd, mesh.indexCount[0], 1, 0, 0, 0 );
 }

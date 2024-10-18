@@ -91,7 +91,7 @@ void VulkanEngine::Init( ) {
     EG_INPUT.Init( );
     InitScene( );
 
-    m_visualProfiler.RegisterTask( "Main", utils::colors::CARROT, utils::VisualProfiler::Cpu );
+    m_visualProfiler.RegisterTask( "GBuffer", utils::colors::CARROT, utils::VisualProfiler::Cpu );
     m_visualProfiler.RegisterTask( "Create Commands", utils::colors::EMERALD, utils::VisualProfiler::Cpu );
     m_visualProfiler.RegisterTask( "Scene", utils::colors::EMERALD, utils::VisualProfiler::Cpu );
 
@@ -410,13 +410,19 @@ void VulkanEngine::Cleanup( ) {
 void VulkanEngine::Draw( ) {
     ZoneScopedN( "draw" );
 
-    // wait for last frame rendering phase. 1 sec timeout
-    VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
-    m_gfx->swapchain.GetCurrentFrame( ).deletionQueue.Flush( );
-    // Reset after acquire the next image from the swapchain
-    // In case of error, this fence would never get passed to the queue, thus
-    // never triggering leaving us with a timeout next time we wait for fence
-    VK_CHECK( vkResetFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence ) );
+    m_stats.drawcallCount = 0;
+    m_stats.triangleCount = 0;
+
+    {
+        ZoneScopedN( "Wait Fence" );
+        // wait for last frame rendering phase. 1 sec timeout
+        VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
+        m_gfx->swapchain.GetCurrentFrame( ).deletionQueue.Flush( );
+        // Reset after acquire the next image from the swapchain
+        // In case of error, this fence would never get passed to the queue, thus
+        // never triggering leaving us with a timeout next time we wait for fence
+        VK_CHECK( vkResetFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence ) );
+    }
 
     // Query the pool timings
     if ( m_gfx->swapchain.frameNumber != 0 ) {
@@ -495,27 +501,29 @@ void VulkanEngine::Draw( ) {
     PostProcessPass( cmd );
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 11 );
 
-
-    if ( m_drawEditor ) {
-        DrawImGui( cmd, m_gfx->swapchain.views[swapchain_image_index] );
-        image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
-                                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
-    }
-    else {
-        auto &ppi = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
-        ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
-
-        image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
-                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
-
-        image::Blit( cmd, ppi.GetImage( ), { ppi.GetExtent( ).width, ppi.GetExtent( ).height },
-                     m_gfx->swapchain.images[swapchain_image_index], m_gfx->swapchain.extent );
-        if ( m_drawStats ) {
+    {
+        ZoneScopedN( "Final Image" );
+        if ( m_drawEditor ) {
             DrawImGui( cmd, m_gfx->swapchain.views[swapchain_image_index] );
+            image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
+                                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
         }
+        else {
+            auto &ppi = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
+            ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 
-        image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index],
-                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
+            image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
+                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
+
+            image::Blit( cmd, ppi.GetImage( ), { ppi.GetExtent( ).width, ppi.GetExtent( ).height },
+                         m_gfx->swapchain.images[swapchain_image_index], m_gfx->swapchain.extent );
+            if ( m_drawStats ) {
+                DrawImGui( cmd, m_gfx->swapchain.views[swapchain_image_index] );
+            }
+
+            image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index],
+                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
+        }
     }
 
     VK_CHECK( vkEndCommandBuffer( cmd ) );
@@ -538,6 +546,7 @@ void VulkanEngine::Draw( ) {
     // submit command buffer and execute it
     // _renderFence will now block until the commands finish
     VK_CHECK( vkQueueSubmit2( m_gfx->graphicsQueue, 1, &submit, m_gfx->swapchain.GetCurrentFrame( ).fence ) );
+    FrameMarkNamed( "Queue Work" );
 
     //
     // present
@@ -561,9 +570,10 @@ void VulkanEngine::Draw( ) {
     m_gfx->swapchain.frameNumber++;
 }
 
-void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) const {
+void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) {
     ZoneScopedN( "GBuffer Pass" );
     START_LABEL( cmd, "GBuffer Pass", Vec4( 1.0f, 1.0f, 0.0f, 1.0 ) );
+    auto start = utils::GetTime( );
 
     using namespace vk_init;
 
@@ -600,10 +610,13 @@ void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) const {
 
     // ----------
     // Call pipeline
-    m_gBufferPipeline.Draw( *m_gfx, cmd, m_drawCommands, m_sceneData );
+    m_stats.triangleCount += m_gBufferPipeline.Draw( *m_gfx, cmd, m_drawCommands, m_sceneData ).triangleCount;
+    m_stats.drawcallCount += m_drawCommands.size( );
 
     vkCmdEndRendering( cmd );
 
+    auto end = utils::GetTime( );
+    m_visualProfiler.AddTimer( "GBuffer", end - start, utils::VisualProfiler::Cpu );
     END_LABEL( cmd );
 }
 
@@ -846,6 +859,37 @@ void VulkanEngine::InitScene( ) {
         m_camera->SetAspectRatio( WIDTH, HEIGHT );
     }
 
+    // auto originalNode = m_scene->FindNodeByName( "Lucy_3M_O10" );
+    // auto originalNode = m_scene->FindNodeByName( "BistroExterior" );
+    // if ( !originalNode ) {
+    //    std::cerr << "Original Lucy node not found!" << std::endl;
+    //    return;
+    //}
+
+    // int N = 10;
+    // auto aabb = originalNode->boundingBoxes[0];
+    // auto min = originalNode->GetTransformMatrix( ) * Vec4( aabb.min * 1.0f, 1.0f );
+    // auto max = originalNode->GetTransformMatrix( ) * Vec4( aabb.max * 1.0f, 1.0f );
+    // for ( int x = 0; x < N; ++x ) {
+    //    for ( int y = 0; y < N; ++y ) {
+    //        for ( int z = 0; z < N; ++z ) {
+    //            auto copy = *originalNode;
+    //            auto size = max - min;
+    //            copy.transform.position += Vec3( x * size.x, y * size.y, z * size.z );
+    //            m_scene->topNodes.push_back( std::make_shared<Node>( copy ) );
+    //        }
+    //    }
+    //}
+
+    if ( m_scene->directionalLights.size( ) != 0 ) {
+        auto &light = m_scene->directionalLights.at( 0 );
+        light.power = 30.0f;
+        light.distance = 100.0f;
+        light.right = 115.0f;
+        light.up = 115.0f;
+        light.farPlane = 131.0f;
+    }
+
     m_fpsController = std::make_unique<FirstPersonFlyingController>( m_camera.get( ), 0.1f, 5.0f );
     m_cameraController = m_fpsController.get( );
 }
@@ -970,299 +1014,325 @@ void VulkanEngine::Run( ) {
 
         UpdateScene( );
 
-        ImGui_ImplVulkan_NewFrame( );
-        ImGui_ImplSDL2_NewFrame( );
-        ImGuizmo::SetOrthographic( false );
+        {
+            ZoneScopedN( "ImGui Menu" );
+            ImGui_ImplVulkan_NewFrame( );
+            ImGui_ImplSDL2_NewFrame( );
+            ImGuizmo::SetOrthographic( false );
 
-        ImGui::NewFrame( );
-        ImGuizmo::BeginFrame( );
+            ImGui::NewFrame( );
+            ImGuizmo::BeginFrame( );
 
-        if ( m_drawEditor ) {
-            // dock space
-            ImGui::DockSpaceOverViewport( 0, ImGui::GetMainViewport( ) );
+            if ( m_drawEditor ) {
+                // dock space
+                ImGui::DockSpaceOverViewport( 0, ImGui::GetMainViewport( ) );
 
-            ImGui::ShowDemoWindow( );
+                ImGui::ShowDemoWindow( );
 
-            console.Draw( "Console", &m_open );
+                console.Draw( "Console", &m_open );
 
-            {
-                // Push a style to remove the window padding
-                ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0, 0 ) );
-                if ( ImGui::Begin( "Viewport", 0, ImGuiWindowFlags_NoScrollbar ) ) {
-                    const ImVec2 viewport_size = ImGui::GetContentRegionAvail( );
+                {
+                    // Push a style to remove the window padding
+                    ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0, 0 ) );
+                    if ( ImGui::Begin( "Viewport", 0, ImGuiWindowFlags_NoScrollbar ) ) {
+                        const ImVec2 viewport_size = ImGui::GetContentRegionAvail( );
 
-                    constexpr float aspect_ratio = 16.0f / 9.0f;
-                    ImVec2 image_size;
+                        constexpr float aspect_ratio = 16.0f / 9.0f;
+                        ImVec2 image_size;
 
-                    if ( viewport_size.x / viewport_size.y > aspect_ratio ) {
-                        image_size.y = viewport_size.y;
-                        image_size.x = image_size.y * aspect_ratio;
-                    }
-                    else {
-                        image_size.x = viewport_size.x;
-                        image_size.y = image_size.x / aspect_ratio;
-                    }
-
-                    ImVec2 image_pos( ( viewport_size.x - image_size.x ) * 0.5f,
-                                      ( viewport_size.y - image_size.y ) * 0.5f );
-
-                    ImGui::SetCursorPos( image_pos );
-                    ImGui::Image( reinterpret_cast<ImTextureID>( selected_set ), image_size );
-
-                    // Overlay debug
-                    {
-                        auto text_pos = image_pos;
-                        constexpr auto padding = 20u;
-                        text_pos.x += padding;
-                        text_pos.y += padding;
-
-                        ImGui::SetCursorPos( text_pos );
-                        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "FPS: %.1f", ImGui::GetIO( ).Framerate );
-
-                        text_pos.y += 20;
-                        ImGui::SetCursorPos( text_pos );
-                        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "Frame: %d", m_gfx->swapchain.frameNumber );
-
-                        text_pos.y += 20;
-                        ImGui::SetCursorPos( text_pos );
-                        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "GPU: %s",
-                                            m_gfx->deviceProperties.properties.deviceName );
-
-                        text_pos.y += 20;
-                        ImGui::SetCursorPos( text_pos );
-                        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "Image Codex: %d/%d",
-                                            m_gfx->imageCodex.GetImages( ).size( ),
-                                            m_gfx->imageCodex.bindlessRegistry.MaxBindlessImages );
-
-                        auto window_pos = ImGui::GetWindowPos( );
-                        ImVec2 position = { window_pos.x + image_pos.x,
-                                            window_pos.y + image_pos.y + image_size.y - 450 };
-                        m_visualProfiler.Render( position, ImVec2( 200, 450 ) );
-                    }
-
-                    if ( m_selectedNode != nullptr ) {
-                        ImGuizmo::SetOrthographic( false );
-                        ImGuizmo::SetDrawlist( );
-                        ImGuizmo::SetRect( image_pos.x, image_pos.y, image_size.x, image_size.y );
-
-                        auto camera_view = m_sceneData.view;
-                        auto camera_proj = m_sceneData.proj;
-                        camera_proj[1][1] *= -1;
-
-                        auto tc = m_selectedNode->GetTransformMatrix( );
-                        Manipulate( glm::value_ptr( camera_view ), glm::value_ptr( camera_proj ),
-                                    ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::WORLD, value_ptr( tc ) );
-
-                        Mat4 local_transform = tc;
-                        if ( const auto parent = m_selectedNode->parent.lock( ) ) {
-                            Mat4 parent_world_inverse = glm::inverse( parent->GetTransformMatrix( ) );
-                            local_transform = parent_world_inverse * tc;
+                        if ( viewport_size.x / viewport_size.y > aspect_ratio ) {
+                            image_size.y = viewport_size.y;
+                            image_size.x = image_size.y * aspect_ratio;
+                        }
+                        else {
+                            image_size.x = viewport_size.x;
+                            image_size.y = image_size.x / aspect_ratio;
                         }
 
-                        m_selectedNode->SetTransform( local_transform );
+                        ImVec2 image_pos( ( viewport_size.x - image_size.x ) * 0.5f,
+                                          ( viewport_size.y - image_size.y ) * 0.5f );
+
+                        ImGui::SetCursorPos( image_pos );
+                        ImGui::Image( reinterpret_cast<ImTextureID>( selected_set ), image_size );
+
+                        // Overlay debug
+                        {
+                            auto text_pos = image_pos;
+                            constexpr auto padding = 20u;
+                            text_pos.x += padding;
+                            text_pos.y += padding;
+
+                            ImGui::SetCursorPos( text_pos );
+                            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "FPS: %.1f", ImGui::GetIO( ).Framerate );
+
+                            text_pos.y += 20;
+                            ImGui::SetCursorPos( text_pos );
+                            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "Frame: %d", m_gfx->swapchain.frameNumber );
+
+                            text_pos.y += 20;
+                            ImGui::SetCursorPos( text_pos );
+                            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "GPU: %s",
+                                                m_gfx->deviceProperties.properties.deviceName );
+
+                            text_pos.y += 20;
+                            ImGui::SetCursorPos( text_pos );
+                            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "Image Codex: %d/%d",
+                                                m_gfx->imageCodex.GetImages( ).size( ),
+                                                m_gfx->imageCodex.bindlessRegistry.MaxBindlessImages );
+
+                            text_pos.y += 20;
+                            ImGui::SetCursorPos( text_pos );
+                            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "Triangles: %uld", m_stats.triangleCount );
+
+                            text_pos.y += 20;
+                            ImGui::SetCursorPos( text_pos );
+                            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "Draw Calls: %d", m_stats.drawcallCount );
+
+                            auto window_pos = ImGui::GetWindowPos( );
+                            ImVec2 position = { window_pos.x + image_pos.x,
+                                                window_pos.y + image_pos.y + image_size.y - 450 };
+                            m_visualProfiler.Render( position, ImVec2( 200, 450 ) );
+                        }
+
+                        if ( m_selectedNode != nullptr ) {
+                            ImGuizmo::SetOrthographic( false );
+                            ImGuizmo::SetDrawlist( );
+                            ImGuizmo::SetRect( image_pos.x, image_pos.y, image_size.x, image_size.y );
+
+                            auto camera_view = m_sceneData.view;
+                            auto camera_proj = m_sceneData.proj;
+                            camera_proj[1][1] *= -1;
+
+                            auto tc = m_selectedNode->GetTransformMatrix( );
+                            Manipulate( glm::value_ptr( camera_view ), glm::value_ptr( camera_proj ),
+                                        ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::WORLD, value_ptr( tc ) );
+
+                            Mat4 local_transform = tc;
+                            if ( const auto parent = m_selectedNode->parent.lock( ) ) {
+                                Mat4 parent_world_inverse = glm::inverse( parent->GetTransformMatrix( ) );
+                                local_transform = parent_world_inverse * tc;
+                            }
+
+                            m_selectedNode->SetTransform( local_transform );
+                        }
+                    }
+                    ImGui::End( );
+                    ImGui::PopStyleVar( );
+                }
+
+                if ( ImGui::Begin( "Scene" ) ) {
+                    for ( auto &node : m_scene->topNodes ) {
+                        DrawNodeHierarchy( node );
                     }
                 }
                 ImGui::End( );
-                ImGui::PopStyleVar( );
-            }
 
-            if ( ImGui::Begin( "Scene" ) ) {
-                DrawNodeHierarchy( m_scene->topNodes[0] );
-            }
-            ImGui::End( );
-
-            if ( EG_INPUT.WasKeyPressed( EG_KEY::Z ) ) {
-                ImGui::OpenPopup( "Viewport Context" );
-            }
-            if ( ImGui::BeginPopup( "Viewport Context" ) ) {
-                ImGui::SeparatorText( "GBuffer" );
-                if ( ImGui::RadioButton( "PBR Pass", &selected_set_n, 0 ) ) {
-                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).postProcessImage;
+                if ( EG_INPUT.WasKeyPressed( EG_KEY::Z ) ) {
+                    ImGui::OpenPopup( "Viewport Context" );
                 }
-                if ( ImGui::RadioButton( "Albedo", &selected_set_n, 1 ) ) {
-                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.albedo;
-                }
-                if ( ImGui::RadioButton( "Position", &selected_set_n, 2 ) ) {
-                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.position;
-                }
-                if ( ImGui::RadioButton( "Normal", &selected_set_n, 3 ) ) {
-                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.normal;
-                }
-                if ( ImGui::RadioButton( "PBR", &selected_set_n, 4 ) ) {
-                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.pbr;
-                }
-                if ( ImGui::RadioButton( "HDR", &selected_set_n, 5 ) ) {
-                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).hdrColor;
-                }
-                if ( ImGui::RadioButton( "ShadowMap", &selected_set_n, 6 ) ) {
-                    selected_set = m_scene->directionalLights.at( 0 ).shadowMap;
-                }
-                if ( ImGui::RadioButton( "Depth", &selected_set_n, 7 ) ) {
-                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).depth;
-                }
-                if ( ImGui::RadioButton( "SSAO", &selected_set_n, 8 ) ) {
-                    selected_set = m_gfx->swapchain.GetCurrentFrame( ).ssao;
-                }
-                ImGui::Separator( );
-                ImGui::SliderFloat( "Render Scale", &m_renderScale, 0.3f, 1.f );
-                ImGui::DragFloat( "Exposure", &m_ppConfig.exposure, 0.001f, 0.00f, 10.0f );
-                ImGui::DragFloat( "Gamma", &m_ppConfig.gamma, 0.01f, 0.01f, 10.0f );
-                ImGui::Checkbox( "Wireframe", &m_rendererOptions.wireframe );
-                ImGui::Checkbox( "Render Irradiance Map", &m_rendererOptions.renderIrradianceInsteadSkybox );
-                if ( ImGui::Checkbox( "VSync", &m_rendererOptions.vsync ) ) {
-                    if ( m_rendererOptions.vsync ) {
-                        m_gfx->swapchain.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+                if ( ImGui::BeginPopup( "Viewport Context" ) ) {
+                    ImGui::SeparatorText( "GBuffer" );
+                    if ( ImGui::RadioButton( "PBR Pass", &selected_set_n, 0 ) ) {
+                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).postProcessImage;
                     }
-                    else {
-                        m_gfx->swapchain.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+                    if ( ImGui::RadioButton( "Albedo", &selected_set_n, 1 ) ) {
+                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.albedo;
                     }
-                    m_dirtSwapchain = true;
-                }
-                ImGui::EndPopup( );
-            }
-
-            if ( ImGui::Begin( "Settings" ) ) {
-                if ( ImGui::CollapsingHeader( "Node" ) ) {
-                    ImGui::Indent( );
-                    if ( m_selectedNode ) {
-                        if ( ImGui::Button( "Deselect" ) ) {
-                            m_selectedNode = nullptr;
+                    if ( ImGui::RadioButton( "Position", &selected_set_n, 2 ) ) {
+                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.position;
+                    }
+                    if ( ImGui::RadioButton( "Normal", &selected_set_n, 3 ) ) {
+                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.normal;
+                    }
+                    if ( ImGui::RadioButton( "PBR", &selected_set_n, 4 ) ) {
+                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.pbr;
+                    }
+                    if ( ImGui::RadioButton( "HDR", &selected_set_n, 5 ) ) {
+                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).hdrColor;
+                    }
+                    if ( ImGui::RadioButton( "ShadowMap", &selected_set_n, 6 ) ) {
+                        selected_set = m_scene->directionalLights.at( 0 ).shadowMap;
+                    }
+                    if ( ImGui::RadioButton( "Depth", &selected_set_n, 7 ) ) {
+                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).depth;
+                    }
+                    if ( ImGui::RadioButton( "SSAO", &selected_set_n, 8 ) ) {
+                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).ssao;
+                    }
+                    ImGui::Separator( );
+                    ImGui::SliderFloat( "Render Scale", &m_renderScale, 0.3f, 1.f );
+                    ImGui::DragFloat( "Exposure", &m_ppConfig.exposure, 0.001f, 0.00f, 10.0f );
+                    ImGui::DragFloat( "Gamma", &m_ppConfig.gamma, 0.01f, 0.01f, 10.0f );
+                    ImGui::Checkbox( "Wireframe", &m_rendererOptions.wireframe );
+                    ImGui::Checkbox( "Render Irradiance Map", &m_rendererOptions.renderIrradianceInsteadSkybox );
+                    if ( ImGui::Checkbox( "VSync", &m_rendererOptions.vsync ) ) {
+                        if ( m_rendererOptions.vsync ) {
+                            m_gfx->swapchain.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
                         }
+                        else {
+                            m_gfx->swapchain.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+                        }
+                        m_dirtSwapchain = true;
+                    }
+                    ImGui::EndPopup( );
+                }
 
+                if ( ImGui::Begin( "Settings" ) ) {
+                    if ( ImGui::CollapsingHeader( "Node" ) ) {
+                        ImGui::Indent( );
                         if ( m_selectedNode ) {
-                            m_selectedNode->transform.DrawDebug( m_selectedNode->name );
-                        }
+                            if ( ImGui::Button( "Deselect" ) ) {
+                                m_selectedNode = nullptr;
+                            }
 
-                        for ( auto &light : m_scene->pointLights ) {
-                            if ( light.node == m_selectedNode.get( ) ) {
-                                light.DrawDebug( );
+                            if ( m_selectedNode ) {
+                                ImGui::Text( "LOD rendering: %d", m_selectedNode->currentLod );
+                                m_selectedNode->transform.DrawDebug( m_selectedNode->name );
+                            }
+
+                            for ( auto &light : m_scene->pointLights ) {
+                                if ( light.node == m_selectedNode.get( ) ) {
+                                    light.DrawDebug( );
+                                }
                             }
                         }
+                        ImGui::Unindent( );
                     }
-                    ImGui::Unindent( );
-                }
 
-                if ( ImGui::CollapsingHeader( "GPU Info" ) ) {
-                    ImGui::Indent( );
-                    m_gfx->DrawDebug( );
-                    ImGui::Unindent( );
-                }
+                    if ( ImGui::CollapsingHeader( "GPU Info" ) ) {
+                        ImGui::Indent( );
+                        m_gfx->DrawDebug( );
+                        ImGui::Unindent( );
+                    }
 
-                if ( ImGui::CollapsingHeader( "Camera" ) ) {
-                    ImGui::SeparatorText( "Camera 3D" );
-                    m_camera->DrawDebug( );
+                    if ( ImGui::CollapsingHeader( "Camera" ) ) {
+                        ImGui::SeparatorText( "Camera 3D" );
+                        m_camera->DrawDebug( );
 
-                    ImGui::SeparatorText( "Camera Controller" );
-                    m_cameraController->DrawDebug( );
-                }
+                        ImGui::SeparatorText( "Camera Controller" );
+                        m_cameraController->DrawDebug( );
+                    }
 
-                if ( ImGui::CollapsingHeader( "Renderer" ) ) {
-                    ImGui::Indent( );
-
-                    m_pbrPipeline.DrawDebug( );
-
-                    if ( ImGui::CollapsingHeader( "SSAO" ) ) {
+                    if ( ImGui::CollapsingHeader( "Renderer" ) ) {
                         ImGui::Indent( );
 
-                        ImGui::Checkbox( "SSAO", &m_ssaoSettings.enable );
-                        if ( ImGui::DragFloat2( "Resolution", &m_rendererOptions.ssaoResolution.x, 1, 100,
-                                                m_gfx->swapchain.extent.width ) ) {
-                            for ( auto i = 0; i < Swapchain::FrameOverlap; i++ ) {
-                                auto &image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.frames[i].ssao );
-                                image.Resize( VkExtent3D{ static_cast<uint32_t>( m_rendererOptions.ssaoResolution.x ),
-                                                          static_cast<uint32_t>( m_rendererOptions.ssaoResolution.y ),
-                                                          1 } );
-                            }
-                            VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence,
-                                                       true, 1000000000 ) );
-                            m_ssaoPipeline.Cleanup( *m_gfx );
+                        m_pbrPipeline.DrawDebug( );
 
-                            ActuallyConstructSsaoPipeline( );
+                        if ( ImGui::CollapsingHeader( "SSAO" ) ) {
+                            ImGui::Indent( );
+
+                            ImGui::Checkbox( "SSAO", &m_ssaoSettings.enable );
+                            if ( ImGui::DragFloat2( "Resolution", &m_rendererOptions.ssaoResolution.x, 1, 100,
+                                                    m_gfx->swapchain.extent.width ) ) {
+                                for ( auto i = 0; i < Swapchain::FrameOverlap; i++ ) {
+                                    auto &image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.frames[i].ssao );
+                                    image.Resize( VkExtent3D{
+                                            static_cast<uint32_t>( m_rendererOptions.ssaoResolution.x ),
+                                            static_cast<uint32_t>( m_rendererOptions.ssaoResolution.y ), 1 } );
+                                }
+                                VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence,
+                                                           true, 1000000000 ) );
+                                m_ssaoPipeline.Cleanup( *m_gfx );
+
+                                ActuallyConstructSsaoPipeline( );
+                            }
+                            ImGui::DragFloat( "SSAO Radius", &m_ssaoSettings.radius, 0.01f, 0.0f, 1.0f );
+                            ImGui::DragFloat( "SSAO Bias", &m_ssaoSettings.bias, 0.01f, 0.0f, 1.0f );
+                            ImGui::DragFloat( "SSAO Power", &m_ssaoSettings.power, 0.01f, 0.0f, 1.0f );
+
+                            ImGui::Unindent( );
                         }
-                        ImGui::DragFloat( "SSAO Radius", &m_ssaoSettings.radius, 0.01f, 0.0f, 1.0f );
-                        ImGui::DragFloat( "SSAO Bias", &m_ssaoSettings.bias, 0.01f, 0.0f, 1.0f );
-                        ImGui::DragFloat( "SSAO Power", &m_ssaoSettings.power, 0.01f, 0.0f, 1.0f );
+
+                        if ( ImGui::CollapsingHeader( "Frustum Culling" ) ) {
+                            ImGui::Indent( );
+                            ImGui::Checkbox( "Enable", &m_rendererOptions.frustumCulling );
+                            ImGui::Checkbox( "Freeze", &m_rendererOptions.useFrozenFrustum );
+                            if ( ImGui::Button( "Reload Frozen Frustum" ) ) {
+                                m_rendererOptions.lastSavedFrustum = m_camera->GetFrustum( );
+                            }
+                            ImGui::Unindent( );
+                        }
+
+                        if ( ImGui::CollapsingHeader( "LOD System" ) ) {
+                            ImGui::Indent( );
+                            ImGui::PushID( "LOD" );
+                            ImGui::Checkbox( "Enable", &m_rendererOptions.lodSystem );
+                            ImGui::Checkbox( "Freeze", &m_rendererOptions.freezeLodSystem );
+                            ImGui::PopID( );
+                            ImGui::Unindent( );
+                        }
 
                         ImGui::Unindent( );
                     }
 
-                    if ( ImGui::CollapsingHeader( "Frustum Culling" ) ) {
-                        ImGui::Checkbox( "Enable", &m_rendererOptions.frustumCulling );
-                        ImGui::Checkbox( "Freeze", &m_rendererOptions.useFrozenFrustum );
-                        if ( ImGui::Button( "Reload Frozen Frustum" ) ) {
-                            m_rendererOptions.lastSavedFrustum = m_camera->GetFrustum( );
-                        }
+                    if ( ImGui::CollapsingHeader( "Image Codex" ) ) {
+                        ImGui::Indent( );
+                        m_gfx->imageCodex.DrawDebug( );
+                        ImGui::Unindent( );
                     }
 
-                    ImGui::Unindent( );
-                }
+                    if ( ImGui::CollapsingHeader( "Directional Lights" ) ) {
+                        ImGui::Indent( );
+                        for ( auto i = 0; i < m_scene->directionalLights.size( ); i++ ) {
+                            if ( ImGui::CollapsingHeader( std::format( "Sun {}", i ).c_str( ) ) ) {
+                                ImGui::PushID( i );
 
-                if ( ImGui::CollapsingHeader( "Image Codex" ) ) {
-                    ImGui::Indent( );
-                    m_gfx->imageCodex.DrawDebug( );
-                    ImGui::Unindent( );
-                }
+                                auto &light = m_scene->directionalLights.at( i );
+                                ImGui::ColorEdit3( "Color HSV", &light.hsv.hue,
+                                                   ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV |
+                                                           ImGuiColorEditFlags_PickerHueWheel );
+                                ImGui::DragFloat( "Power", &light.power, 0.1f );
 
-                if ( ImGui::CollapsingHeader( "Directional Lights" ) ) {
-                    ImGui::Indent( );
-                    for ( auto i = 0; i < m_scene->directionalLights.size( ); i++ ) {
-                        if ( ImGui::CollapsingHeader( std::format( "Sun {}", i ).c_str( ) ) ) {
-                            ImGui::PushID( i );
+                                auto euler = glm::degrees( light.node->transform.euler );
 
-                            auto &light = m_scene->directionalLights.at( i );
-                            ImGui::ColorEdit3( "Color HSV", &light.hsv.hue,
-                                               ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV |
-                                                       ImGuiColorEditFlags_PickerHueWheel );
-                            ImGui::DragFloat( "Power", &light.power, 0.1f );
+                                if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
+                                    m_rendererOptions.reRenderShadowMaps = true;
+                                    light.node->transform.euler = glm::radians( euler );
+                                }
 
-                            auto euler = glm::degrees( light.node->transform.euler );
+                                auto shadow_map_pos =
+                                        glm::normalize( light.node->transform.AsMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) *
+                                        light.distance;
+                                ImGui::DragFloat3( "Pos", glm::value_ptr( shadow_map_pos ) );
 
-                            if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
-                                m_rendererOptions.reRenderShadowMaps = true;
-                                light.node->transform.euler = glm::radians( euler );
+                                m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Distance", &light.distance );
+                                m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Right", &light.right );
+                                m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Up", &light.up );
+                                m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Near", &light.nearPlane );
+                                m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Far", &light.farPlane );
+
+                                ImGui::Image( reinterpret_cast<ImTextureID>( light.shadowMap ),
+                                              ImVec2( 200.0f, 200.0f ) );
+
+                                ImGui::PopID( );
                             }
-
-                            auto shadow_map_pos =
-                                    glm::normalize( light.node->transform.AsMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) *
-                                    light.distance;
-                            ImGui::DragFloat3( "Pos", glm::value_ptr( shadow_map_pos ) );
-
-                            m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Distance", &light.distance );
-                            m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Right", &light.right );
-                            m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Up", &light.up );
-                            m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Near", &light.nearPlane );
-                            m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Far", &light.farPlane );
-
-                            ImGui::Image( reinterpret_cast<ImTextureID>( light.shadowMap ), ImVec2( 200.0f, 200.0f ) );
-
-                            ImGui::PopID( );
                         }
+                        ImGui::Unindent( );
                     }
-                    ImGui::Unindent( );
                 }
+                ImGui::End( );
+
+                if ( ImGui::Begin( "Stats" ) ) {
+                    ImGui::Text( "frametime %f ms", m_stats.frametime );
+                    ImGui::Text(
+                            "GPU: %f ms",
+                            m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 0 ), m_gfx->gpuTimestamps.at( 1 ) ) );
+                }
+                ImGui::End( );
             }
-            ImGui::End( );
 
-            if ( ImGui::Begin( "Stats" ) ) {
-                ImGui::Text( "frametime %f ms", m_stats.frametime );
-                ImGui::Text( "GPU: %f ms",
-                             m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 0 ), m_gfx->gpuTimestamps.at( 1 ) ) );
+            if ( m_drawEditor == false && m_drawStats == true ) {
+                auto extent = m_gfx->swapchain.extent;
+                m_visualProfiler.Render( { 0, static_cast<float>( extent.height ) - 450 }, ImVec2( 200, 450 ) );
             }
-            ImGui::End( );
-        }
 
-        if ( m_drawEditor == false && m_drawStats == true ) {
-            auto extent = m_gfx->swapchain.extent;
-            m_visualProfiler.Render( { 0, static_cast<float>( extent.height ) - 450 }, ImVec2( 200, 450 ) );
+            ImGui::Render( );
         }
-
-        ImGui::Render( );
 
         Draw( );
 
         // get clock again, compare with start clock
         auto end = std::chrono::system_clock::now( );
-
         // convert to microseconds (integer), and then come back to milliseconds
         auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>( end - start );
         m_stats.frametime = elapsed.count( ) / 1000.f;
@@ -1274,7 +1344,7 @@ void VulkanEngine::Run( ) {
 
         m_timer += m_stats.frametime;
         const auto end_task = utils::GetTime( );
-        m_visualProfiler.AddTimer( "Main", end_task - start_task, utils::VisualProfiler::Cpu );
+        // m_visualProfiler.AddTimer( "Main", end_task - start_task, utils::VisualProfiler::Cpu );
     }
 }
 
@@ -1304,7 +1374,14 @@ void VulkanEngine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targe
 
 inline float dot( const Vec3 &v, const Vec4 &p ) { return v.x * p.x + v.y * p.y + v.z * p.z + p.w; }
 
-bool IsVisible( const Mat4 &transform, const AABoundingBox *aabb, const Frustum &frustum ) {
+VisibilityLODResult VulkanEngine::VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
+                                                          const Frustum &frustum ) {
+
+    // If neither frustum or lod is enable, then everything is visible and finest lod
+    if ( !m_rendererOptions.frustumCulling && !m_rendererOptions.lodSystem ) {
+        return { true, 0 };
+    }
+
     Vec3 points[] = {
             { aabb->min.x, aabb->min.y, aabb->min.z }, { aabb->max.x, aabb->min.y, aabb->min.z },
             { aabb->max.x, aabb->max.y, aabb->min.z }, { aabb->min.x, aabb->max.y, aabb->min.z },
@@ -1313,31 +1390,82 @@ bool IsVisible( const Mat4 &transform, const AABoundingBox *aabb, const Frustum 
             { aabb->max.x, aabb->max.y, aabb->max.z }, { aabb->min.x, aabb->max.y, aabb->max.z },
     };
 
-    // transform points to world space
+    Vec4 clips[8] = { };
+
+    // Transform points to world space and clip space
     for ( int i = 0; i < 8; ++i ) {
         points[i] = transform * Vec4( points[i], 1.0f );
+
+        // Only need the clip space coordinates for the LOD system
+        if ( m_rendererOptions.lodSystem ) {
+            clips[i] = m_camera->GetProjectionMatrix( ) * m_camera->GetViewMatrix( ) * Vec4( points[i], 1.0f );
+        }
     }
 
-    // for each plane…
-    for ( int i = 0; i < 6; ++i ) {
-        bool inside = false;
+    bool is_visible = true;
 
-        for ( int j = 0; j < 8; ++j ) {
-            if ( dot( Vec3( points[j] ), Vec3( frustum.planes[i] ) ) + frustum.planes[i].w > 0 ) {
-                inside = true;
+    if ( m_rendererOptions.frustumCulling ) {
+        // for each plane…
+        for ( int i = 0; i < 6; ++i ) {
+            bool inside_frustum = false;
+
+            for ( int j = 0; j < 8; ++j ) {
+                if ( dot( Vec3( points[j] ), Vec3( frustum.planes[i] ) ) + frustum.planes[i].w > 0 ) {
+                    inside_frustum = true;
+                    break;
+                }
+            }
+
+            if ( !inside_frustum ) {
+                is_visible = false;
+            }
+        }
+    }
+
+    if ( !is_visible ) {
+        return { false, -1 };
+    }
+
+    if ( m_rendererOptions.lodSystem ) {
+        float min_x = std::numeric_limits<float>::max( );
+        float max_x = std::numeric_limits<float>::lowest( );
+        float min_y = std::numeric_limits<float>::max( );
+        float max_y = std::numeric_limits<float>::lowest( );
+
+        for ( int i = 0; i < 8; i++ ) {
+            Vec4 clip = clips[i];
+            Vec3 ndc = Vec3( clip ) / clip.w;
+
+            ndc = glm::clamp( ndc, -1.0f, 1.0f );
+            Vec2 screen = Vec2( ( ndc.x + 1.0f ) * 0.5f * m_gfx->swapchain.extent.width,
+                                ( 1.0f - ndc.y ) * 0.5f * m_gfx->swapchain.extent.height );
+
+            min_x = std::min( min_x, screen.x );
+            max_x = std::max( max_x, screen.x );
+            min_y = std::min( min_y, screen.y );
+            max_y = std::max( max_y, screen.y );
+        }
+
+        float width = max_x - min_x;
+        float height = max_y - min_y;
+        float screen_size = std::max( width, height );
+
+        constexpr float lodThresholds[5] = { 250.0f, 170.0f, 100.0f, 50.0f, 20.0f };
+        int selected_lod = 5;
+        for ( int i = 0; i < 5; i++ ) {
+            if ( screen_size > lodThresholds[i] ) {
+                selected_lod = i;
                 break;
             }
         }
 
-        if ( !inside ) {
-            return false;
-        }
+        return { true, selected_lod };
     }
 
-    return true;
+    return { true, 0 };
 }
 
-void VulkanEngine::CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &node ) {
+void VulkanEngine::CreateDrawCommands( GfxDevice &gfx, const Scene &scene, Node &node ) {
     if ( !node.meshIds.empty( ) ) {
 
         int i = 0;
@@ -1346,21 +1474,35 @@ void VulkanEngine::CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const
 
             auto &mesh_asset = scene.meshes[mesh_id];
             auto &mesh = gfx.meshCodex.GetMesh( mesh_asset.mesh );
-            MeshDrawCommand mdc = { .indexBuffer = mesh.indexBuffer.buffer,
-                                    .indexCount = mesh.indexCount,
-                                    .vertexBufferAddress = mesh.vertexBufferAddress,
-                                    .worldFromLocal = model,
-                                    .materialId = scene.materials[mesh_asset.material] };
+            MeshDrawCommand mdc = {
+                    .indexBuffer = mesh.indexBuffer[0].buffer,
+                    .indexCount = mesh.indexCount[0],
+                    .vertexBufferAddress = mesh.vertexBufferAddress,
+                    .worldFromLocal = model,
+                    .materialId = scene.materials[mesh_asset.material],
+            };
             m_shadowMapCommands.push_back( mdc );
 
             if ( m_rendererOptions.frustumCulling ) {
                 auto &aabb = node.boundingBoxes[i++];
-                auto visible = IsVisible( model, &aabb,
-                                          m_rendererOptions.useFrozenFrustum ? m_rendererOptions.lastSavedFrustum
-                                                                             : m_camera->GetFrustum( ) );
-                if ( !visible ) {
+                auto visibility =
+                        VisibilityCheckWithLOD( model, &aabb,
+                                                m_rendererOptions.useFrozenFrustum ? m_rendererOptions.lastSavedFrustum
+                                                                                   : m_camera->GetFrustum( ) );
+                if ( !visibility.isVisible ) {
                     continue;
                 }
+
+                // Do not update the current LOD for the node if freeze LOD system is toggled
+                if ( !m_rendererOptions.freezeLodSystem ) {
+                    node.currentLod = std::min( ( int )( mesh.indexCount.size( ) - 1 ), visibility.lodLevelToRender );
+                }
+
+                mdc.indexBuffer = mesh.indexBuffer[node.currentLod].buffer;
+                mdc.indexCount = mesh.indexCount[node.currentLod];
+                m_drawCommands.push_back( mdc );
+            }
+            else {
                 m_drawCommands.push_back( mdc );
             }
         }
@@ -1378,7 +1520,9 @@ void VulkanEngine::UpdateScene( ) {
     m_shadowMapCommands.clear( );
     {
         auto start_commands = utils::GetTime( );
-        CreateDrawCommands( *m_gfx.get( ), *m_scene, *( m_scene->topNodes[0].get( ) ) );
+        for ( auto &node : m_scene->topNodes ) {
+            CreateDrawCommands( *m_gfx.get( ), *m_scene, *node );
+        }
         auto end_commands = utils::GetTime( );
         m_visualProfiler.AddTimer( "Create Commands", end_commands - start_commands, utils::VisualProfiler::Cpu );
     }

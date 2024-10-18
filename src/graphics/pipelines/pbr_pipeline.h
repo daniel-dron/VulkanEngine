@@ -55,7 +55,7 @@ private:
     mutable GpuBuffer m_gpuPointLights = { };
 
     IblSettings m_ibl = {
-            .irradianceFactor = 0.05f,
+            .irradianceFactor = 0.3f,
             .radianceFactor = 0.05f,
             .brdfFactor = 1.0f,
     };

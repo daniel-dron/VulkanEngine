@@ -104,7 +104,6 @@ DrawStats GBufferPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std:
 
         vkCmdDrawIndexed( cmd, draw_command.indexCount, 1, 0, 0, 0 );
 
-        stats.drawcallCount++;
         stats.triangleCount += draw_command.indexCount / 3;
     }
 

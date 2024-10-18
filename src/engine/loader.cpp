@@ -26,6 +26,8 @@
 #include <graphics/image_codex.h>
 #include <graphics/light.h>
 
+#include <meshoptimizer.h>
+
 #include "vk_engine.h"
 
 static std::vector<Material> LoadMaterials( const aiScene *scene ) {
@@ -185,20 +187,51 @@ static MeshId LoadMesh( GfxDevice &gfx, aiMesh *aiMesh ) {
 
         vertex.normal = { aiMesh->mNormals[i].x, aiMesh->mNormals[i].y, aiMesh->mNormals[i].z };
 
-        vertex.uvX = aiMesh->mTextureCoords[0][i].x;
-        vertex.uvY = aiMesh->mTextureCoords[0][i].y;
+        if ( !aiMesh->mTextureCoords[0] ) {
+            vertex.uvX = 0.0f;
+            vertex.uvY = 0.0f;
+        }
+        else {
+            vertex.uvX = aiMesh->mTextureCoords[0][i].x;
+            vertex.uvY = aiMesh->mTextureCoords[0][i].y;
+        }
 
-        vertex.tangent = { aiMesh->mTangents[i].x, -aiMesh->mTangents[i].y, aiMesh->mTangents[i].z };
-        vertex.biTangent = { aiMesh->mBitangents[i].x, -aiMesh->mBitangents[i].y, aiMesh->mBitangents[i].z };
+        if ( aiMesh->mTangents != nullptr && aiMesh->mBitangents != nullptr ) {
+            vertex.tangent = { aiMesh->mTangents[i].x, -aiMesh->mTangents[i].y, aiMesh->mTangents[i].z };
+            vertex.biTangent = { aiMesh->mBitangents[i].x, -aiMesh->mBitangents[i].y, aiMesh->mBitangents[i].z };
+        }
         mesh.vertices.push_back( vertex );
     }
 
-    mesh.indices.reserve( aiMesh->mNumFaces * 3 );
+    std::vector<uint32_t> indices;
+    indices.reserve( aiMesh->mNumFaces * 3 );
     for ( auto i = 0; i < aiMesh->mNumFaces; i++ ) {
-        auto face = aiMesh->mFaces[i];
-        mesh.indices.push_back( face.mIndices[0] );
-        mesh.indices.push_back( face.mIndices[1] );
-        mesh.indices.push_back( face.mIndices[2] );
+        auto &face = aiMesh->mFaces[i];
+        indices.push_back( face.mIndices[0] );
+        indices.push_back( face.mIndices[1] );
+        indices.push_back( face.mIndices[2] );
+    }
+    mesh.indices.push_back( indices );
+
+
+    // Generate max 6 LODS. meshop_simplify will return an empty index buffer if it can no longer simplify the mesh.
+    // Whenever we query for LODs later, we need to be careful and check how many indexbuffers the vector actually has.
+    for ( auto i = 1; i < 6; i++ ) {
+        float ratio = std::pow( 0.5f, static_cast<float>( i ) );
+        size_t target_index_count = size_t( mesh.indices[0].size( ) * ratio );
+        float target_error = 1e-2f;
+
+        std::vector<uint32_t> lod( mesh.indices[0].size( ) );
+        float lod_error = 0.f;
+        lod.resize( meshopt_simplify( &lod[0], indices.data( ), mesh.indices[0].size( ), &mesh.vertices[0].position.x,
+                                      mesh.vertices.size( ), sizeof( Mesh::Vertex ), target_index_count, target_error,
+                                      /* options= */ 0, &lod_error ) );
+        // We can no longer simplify the mesh.
+        if ( lod.size( ) == 0 ) {
+            break;
+        }
+
+        mesh.indices.push_back( lod );
     }
 
     mesh.aabb = {

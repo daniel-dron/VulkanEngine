@@ -111,7 +111,7 @@ GfxDevice::Result<> GfxDevice::Init( SDL_Window *window ) {
     // descriptor pool
     std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> ratios = { { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1.0f },
                                                                        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1.0f } };
-    setPool.Init( device, 10, ratios );
+    setPool.Init( device, 100, ratios );
 
     executor.Init( this );
 

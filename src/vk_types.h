@@ -92,7 +92,7 @@ struct GpuBuffer {
 
 struct EngineStats {
 	float frametime;
-	int triangleCount;
+	uint64_t triangleCount;
 	int drawcallCount;
 	float sceneUpdateTime;
 	float meshDrawTime;

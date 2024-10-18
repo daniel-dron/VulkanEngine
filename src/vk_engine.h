@@ -23,6 +23,7 @@
 #include <graphics/pipelines/shadowmap.h>
 #include <graphics/pipelines/skybox_pipeline.h>
 #include <graphics/pipelines/wireframe_pipeline.h>
+#include <imgui_impl_sdl2.h>
 #include <utils/ImGuiProfilerRenderer.h>
 #include <utils/imgui_console.h>
 #include <vk_types.h>
@@ -30,7 +31,6 @@
 #include "camera/camera.h"
 #include "graphics/gfx_device.h"
 #include "utils/profiler.h"
-#include <imgui_impl_sdl2.h>
 
 class VulkanEngine;
 
@@ -39,10 +39,19 @@ struct RendererOptions {
     bool vsync = true;
     bool renderIrradianceInsteadSkybox = false;
     Vec2 ssaoResolution;
-    bool frustumCulling = true;
-    bool useFrozenFrustum = false;
-    bool reRenderShadowMaps = false;
-    Frustum lastSavedFrustum = { };
+
+    bool reRenderShadowMaps     = false;    // whether to rerender the shadow map every frame.
+
+    // Frustum settings
+    bool frustumCulling         = true;     // Turn on/off the entire culling system checks
+    bool useFrozenFrustum       = false;    // Toggle the usage of the last saved frustum   
+    Frustum lastSavedFrustum    = { };      // The frustum to be used when frustum checks are frozen.
+                                            // Used for debug purposes
+
+    // LODs
+    bool lodSystem              = true;     // Toggle LOD system usage
+    bool freezeLodSystem        = false;    // Will save the currently used LOD for each node in the scene
+                                            // and use those instead.
 };
 
 class VulkanEngine {
@@ -72,9 +81,11 @@ private:
     void ConstructBlurPipeline( );
     void ActuallyConstructBlurPipeline( );
 
-    void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, const Node &node );
+    void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, Node &node );
+    VisibilityLODResult VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
+                                                const Frustum &frustum );
 
-    void GBufferPass( VkCommandBuffer cmd ) const;
+    void GBufferPass( VkCommandBuffer cmd );
     void SsaoPass( VkCommandBuffer cmd ) const;
     void PbrPass( VkCommandBuffer cmd ) const;
     void SkyboxPass( VkCommandBuffer cmd ) const;
@@ -92,7 +103,7 @@ private:
     bool m_isInitialized{ false };
     bool m_stopRendering{ false };
     VkExtent2D m_windowExtent{ WIDTH, HEIGHT };
-    EngineStats m_stats = { };
+    mutable EngineStats m_stats = { };
 
     SDL_Window *m_window{ nullptr };
 

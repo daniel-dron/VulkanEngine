@@ -9,6 +9,7 @@ add_library(stb_image INTERFACE)
 add_subdirectory(assimp)
 add_subdirectory(fmt EXCLUDE_FROM_ALL)
 add_subdirectory(SDL EXCLUDE_FROM_ALL)
+add_subdirectory(meshoptimizer)
 
 target_sources(vkbootstrap PRIVATE 
   vkbootstrap/VkBootstrap.h

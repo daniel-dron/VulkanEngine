@@ -118,6 +118,7 @@ float CalculateShadowForDirectionalLight(DirectionalLight light, vec3 position_w
 
 vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, vec3 normal, vec3 view_dir) {
     float ssao = sampleTexture2DLinear(pc.ssao_tex, in_uvs).r;
+    ssao = 1.0f;
 
     vec3 N = normal;
     vec3 V = view_dir;

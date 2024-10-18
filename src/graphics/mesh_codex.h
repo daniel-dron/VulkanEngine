@@ -23,12 +23,17 @@ struct AABB {
 };
 
 struct GpuMesh {
-    GpuBuffer indexBuffer;
+    // List of index buffers. One for each LOD level. Level 0 is the original mesh.
+    // The amount of LODs is mesh dependent. Some bigger and more complex meshes will
+    // have more LODs. Recommended to use std::min(indexBuffer.size() - 1, desiredLod)
+    // to access the LOD safely
+    std::vector<GpuBuffer> indexBuffer;
     GpuBuffer vertexBuffer;
 
     AABB aabb;
 
-    uint32_t indexCount;
+    // List of index count for each index buffer. One for each LOD level. Level 0 is the original mesh.
+    std::vector<uint32_t> indexCount;
     VkDeviceAddress vertexBufferAddress;
 };
 
@@ -45,7 +50,7 @@ struct Mesh {
     };
 
     std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
+    std::vector<std::vector<uint32_t>> indices;
 
     AABB aabb;
 };
