@@ -180,6 +180,18 @@ void GfxDevice::Cleanup( ) {
 
 VkDescriptorSet GfxDevice::AllocateSet( VkDescriptorSetLayout layout ) { return setPool.Allocate( device, layout ); }
 
+MultiDescriptorSet GfxDevice::AllocateMultiSet( VkDescriptorSetLayout layout ) {
+    std::vector<VkDescriptorSet> sets;
+    for ( auto i = 0; i < swapchain.FrameOverlap; i++ ) {
+        sets.push_back( AllocateSet( layout ) );
+    }
+
+    MultiDescriptorSet md_set;
+    md_set.m_sets = sets;
+
+    return md_set;
+}
+
 VkDescriptorSetLayout GfxDevice::GetBindlessLayout( ) const { return imageCodex.GetBindlessLayout( ); }
 
 VkDescriptorSet GfxDevice::GetBindlessSet( ) const { return imageCodex.GetBindlessSet( ); }

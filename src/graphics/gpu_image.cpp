@@ -22,8 +22,8 @@
 
 GpuImage::GpuImage( GfxDevice *gfx, const std::string &name, void *data, const VkExtent3D extent, const VkFormat format,
                     const ImageType imageType, const VkImageUsageFlags usage, bool generateMipmaps ) :
-    m_gfx( gfx ), m_name( name ), m_extent( extent ), m_format( format ), m_usage( usage ),
-    m_mipmapped( generateMipmaps ) {
+    m_gfx( gfx ),
+    m_name( name ), m_extent( extent ), m_format( format ), m_usage( usage ), m_mipmapped( generateMipmaps ) {
 
     assert( data != nullptr );
     assert( extent.width > 0 && extent.height > 0 );
@@ -41,8 +41,8 @@ GpuImage::GpuImage( GfxDevice *gfx, const std::string &name, void *data, const V
 
 GpuImage::GpuImage( GfxDevice *gfx, const std::string &name, VkExtent3D extent, VkFormat format, ImageType imageType,
                     VkImageUsageFlags usage, bool generateMipmaps ) :
-    m_gfx( gfx ), m_name( name ), m_extent( extent ), m_format( format ), m_usage( usage ),
-    m_mipmapped( generateMipmaps ) {
+    m_gfx( gfx ),
+    m_name( name ), m_extent( extent ), m_format( format ), m_usage( usage ), m_mipmapped( generateMipmaps ) {
 
     assert( extent.width > 0 && extent.height > 0 );
     assert( !name.empty( ) );
@@ -85,7 +85,7 @@ void GpuImage::Resize( VkExtent3D size ) {
 
     if ( m_type == T2D ) {
         ActuallyCreateEmptyImage2D( );
-        
+
         const bool depth = m_format == VK_FORMAT_D32_SFLOAT;
         m_gfx->Execute( [&]( VkCommandBuffer cmd ) {
             image::TransitionLayout( cmd, original_image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -610,4 +610,11 @@ void image::Blit( VkCommandBuffer cmd, VkImage srcImage, VkExtent2D srcExtent, V
     };
 
     vkCmdBlitImage2( cmd, &blit_info );
+}
+
+MultiFrameGpuImage::MultiFrameGpuImage( const std::vector<ImageId> &images ) { m_frames = images; }
+
+ImageId MultiFrameGpuImage::GetCurrentImage( ) {
+    auto id = VulkanEngine::Get( ).m_gfx->swapchain.frameNumber % Swapchain::FrameOverlap;
+    return m_frames[id];
 }

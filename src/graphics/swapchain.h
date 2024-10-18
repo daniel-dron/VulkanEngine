@@ -27,7 +27,7 @@ public:
 	template<typename T = void>
 	using Result = std::expected<void, Error>;
 
-    static constexpr unsigned int FrameOverlap = 1;
+    static constexpr unsigned int FrameOverlap = 2;
 
 	struct FrameData {
 		VkCommandPool pool;

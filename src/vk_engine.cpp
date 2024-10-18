@@ -332,15 +332,18 @@ void VulkanEngine::ActuallyConstructSsaoPipeline( ) {
     m_ssaoPipeline.AddDescriptorSetLayout( 2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
     m_ssaoPipeline.Build( *m_gfx, shader.handle, "ssao compute" );
 
-    m_ssaoSet = m_gfx->AllocateSet( m_ssaoPipeline.GetLayout( ) );
+    m_ssaoSet = m_gfx->AllocateMultiSet( m_ssaoPipeline.GetLayout( ) );
 
-    auto &ssao_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).ssao );
     DescriptorWriter writer;
     writer.WriteBuffer( 0, m_ssaoBuffer.buffer, sizeof( SsaoSettings ), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
     writer.WriteBuffer( 1, m_ssaoKernel.buffer, sizeof( Vec3 ) * 64, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-    writer.WriteImage( 2, ssao_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
-                       VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-    writer.UpdateSet( m_gfx->device, m_ssaoSet );
+
+    for ( auto i = 0; i < m_gfx->swapchain.FrameOverlap; i++ ) {
+        auto &ssao_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.frames[i].ssao );
+        writer.WriteImage( 2, ssao_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
+                           VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+        writer.UpdateSet( m_gfx->device, m_ssaoSet.m_sets[i] );
+    }
 }
 
 void VulkanEngine::ConstructBlurPipeline( ) {
@@ -361,7 +364,7 @@ void VulkanEngine::ActuallyConstructBlurPipeline( ) {
     m_blurPipeline.AddPushConstantRange( sizeof( BlurSettings ) );
     m_blurPipeline.Build( *m_gfx, shader.handle, "blur pipeline" );
 
-    m_blurSet = m_gfx->AllocateSet( m_blurPipeline.GetLayout( ) );
+    m_blurSet = m_gfx->AllocateMultiSet( m_blurPipeline.GetLayout( ) );
 }
 
 void VulkanEngine::ResizeSwapchain( uint32_t width, uint32_t height ) {
@@ -615,7 +618,7 @@ void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
 
     m_ssaoPipeline.Bind( cmd );
     m_ssaoPipeline.BindDescriptorSet( cmd, bindless, 0 );
-    m_ssaoPipeline.BindDescriptorSet( cmd, m_ssaoSet, 1 );
+    m_ssaoPipeline.BindDescriptorSet( cmd, m_ssaoSet.GetCurrentFrame( ), 1 );
     m_ssaoPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16,
                              6 );
 
@@ -624,14 +627,14 @@ void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
     // Blur
     DescriptorWriter writer;
     writer.WriteImage( 0, output.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-    writer.UpdateSet( m_gfx->device, m_blurSet );
+    writer.UpdateSet( m_gfx->device, m_blurSet.GetCurrentFrame( ) );
 
     m_blurSettings.sourceTex = output.GetId( );
     m_blurSettings.size = 2;
 
     m_blurPipeline.Bind( cmd );
     m_blurPipeline.BindDescriptorSet( cmd, bindless, 0 );
-    m_blurPipeline.BindDescriptorSet( cmd, m_blurSet, 1 );
+    m_blurPipeline.BindDescriptorSet( cmd, m_blurSet.GetCurrentFrame( ), 1 );
     m_blurPipeline.PushConstants( cmd, sizeof( BlurSettings ), &m_blurSettings );
     m_blurPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16,
                              6 );
@@ -725,7 +728,7 @@ void VulkanEngine::PostProcessPass( VkCommandBuffer cmd ) const {
 
     m_postProcessPipeline.Bind( cmd );
     m_postProcessPipeline.BindDescriptorSet( cmd, bindless, 0 );
-    m_postProcessPipeline.BindDescriptorSet( cmd, m_postProcessSet, 1 );
+    m_postProcessPipeline.BindDescriptorSet( cmd, m_postProcessSet.GetCurrentFrame( ), 1 );
     m_postProcessPipeline.PushConstants( cmd, sizeof( PostProcessConfig ), &m_ppConfig );
     m_postProcessPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16,
                                     ( output.GetExtent( ).height + 15 ) / 16, 6 );
@@ -768,27 +771,31 @@ void VulkanEngine::InitDefaultData( ) {
         m_postProcessPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
         m_postProcessPipeline.AddPushConstantRange( sizeof( PostProcessConfig ) );
         m_postProcessPipeline.Build( *m_gfx, post_process_shader.handle, "post process compute" );
-        m_postProcessSet = m_gfx->AllocateSet( m_postProcessPipeline.GetLayout( ) );
+        m_postProcessSet = m_gfx->AllocateMultiSet( m_postProcessPipeline.GetLayout( ) );
 
         // TODO: this every frame for more than one inflight frame
-        DescriptorWriter writer;
-        auto &out_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
-        writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
-                           VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-        writer.UpdateSet( m_gfx->device, m_postProcessSet );
+        for ( auto i = 0; i < Swapchain::FrameOverlap; i++ ) {
+            DescriptorWriter writer;
+            auto &out_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
+            writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
+                               VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+            writer.UpdateSet( m_gfx->device, m_postProcessSet.m_sets[i] );
+        }
     } );
 
     m_postProcessPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
     m_postProcessPipeline.AddPushConstantRange( sizeof( PostProcessConfig ) );
     m_postProcessPipeline.Build( *m_gfx, post_process_shader.handle, "post process compute" );
-    m_postProcessSet = m_gfx->AllocateSet( m_postProcessPipeline.GetLayout( ) );
+    m_postProcessSet = m_gfx->AllocateMultiSet( m_postProcessPipeline.GetLayout( ) );
 
     // TODO: this every frame for more than one inflight frame
-    DescriptorWriter writer;
-    auto &out_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
-    writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
-                       VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-    writer.UpdateSet( m_gfx->device, m_postProcessSet );
+    for ( auto i = 0; i < Swapchain::FrameOverlap; i++ ) {
+        DescriptorWriter writer;
+        auto &out_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
+        writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
+                           VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
+        writer.UpdateSet( m_gfx->device, m_postProcessSet.m_sets[i] );
+    }
 
     // SSAO pipeline
     ConstructSsaoPipeline( );
@@ -1160,11 +1167,12 @@ void VulkanEngine::Run( ) {
                         ImGui::Checkbox( "SSAO", &m_ssaoSettings.enable );
                         if ( ImGui::DragFloat2( "Resolution", &m_rendererOptions.ssaoResolution.x, 1, 100,
                                                 m_gfx->swapchain.extent.width ) ) {
-                            auto &image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).ssao );
-                            image.Resize( VkExtent3D{ static_cast<uint32_t>( m_rendererOptions.ssaoResolution.x ),
-                                                      static_cast<uint32_t>( m_rendererOptions.ssaoResolution.y ),
-                                                      1 } );
-
+                            for ( auto i = 0; i < Swapchain::FrameOverlap; i++ ) {
+                                auto &image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.frames[i].ssao );
+                                image.Resize( VkExtent3D{ static_cast<uint32_t>( m_rendererOptions.ssaoResolution.x ),
+                                                          static_cast<uint32_t>( m_rendererOptions.ssaoResolution.y ),
+                                                          1 } );
+                            }
                             VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence,
                                                        true, 1000000000 ) );
                             m_ssaoPipeline.Cleanup( *m_gfx );

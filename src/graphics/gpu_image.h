@@ -115,6 +115,36 @@ private:
     std::string m_name;
 };
 
+class MultiFrameGpuImage {
+public:
+    MultiFrameGpuImage( const std::vector<ImageId> &images );
+
+    // delete copy constructors
+    MultiFrameGpuImage( const MultiFrameGpuImage & ) = delete;
+    MultiFrameGpuImage &operator=( const MultiFrameGpuImage & ) = delete;
+
+    MultiFrameGpuImage( MultiFrameGpuImage &&other ) noexcept :
+        m_frames( std::move( other.m_frames ) ), m_id( other.m_id ) {
+        other.m_id = -1;
+    }
+    MultiFrameGpuImage &operator=( MultiFrameGpuImage &&other ) noexcept {
+        if ( this != &other ) {
+            m_frames = std::move( other.m_frames );
+            m_id = other.m_id;
+        }
+        return *this;
+    }
+
+    ImageId GetCurrentImage( );
+
+    MultiFrameImageId GetId( ) const { return m_id; }
+    void SetId( MultiFrameImageId id ) { m_id = id; }
+
+private:
+    std::vector<ImageId> m_frames;
+    MultiFrameImageId m_id = -1;
+};
+
 namespace image {
     size_t CalculateSize( VkExtent3D extent, VkFormat format );
 

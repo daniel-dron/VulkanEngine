@@ -101,6 +101,7 @@ public:
 	void Cleanup( );
 
 	VkDescriptorSet AllocateSet( VkDescriptorSetLayout layout );
+    MultiDescriptorSet AllocateMultiSet( VkDescriptorSetLayout layout );
 
 	VkDescriptorSetLayout GetBindlessLayout( ) const;
 	VkDescriptorSet GetBindlessSet( ) const;

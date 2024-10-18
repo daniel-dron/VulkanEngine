@@ -24,7 +24,8 @@ public:
     void AddBinding( uint32_t binding, VkDescriptorType type );
     void Clear( );
 
-    VkDescriptorSetLayout Build( VkDevice device, VkShaderStageFlags shaderStages, VkDescriptorSetLayoutCreateFlags flags = 0 );
+    VkDescriptorSetLayout Build( VkDevice device, VkShaderStageFlags shaderStages,
+                                 VkDescriptorSetLayoutCreateFlags flags = 0 );
 
 private:
     std::vector<VkDescriptorSetLayoutBinding> m_bindings;
@@ -73,16 +74,24 @@ class DescriptorWriter {
 public:
     std::deque<VkDescriptorImageInfo> imageInfos;
     std::deque<VkDescriptorBufferInfo> bufferInfos;
-    std::vector<VkWriteDescriptorSet> writes;
+    mutable std::vector<VkWriteDescriptorSet> writes;
 
     void WriteImage( int binding, VkImageView image, VkSampler sampler, VkImageLayout layout, VkDescriptorType type );
     void WriteBuffer( int binding, VkBuffer buffer, size_t size, size_t offset, VkDescriptorType type );
 
     void Clear( );
-    void UpdateSet( VkDevice device, VkDescriptorSet set );
+    void UpdateSet( VkDevice device, VkDescriptorSet set ) const;
+};
+
+class MultiDescriptorSet {
+public:
+    VkDescriptorSet GetCurrentFrame( ) const;
+
+    std::vector<VkDescriptorSet> m_sets;
 };
 
 namespace descriptor {
     VkDescriptorSetLayoutBinding CreateLayoutBinding( uint32_t binding, VkDescriptorType type );
-    VkDescriptorSetLayout CreateDescriptorSetLayout( VkDevice device, VkDescriptorSetLayoutBinding *bindings, uint32_t count, VkDescriptorSetLayoutCreateFlags flags );
+    VkDescriptorSetLayout CreateDescriptorSetLayout( VkDevice device, VkDescriptorSetLayoutBinding *bindings,
+                                                     uint32_t count, VkDescriptorSetLayoutCreateFlags flags );
 } // namespace descriptor

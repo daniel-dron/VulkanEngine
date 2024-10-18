@@ -37,6 +37,9 @@ public:
     ImageId CreateEmptyImage( const std::string &name, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false );
     ImageId CreateCubemap( const std::string &name, VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, int mipmaps = 0 );
 
+    MultiFrameImageId CreateMultiFrameEmptyImage( const std::string &name, VkExtent3D extent, VkFormat format,
+                                                  VkImageUsageFlags usage, bool mipmapped = false );
+
     VkDescriptorSetLayout GetBindlessLayout( ) const;
     VkDescriptorSet GetBindlessSet( ) const;
 
@@ -58,5 +61,6 @@ private:
     ImageId m_checkboard = InvalidImageId;
 
     std::vector<GpuImage> m_images;
+    std::vector<MultiFrameGpuImage> m_multiFrameImages;
     GfxDevice *m_gfx = nullptr;
 };

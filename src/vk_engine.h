@@ -30,6 +30,7 @@
 #include "camera/camera.h"
 #include "graphics/gfx_device.h"
 #include "utils/profiler.h"
+#include <imgui_impl_sdl2.h>
 
 class VulkanEngine;
 
@@ -56,6 +57,7 @@ public:
     void ResizeSwapchain( uint32_t width, uint32_t height );
 
     ImGuiConsole console;
+    std::unique_ptr<GfxDevice> m_gfx;
 
 private:
     void InitSdl( );
@@ -94,7 +96,6 @@ private:
 
     SDL_Window *m_window{ nullptr };
 
-    std::unique_ptr<GfxDevice> m_gfx;
     bool m_dirtSwapchain = false;
 
     DeletionQueue m_mainDeletionQueue;
@@ -118,7 +119,7 @@ private:
     float m_backupGamma = 2.2f;
     mutable PostProcessConfig m_ppConfig = { };
     BindlessCompute m_postProcessPipeline = { };
-    VkDescriptorSet m_postProcessSet = nullptr;
+    MultiDescriptorSet m_postProcessSet;
 
     // ssao
     struct SsaoSettings {
@@ -135,7 +136,7 @@ private:
     };
     mutable SsaoSettings m_ssaoSettings = { };
     BindlessCompute m_ssaoPipeline = { };
-    VkDescriptorSet m_ssaoSet = nullptr;
+    MultiDescriptorSet m_ssaoSet;
     GpuBuffer m_ssaoBuffer = { };
     GpuBuffer m_ssaoKernel = { };
 
@@ -146,7 +147,7 @@ private:
     };
     mutable BlurSettings m_blurSettings = { };
     BindlessCompute m_blurPipeline = { };
-    VkDescriptorSet m_blurSet = nullptr;
+    MultiDescriptorSet m_blurSet;
 
     // ----------
     // scene
