@@ -97,7 +97,8 @@ GpuMesh MeshCodex::UploadMesh( GfxDevice &gfx, const Mesh &mesh ) const {
         GpuBuffer staging = gfx.Allocate( mesh.indices[i].size( ) * sizeof( uint32_t ),
                                           VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, "" );
         GpuBuffer index_buffer_lod = gfx.Allocate( mesh.indices[i].size( ) * sizeof( uint32_t ),
-                                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, "" );
+                                                   VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                   VMA_MEMORY_USAGE_GPU_ONLY, "" );
 
         staging.Upload( gfx, mesh.indices[i].data( ), sizeof( uint32_t ) * mesh.indices[i].size( ) );
 

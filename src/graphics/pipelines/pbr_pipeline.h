@@ -14,6 +14,7 @@
 #pragma once
 
 #include <graphics/gbuffer.h>
+#include <graphics/descriptors.h>
 #include "pipeline.h"
 
 class PbrPipeline : public Pipeline {
@@ -28,7 +29,7 @@ private:
     void Reconstruct( GfxDevice &gfx );
 
     VkDescriptorSetLayout m_ubLayout = nullptr;
-    VkDescriptorSet m_set = nullptr;
+    MultiDescriptorSet m_sets;
 
     struct PushConstants {
         VkDeviceAddress sceneDataAddress;

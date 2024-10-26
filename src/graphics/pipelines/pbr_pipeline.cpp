@@ -74,8 +74,9 @@ DrawStats PbrPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, const GpuScene
     writer.WriteBuffer( 0, m_gpuIbl.buffer, sizeof( IblSettings ), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
     writer.WriteBuffer( 1, m_gpuDirectionalLights.buffer, sizeof( GpuDirectionalLight ) * 10, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
     writer.WriteBuffer( 2, m_gpuPointLights.buffer, sizeof( GpuPointLightData ) * 10, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-    writer.UpdateSet( gfx.device, m_set );
-    vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 1, 1, &m_set, 0, nullptr );
+    auto set = m_sets.GetCurrentFrame( );
+    writer.UpdateSet( gfx.device, set );
+    vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 1, 1, &set, 0, nullptr );
 
     auto &target_image = gfx.imageCodex.GetImage( gfx.swapchain.GetCurrentFrame( ).hdrColor );
 
@@ -149,7 +150,7 @@ void PbrPipeline::Reconstruct( GfxDevice &gfx ) {
     layout_builder.AddBinding( 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
     m_ubLayout = layout_builder.Build( gfx.device, VK_SHADER_STAGE_FRAGMENT_BIT );
 
-    m_set = gfx.setPool.Allocate( gfx.device, m_ubLayout );
+    m_sets = gfx.AllocateMultiSet( m_ubLayout );
 
     auto bindless_layout = gfx.GetBindlessLayout( );
 

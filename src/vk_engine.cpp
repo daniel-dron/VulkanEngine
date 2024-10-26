@@ -746,7 +746,7 @@ void VulkanEngine::PostProcessPass( VkCommandBuffer cmd ) const {
     m_postProcessPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16,
                                     ( output.GetExtent( ).height + 15 ) / 16, 6 );
 
-    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+    //output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 }
 
 void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
