@@ -18,7 +18,7 @@
 #include "input.h"
 
 #include <imgui_impl_sdl2.h>
-#include <tracy/tracy/Tracy.hpp>
+#include <tracy/Tracy.hpp>
 
 #include "../vk_engine.h"
 

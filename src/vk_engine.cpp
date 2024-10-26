@@ -34,7 +34,6 @@
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
 
-#define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 
 #define TRACY_ENABLE
@@ -43,8 +42,7 @@
 #include <graphics/pipelines/compute_pipeline.h>
 #include "engine/input.h"
 #include "imguizmo/ImGuizmo.h"
-#include "tracy/TracyClient.cpp"
-#include "tracy/tracy/Tracy.hpp"
+#include <tracy/Tracy.hpp>
 
 #include <engine/loader.h>
 #include <glm/gtx/euler_angles.hpp>

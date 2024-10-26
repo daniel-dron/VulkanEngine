@@ -1,34 +1,41 @@
+
+add_subdirectory(SDL EXCLUDE_FROM_ALL)
+
 find_package(Vulkan REQUIRED)
 
-add_library(vkbootstrap STATIC)
-add_library(glm INTERFACE)
+# VMA is a header only lib
 add_library(vma INTERFACE)
+target_include_directories(vma INTERFACE vma)
 
-add_library(stb_image INTERFACE)
-
-add_subdirectory(assimp)
-add_subdirectory(fmt EXCLUDE_FROM_ALL)
-add_subdirectory(SDL EXCLUDE_FROM_ALL)
-add_subdirectory(meshoptimizer)
-
+# VkBootstrap
+add_library(vkbootstrap STATIC)
 target_sources(vkbootstrap PRIVATE 
   vkbootstrap/VkBootstrap.h
   vkbootstrap/VkBootstrap.cpp
-  )
-
-target_include_directories(vkbootstrap PUBLIC vkbootstrap)
-target_link_libraries(vkbootstrap PUBLIC Vulkan::Vulkan ${CMAKE_DL_LIBS})
+)
+target_include_directories(vkbootstrap PUBLIC vkbootstrap ${Vulkan_INCLUDE_DIRS})
+target_link_directories(vkbootstrap PUBLIC Vulkan::Vulkan ${CMAKE_DL_LIBS})
 set_property(TARGET vkbootstrap PROPERTY CXX_STANDARD 20)
 
-#both vma and glm and header only libs so we only need the include path
-target_include_directories(vma INTERFACE vma)
+# STB IMAGE
+add_library(stb_image INTERFACE)
+target_include_directories(stb_image INTERFACE stb_image)
 
+# Assimp
+add_subdirectory(assimp EXCLUDE_FROM_ALL)
+
+# FMT
+add_subdirectory(fmt EXCLUDE_FROM_ALL)
+
+# Meshoptimizer
+add_subdirectory(meshoptimizer)
+
+# GLM
+add_library(glm INTERFACE)
 target_include_directories(glm INTERFACE glm)
 
+# ImGui
 add_library(imgui STATIC)
-
-target_include_directories(imgui PUBLIC imgui)
-
 target_sources(imgui PRIVATE 
   imgui/imgui.h
   imgui/imgui.cpp
@@ -39,8 +46,19 @@ target_sources(imgui PRIVATE
   imgui/imgui_tables.cpp
   imgui/imgui_impl_vulkan.cpp
   imgui/imgui_impl_sdl2.cpp
-  )
-
+)
+target_include_directories(imgui PUBLIC imgui)
 target_link_libraries(imgui PUBLIC Vulkan::Vulkan SDL2::SDL2)
 
-target_include_directories(stb_image INTERFACE stb_image)
+# Volk
+add_library(volk STATIC)
+target_sources(volk PRIVATE volk/volk.h volk/volk.c)
+target_include_directories(volk PUBLIC volk ${Vulkan_INCLUDE_DIRS})
+
+# Tracy Profiler
+add_library(tracy STATIC)
+target_sources(tracy PRIVATE 
+    tracy/TracyClient.cpp
+)
+target_compile_definitions(tracy PUBLIC TRACY_ENABLE)
+target_include_directories(tracy PUBLIC tracy)

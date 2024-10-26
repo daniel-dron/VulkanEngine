@@ -1,46 +1,27 @@
-﻿# CMakeList.txt : CMake project for vulkan_guide, include source and define
-# project specific logic here.
-#
-cmake_minimum_required (VERSION 3.8)
+﻿cmake_minimum_required(VERSION 3.8.0 FATAL_ERROR)
 
-project ("vulkan_guide")
+project(TwilightEngine VERSION 0.0.1 LANGUAGES CXX C)
 
 find_package(Vulkan REQUIRED)
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+foreach(OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
+    string(TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${PROJECT_SOURCE_DIR}/bin/${OUTPUTCONFIG})
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${PROJECT_SOURCE_DIR}/bin/${OUTPUTCONFIG})
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${PROJECT_SOURCE_DIR}/bin/${OUTPUTCONFIG})
+endforeach()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-add_subdirectory(third_party)
-
-set (CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
-set (CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
 set (TRACY_ENABLE TRUE)
 
+# Set this project as startup for Visual Studio
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT TwilightEngine)
+
+find_package(Vulkan REQUIRED)
+
+add_subdirectory(third_party)
 add_subdirectory(src)
-
-find_program(GLSL_VALIDATOR glslangValidator)
-
-file(GLOB_RECURSE GLSL_SOURCE_FILES
-    "${PROJECT_SOURCE_DIR}/shaders/*.frag"
-    "${PROJECT_SOURCE_DIR}/shaders/*.vert"
-    "${PROJECT_SOURCE_DIR}/shaders/*.comp"
-    )
-
-foreach(GLSL ${GLSL_SOURCE_FILES})
-  message(STATUS "BUILDING SHADER")
-  get_filename_component(FILE_NAME ${GLSL} NAME)
-  set(SPIRV "${PROJECT_SOURCE_DIR}/shaders/${FILE_NAME}.spv")
-  message(STATUS ${GLSL})
-  add_custom_command(
-    OUTPUT ${SPIRV}
-    COMMAND ${GLSL_VALIDATOR} -V -gVS ${GLSL} -o ${SPIRV}
-    DEPENDS ${GLSL})
-  list(APPEND SPIRV_BINARY_FILES ${SPIRV})
-endforeach(GLSL)
-
-add_custom_target(
-    Shaders 
-    DEPENDS ${SPIRV_BINARY_FILES}
-    )
-
-source_group(Shaders "shaders" FILES ${GLSL_SOURCE_FILES})

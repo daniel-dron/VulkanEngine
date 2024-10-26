@@ -15,7 +15,7 @@
 
 #include <vk_types.h>
 
-#define SHADER_PATH "../../shaders/"
+#define SHADER_PATH "../shaders/"
 #define SHADER_FRAG_EXT ".frag.spv"
 #define SHADER_VERT_EXT ".vert.spv"
 #define SHADER_COMP_EXT ".comp.spv"
