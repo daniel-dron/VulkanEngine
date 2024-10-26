@@ -57,20 +57,20 @@ void utils::VisualProfiler::Render( ImVec2 position, ImVec2 size ) {
     // calculate frame boundries
     // 1 for CPU graph and another for GPU graph
     constexpr int vertical_padding = 10; // 10 px
-    const int graph_height = size.y / 2 - vertical_padding;
+    const f32 graph_height = size.y / 2 - vertical_padding;
 
     auto draw_graph = [&]( const ImVec2 &topLeft, const ImVec2 &bottomRight,
                            std::unordered_map<std::string, FrameDataAggregator> &frameData ) {
         draw_list->AddRectFilled( topLeft, bottomRight, colors::BACKGROUND );
 
         for ( int i = 0; i < bars_amount; i++ ) {
-            int previous_bar_top = 0;
+            f32 previous_bar_top = 0;
 
             for ( auto &aggregator : frameData | std::views::values ) {
-                const int index = aggregator.timers.Size( ) - i - 1;
+                const u64 index = aggregator.timers.Size( ) - i - 1;
 
                 const auto time = aggregator.timers[index];
-                int bar_height = graph_height * ( time / max_time );
+                f32 bar_height = ( f32 )( graph_height * ( time / max_time ) );
 
                 if ( bar_height > graph_height ) {
                     bar_height = graph_height;

@@ -22,6 +22,9 @@
 #include <vulkan/vulkan_core.h>
 
 #include <graphics/descriptors.h>
+#include <imgui.h>
+#include <imgui_impl_sdl2.h>
+#include <imgui_impl_vulkan.h>
 #include "SDL_events.h"
 #include "SDL_stdinc.h"
 #include "SDL_video.h"
@@ -30,19 +33,15 @@
 #include "glm/gtx/integer.hpp"
 #include "glm/gtx/matrix_decompose.hpp"
 #include "glm/packing.hpp"
-#include <imgui.h>
-#include <imgui_impl_sdl2.h>
-#include <imgui_impl_vulkan.h>
 
 #include "vk_mem_alloc.h"
 
-#define TRACY_ENABLE
 #include <glm/gtc/type_ptr.hpp>
 
 #include <graphics/pipelines/compute_pipeline.h>
+#include <tracy/Tracy.hpp>
 #include "engine/input.h"
 #include "imguizmo/ImGuizmo.h"
-#include <tracy/Tracy.hpp>
 
 #include <engine/loader.h>
 #include <glm/gtx/euler_angles.hpp>
@@ -336,7 +335,7 @@ void VulkanEngine::ActuallyConstructSsaoPipeline( ) {
     writer.WriteBuffer( 0, m_ssaoBuffer.buffer, sizeof( SsaoSettings ), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
     writer.WriteBuffer( 1, m_ssaoKernel.buffer, sizeof( Vec3 ) * 64, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 
-    for ( auto i = 0; i < m_gfx->swapchain.FrameOverlap; i++ ) {
+    for ( u32 i = 0; i < m_gfx->swapchain.FrameOverlap; i++ ) {
         auto &ssao_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.frames[i].ssao );
         writer.WriteImage( 2, ssao_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
                            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
@@ -424,7 +423,7 @@ void VulkanEngine::Draw( ) {
 
     // Query the pool timings
     if ( m_gfx->swapchain.frameNumber != 0 ) {
-        vkGetQueryPoolResults( m_gfx->device, m_gfx->queryPoolTimestamps, 0, m_gfx->gpuTimestamps.size( ),
+        vkGetQueryPoolResults( m_gfx->device, m_gfx->queryPoolTimestamps, 0, ( u32 )m_gfx->gpuTimestamps.size( ),
                                m_gfx->gpuTimestamps.size( ) * sizeof( uint64_t ), m_gfx->gpuTimestamps.data( ),
                                sizeof( uint64_t ), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT );
 
@@ -468,7 +467,7 @@ void VulkanEngine::Draw( ) {
     VK_CHECK( vkResetCommandBuffer( cmd, 0 ) );
     const auto cmd_begin_info = vk_init::CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
     VK_CHECK( vkBeginCommandBuffer( cmd, &cmd_begin_info ) );
-    vkCmdResetQueryPool( cmd, m_gfx->queryPoolTimestamps, 0, m_gfx->gpuTimestamps.size( ) );
+    vkCmdResetQueryPool( cmd, m_gfx->queryPoolTimestamps, 0, ( u32 )m_gfx->gpuTimestamps.size( ) );
 
     depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
@@ -599,7 +598,7 @@ void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) {
                                         .pNext = nullptr,
                                         .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
                                         .layerCount = 1,
-                                        .colorAttachmentCount = color_attachments.size( ),
+                                        .colorAttachmentCount = ( u32 )color_attachments.size( ),
                                         .pColorAttachments = color_attachments.data( ),
                                         .pDepthAttachment = &depth_attachment,
                                         .pStencilAttachment = nullptr };
@@ -609,7 +608,7 @@ void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) {
     // ----------
     // Call pipeline
     m_stats.triangleCount += m_gBufferPipeline.Draw( *m_gfx, cmd, m_drawCommands, m_sceneData ).triangleCount;
-    m_stats.drawcallCount += m_drawCommands.size( );
+    m_stats.drawcallCount += ( u32 )m_drawCommands.size( );
 
     vkCmdEndRendering( cmd );
 
@@ -744,7 +743,7 @@ void VulkanEngine::PostProcessPass( VkCommandBuffer cmd ) const {
     m_postProcessPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16,
                                     ( output.GetExtent( ).height + 15 ) / 16, 6 );
 
-    //output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+    // output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 }
 
 void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
@@ -849,7 +848,7 @@ void VulkanEngine::InitScene( ) {
 
     // init camera
     if ( m_scene->cameras.empty( ) ) {
-        m_camera = std::make_unique<Camera>( Vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, WIDTH, HEIGHT );
+        m_camera = std::make_unique<Camera>( Vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, ( f32 )WIDTH, ( f32 )HEIGHT );
     }
     else {
         auto &c = m_scene->cameras[0];
@@ -1051,7 +1050,7 @@ void VulkanEngine::Run( ) {
                                           ( viewport_size.y - image_size.y ) * 0.5f );
 
                         ImGui::SetCursorPos( image_pos );
-                        ImGui::Image( reinterpret_cast<ImTextureID>( selected_set ), image_size );
+                        ImGui::Image( ( ImTextureID ) static_cast<uintptr_t>( selected_set ), image_size );
 
                         // Overlay debug
                         {
@@ -1221,7 +1220,7 @@ void VulkanEngine::Run( ) {
 
                             ImGui::Checkbox( "SSAO", &m_ssaoSettings.enable );
                             if ( ImGui::DragFloat2( "Resolution", &m_rendererOptions.ssaoResolution.x, 1, 100,
-                                                    m_gfx->swapchain.extent.width ) ) {
+                                                    ( f32 )m_gfx->swapchain.extent.width ) ) {
                                 for ( auto i = 0; i < Swapchain::FrameOverlap; i++ ) {
                                     auto &image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.frames[i].ssao );
                                     image.Resize( VkExtent3D{
@@ -1299,7 +1298,7 @@ void VulkanEngine::Run( ) {
                                 m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Near", &light.nearPlane );
                                 m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Far", &light.farPlane );
 
-                                ImGui::Image( reinterpret_cast<ImTextureID>( light.shadowMap ),
+                                ImGui::Image( ( ImTextureID ) static_cast<uintptr_t>( light.shadowMap ),
                                               ImVec2( 200.0f, 200.0f ) );
 
                                 ImGui::PopID( );

@@ -30,7 +30,7 @@ void MeshCodex::Cleanup( GfxDevice &gfx ) const {
 MeshId MeshCodex::AddMesh( GfxDevice &gfx, const Mesh &mesh ) {
     const auto gpu_mesh = UploadMesh( gfx, mesh );
 
-    const auto id = m_meshes.size( );
+    const auto id = ( MeshId )m_meshes.size( );
     m_meshes.push_back( gpu_mesh );
 
     return id;
@@ -83,7 +83,7 @@ GpuMesh MeshCodex::UploadMesh( GfxDevice &gfx, const Mesh &mesh ) const {
 
         gpu_mesh.indexBuffer.push_back( index_buffer );
         gpu_mesh.vertexBuffer = vertex_buffer;
-        gpu_mesh.indexCount.push_back( mesh.indices[0].size( ) );
+        gpu_mesh.indexCount.push_back( ( u32 )mesh.indices[0].size( ) );
 
         gfx.Free( staging );
     }
@@ -112,7 +112,7 @@ GpuMesh MeshCodex::UploadMesh( GfxDevice &gfx, const Mesh &mesh ) const {
         } );
 
         gpu_mesh.indexBuffer.push_back( index_buffer_lod );
-        gpu_mesh.indexCount.push_back( mesh.indices[i].size( ) );
+        gpu_mesh.indexCount.push_back( ( u32 )mesh.indices[i].size( ) );
 
         gfx.Free( staging );
     }

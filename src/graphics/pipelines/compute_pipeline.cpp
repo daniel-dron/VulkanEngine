@@ -42,7 +42,7 @@ void BindlessCompute::Build( const GfxDevice &gfx, VkShaderModule shader, const 
     layout_info.pSetLayouts = layouts;
     layout_info.setLayoutCount = 2;
     layout_info.pPushConstantRanges = m_pushConstantRanges.data( );
-    layout_info.pushConstantRangeCount = m_pushConstantRanges.size( );
+    layout_info.pushConstantRangeCount = ( u32 )m_pushConstantRanges.size( );
     VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &m_layout ) );
 
     const VkPipelineShaderStageCreateInfo stage_create_info = {
@@ -102,6 +102,7 @@ void BindlessCompute::PushConstants( VkCommandBuffer cmd, uint32_t size, const v
     vkCmdPushConstants( cmd, m_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, size, value );
 }
 
-void BindlessCompute::Dispatch( VkCommandBuffer cmd, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ ) const {
+void BindlessCompute::Dispatch( VkCommandBuffer cmd, uint32_t groupCountX, uint32_t groupCountY,
+                                uint32_t groupCountZ ) const {
     vkCmdDispatch( cmd, groupCountX, groupCountY, groupCountZ );
 }

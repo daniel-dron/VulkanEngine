@@ -29,7 +29,7 @@ VkDescriptorSetLayout DescriptorLayoutBuilder::Build( VkDevice device, VkShaderS
         b.stageFlags |= shaderStages;
     }
 
-    return descriptor::CreateDescriptorSetLayout( device, m_bindings.data( ), m_bindings.size( ), flags );
+    return descriptor::CreateDescriptorSetLayout( device, m_bindings.data( ), ( u32 )m_bindings.size( ), flags );
 }
 
 void DescriptorAllocator::InitPool( VkDevice device, uint32_t maxSets, std::span<PoolSizeRatio> poolRatios ) {
@@ -75,7 +75,7 @@ VkDescriptorPool DescriptorAllocatorGrowable::GetPool( VkDevice device ) {
         // need to create a new pool
         newPool = CreatePool( device, m_setsPerPool, m_ratios );
 
-        m_setsPerPool = m_setsPerPool * 1.5;
+        m_setsPerPool = ( u32 )( m_setsPerPool * 1.5 );
         if ( m_setsPerPool > 4092 ) {
             m_setsPerPool = 4092;
         }
@@ -113,7 +113,7 @@ void DescriptorAllocatorGrowable::Init( VkDevice device, uint32_t maxSets, std::
 
     const VkDescriptorPool new_pool = CreatePool( device, maxSets, poolRatios );
 
-    m_setsPerPool = maxSets * 1.5; // grow it next allocation
+    m_setsPerPool = ( u32 )( maxSets * 1.5 ); // grow it next allocation
 
     m_readyPools.push_back( new_pool );
 }

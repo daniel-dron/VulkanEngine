@@ -32,7 +32,7 @@ private:
         Vec2 scale;
     };
 
-    ImageId m_fontTextureId = 0;
+    ImTextureID m_fontTextureId = 0;
     std::vector<GpuBuffer> m_indexBuffers;
     std::vector<GpuBuffer> m_vertexBuffers;
 };

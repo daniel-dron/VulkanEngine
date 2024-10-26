@@ -18,21 +18,19 @@
 #include <graphics/gfx_device.h>
 
 void MaterialCodex::Init( GfxDevice &gfx ) {
-    m_materialGpu = gfx.Allocate( MaxMaterials * sizeof( GpuMaterial ), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO, "Material Data Bindless" );
+    m_materialGpu = gfx.Allocate( MaxMaterials * sizeof( GpuMaterial ),
+                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                  VMA_MEMORY_USAGE_AUTO, "Material Data Bindless" );
 
     const VkBufferDeviceAddressInfo address_info = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-            .pNext = nullptr,
-            .buffer = m_materialGpu.buffer };
+            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = m_materialGpu.buffer };
     m_gpuAddress = vkGetBufferDeviceAddress( gfx.device, &address_info );
 }
 
-void MaterialCodex::Cleanup( GfxDevice &gfx ) const {
-    gfx.Free( m_materialGpu );
-}
+void MaterialCodex::Cleanup( GfxDevice &gfx ) const { gfx.Free( m_materialGpu ); }
 
 MaterialId MaterialCodex::AddMaterial( const GfxDevice &gfx, const Material &material ) {
-    const auto id = m_materials.size( );
+    const auto id = ( MaterialId )m_materials.size( );
     m_materials.push_back( material );
 
     GpuMaterial gpu_material = { };
@@ -50,6 +48,4 @@ MaterialId MaterialCodex::AddMaterial( const GfxDevice &gfx, const Material &mat
     return id;
 }
 
-const Material &MaterialCodex::GetMaterial( const MaterialId id ) {
-    return m_materials.at( id );
-}
+const Material &MaterialCodex::GetMaterial( const MaterialId id ) { return m_materials.at( id ); }

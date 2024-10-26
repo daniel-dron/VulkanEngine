@@ -39,20 +39,29 @@ ImGuiPipeline::Result<> ImGuiPipeline::Init( GfxDevice &gfx ) {
         int width = 0;
         int height = 0;
         io.Fonts->GetTexDataAsRGBA32( &data, &width, &height );
-        m_fontTextureId = gfx.imageCodex.LoadImageFromData( "ImGui Font", data, VkExtent3D{ .width = static_cast<uint32_t>( width ), .height = static_cast<uint32_t>( height ), .depth = 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, false );
-        io.Fonts->SetTexID( reinterpret_cast<ImTextureID>( m_fontTextureId ) );
+        m_fontTextureId = ( ImTextureID ) static_cast<uintptr_t>( gfx.imageCodex.LoadImageFromData(
+                "ImGui Font", data,
+                VkExtent3D{ .width = static_cast<uint32_t>( width ),
+                            .height = static_cast<uint32_t>( height ),
+                            .depth = 1 },
+                VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, false ) );
+        io.Fonts->SetTexID( m_fontTextureId );
     }
 
     // buffers
     {
         for ( size_t i = 0; i < Swapchain::FrameOverlap; i++ ) {
-            GpuBuffer index_buffer = gfx.Allocate( sizeof( ImDrawIdx ) * MAX_IDX_COUNT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "imgui index buffer" );
+            GpuBuffer index_buffer =
+                    gfx.Allocate( sizeof( ImDrawIdx ) * MAX_IDX_COUNT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                  VMA_MEMORY_USAGE_CPU_TO_GPU, "imgui index buffer" );
             m_indexBuffers.push_back( index_buffer );
         }
 
         for ( size_t i = 0; i < Swapchain::FrameOverlap; i++ ) {
             GpuBuffer vertex_buffer =
-                    gfx.Allocate( sizeof( ImDrawVert ) * MAX_VTX_COUNT, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "imgui vertex buffer" );
+                    gfx.Allocate( sizeof( ImDrawVert ) * MAX_VTX_COUNT,
+                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                  VMA_MEMORY_USAGE_CPU_TO_GPU, "imgui vertex buffer" );
             m_vertexBuffers.push_back( vertex_buffer );
         }
     }
@@ -84,7 +93,8 @@ ImGuiPipeline::Result<> ImGuiPipeline::Init( GfxDevice &gfx ) {
     builder.SetPolygonMode( VK_POLYGON_MODE_FILL );
     builder.SetCullMode( VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE );
     builder.SetMultisamplingNone( );
-    builder.EnableBlending( VK_BLEND_OP_ADD, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA );
+    builder.EnableBlending( VK_BLEND_OP_ADD, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                            VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA );
     builder.DisableDepthTest( );
 
     builder.SetColorAttachmentFormat( gfx.swapchain.format );
@@ -129,22 +139,26 @@ void ImGuiPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, ImDrawData *drawD
     const auto current_frame_index = gfx.swapchain.frameNumber % Swapchain::FrameOverlap;
     size_t index_offset = 0;
     size_t vertex_offset = 0;
-    for ( size_t i = 0; i < drawData->CmdListsCount; i++ ) {
+    for ( i32 i = 0; i < drawData->CmdListsCount; i++ ) {
         const auto &cmd_list = *drawData->CmdLists[i];
 
         // index
         {
             uint8_t *index_buffer = nullptr;
-            vmaMapMemory( gfx.allocator, m_indexBuffers.at( current_frame_index ).allocation, reinterpret_cast<void **>( &index_buffer ) );
-            memcpy( index_buffer + sizeof( ImDrawIdx ) * index_offset, cmd_list.IdxBuffer.Data, sizeof( ImDrawIdx ) * cmd_list.IdxBuffer.Size );
+            vmaMapMemory( gfx.allocator, m_indexBuffers.at( current_frame_index ).allocation,
+                          reinterpret_cast<void **>( &index_buffer ) );
+            memcpy( index_buffer + sizeof( ImDrawIdx ) * index_offset, cmd_list.IdxBuffer.Data,
+                    sizeof( ImDrawIdx ) * cmd_list.IdxBuffer.Size );
             vmaUnmapMemory( gfx.allocator, m_indexBuffers.at( current_frame_index ).allocation );
         }
 
         // vertex
         {
             uint8_t *vertex_buffer = nullptr;
-            vmaMapMemory( gfx.allocator, m_vertexBuffers.at( current_frame_index ).allocation, reinterpret_cast<void **>( &vertex_buffer ) );
-            memcpy( vertex_buffer + sizeof( ImDrawVert ) * vertex_offset, cmd_list.VtxBuffer.Data, sizeof( ImDrawVert ) * cmd_list.VtxBuffer.Size );
+            vmaMapMemory( gfx.allocator, m_vertexBuffers.at( current_frame_index ).allocation,
+                          reinterpret_cast<void **>( &vertex_buffer ) );
+            memcpy( vertex_buffer + sizeof( ImDrawVert ) * vertex_offset, cmd_list.VtxBuffer.Data,
+                    sizeof( ImDrawVert ) * cmd_list.VtxBuffer.Size );
             vmaUnmapMemory( gfx.allocator, m_vertexBuffers.at( current_frame_index ).allocation );
         }
 
@@ -171,8 +185,8 @@ void ImGuiPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, ImDrawData *drawD
     auto clip_offset = drawData->DisplayPos;
     auto clip_scale = drawData->FramebufferScale;
 
-    size_t global_idx_offset = 0;
-    size_t global_vtx_offset = 0;
+    i32 global_idx_offset = 0;
+    i32 global_vtx_offset = 0;
 
     vkCmdBindIndexBuffer( cmd, m_indexBuffers.at( current_frame_index ).buffer, 0, VK_INDEX_TYPE_UINT16 );
 
@@ -208,12 +222,14 @@ void ImGuiPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, ImDrawData *drawD
 
             bool is_srgb = true;
             const auto &texture = gfx.imageCodex.GetImage( texture_id );
-            if ( texture.GetFormat( ) == VK_FORMAT_R8G8B8A8_SRGB || texture.GetFormat( ) == VK_FORMAT_R16G16B16A16_SFLOAT ) {
+            if ( texture.GetFormat( ) == VK_FORMAT_R8G8B8A8_SRGB ||
+                 texture.GetFormat( ) == VK_FORMAT_R16G16B16A16_SFLOAT ) {
                 is_srgb = false;
             }
 
             const auto scale = glm::vec2( 2.0f / drawData->DisplaySize.x, 2.0f / drawData->DisplaySize.y );
-            const auto translate = glm::vec2( -1.0f - drawData->DisplayPos.x * scale.x, -1.0f - drawData->DisplayPos.y * scale.y );
+            const auto translate =
+                    glm::vec2( -1.0f - drawData->DisplayPos.x * scale.x, -1.0f - drawData->DisplayPos.y * scale.y );
 
             // set scissor
             const auto scissor_x = static_cast<std::int32_t>( clip_min.x );
@@ -241,8 +257,10 @@ void ImGuiPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, ImDrawData *drawD
                     .scale = scale,
             };
 
-            vkCmdPushConstants( cmd, m_layout, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( PushConstants ), &pc );
-            vkCmdDrawIndexed( cmd, im_cmd.ElemCount, 1, im_cmd.IdxOffset + global_idx_offset, im_cmd.VtxOffset + im_cmd.VtxOffset + global_vtx_offset, 0 );
+            vkCmdPushConstants( cmd, m_layout, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0,
+                                sizeof( PushConstants ), &pc );
+            vkCmdDrawIndexed( cmd, im_cmd.ElemCount, 1, im_cmd.IdxOffset + global_idx_offset,
+                              im_cmd.VtxOffset + im_cmd.VtxOffset + global_vtx_offset, 0 );
         }
 
         global_idx_offset += cmd_list.IdxBuffer.Size;

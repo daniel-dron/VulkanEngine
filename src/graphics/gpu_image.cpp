@@ -249,7 +249,7 @@ void GpuImage::ActuallyCreateCubemapFromData( const void *data ) {
     m_gfx->Free( staging_buffer );
 
     // create views
-    for ( int i = 0; i < mip_levels; i++ ) {
+    for ( u32 i = 0; i < mip_levels; i++ ) {
         m_mipViews.push_back( image::CreateViewCubemap( m_gfx->device, m_image, m_format, aspect, i ) );
     }
 
@@ -288,7 +288,7 @@ void GpuImage::ActuallyCreateEmptyCubemap( ) {
     } );
 
     // create views
-    for ( int i = 0; i < mip_levels; i++ ) {
+    for ( u32 i = 0; i < mip_levels; i++ ) {
         m_mipViews.push_back( image::CreateViewCubemap( m_gfx->device, m_image, m_format, aspect, i ) );
     }
 
@@ -462,7 +462,7 @@ void image::TransitionLayout( VkCommandBuffer cmd, VkImage image, VkImageLayout 
 }
 
 void image::GenerateMipmaps( VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize ) {
-    const int mip_levels =
+    const u32 mip_levels =
             static_cast<int>( std::floor( std::log2( std::max( imageSize.width, imageSize.height ) ) ) ) + 1;
 
     // copy from 0->1, 1->2, 2->3, etc...

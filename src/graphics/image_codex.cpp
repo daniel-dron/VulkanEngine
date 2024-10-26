@@ -158,7 +158,7 @@ ImageId ImageCodex::LoadCubemapFromData( const std::vector<std::string> &paths,
 
     delete[] merged_data;
 
-    const ImageId image_id = m_images.size( );
+    const ImageId image_id = ( ImageId )m_images.size( );
     image.SetId( image_id );
 
     bindlessRegistry.AddImage( *m_gfx, image_id, image.GetBaseView( ) );
@@ -171,7 +171,7 @@ ImageId ImageCodex::CreateCubemap( const std::string &name, const VkExtent3D ext
                                    const VkImageUsageFlags usage, int mipmaps ) {
     auto image = GpuImage( m_gfx, name, extent, format, ImageType::TCubeMap, usage, mipmaps );
 
-    const ImageId image_id = m_images.size( );
+    const ImageId image_id = ( ImageId )m_images.size( );
     image.SetId( image_id );
 
     bindlessRegistry.AddImage( *m_gfx, image_id, image.GetBaseView( ) );
@@ -189,7 +189,7 @@ MultiFrameImageId ImageCodex::CreateMultiFrameEmptyImage( const std::string &nam
     }
 
     auto multi_frame = MultiFrameGpuImage( frames );
-    auto id = m_multiFrameImages.size( );
+    MultiFrameImageId id = ( MultiFrameImageId )m_multiFrameImages.size( );
     multi_frame.SetId( id );
     m_multiFrameImages.push_back( std::move( multi_frame ) );
 
@@ -200,7 +200,7 @@ ImageId ImageCodex::CreateEmptyImage( const std::string &name, const VkExtent3D 
                                       const VkImageUsageFlags usage, const bool mipmapped ) {
     auto image = GpuImage( m_gfx, name, extent, format, ImageType::T2D, usage, mipmapped );
 
-    const ImageId image_id = m_images.size( );
+    const ImageId image_id = ( ImageId )m_images.size( );
     image.SetId( image_id );
 
     bindlessRegistry.AddImage( *m_gfx, image_id, image.GetBaseView( ) );
@@ -212,7 +212,7 @@ ImageId ImageCodex::LoadImageFromData( const std::string &name, void *data, cons
                                        const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped ) {
     auto image = GpuImage( m_gfx, name, data, extent, format, ImageType::T2D, usage, mipmapped );
 
-    const ImageId image_id = m_images.size( );
+    const ImageId image_id = ( ImageId )m_images.size( );
     image.SetId( image_id );
 
     bindlessRegistry.AddImage( *m_gfx, image_id, image.GetBaseView( ) );
@@ -228,17 +228,16 @@ VkDescriptorSet ImageCodex::GetBindlessSet( ) const { return bindlessRegistry.se
 void ImageCodex::DrawDebug( ) const {
     ImGui::Columns( 10 );
     {
-        for ( int i = 1; i < m_images.size( ); i++ ) {
+        for ( u64 i = 1; i < m_images.size( ); i++ ) {
             auto &image = m_images.at( i );
-            int column_width = ImGui::GetColumnWidth( );
-            ImGui::Image( reinterpret_cast<ImTextureID>( static_cast<ImageId>( i ) ),
-                          ImVec2( column_width, column_width ) );
+            f32 column_width = ImGui::GetColumnWidth( );
+            ImGui::Image( ( ImTextureID )( i ), ImVec2( column_width, column_width ) );
             if ( ImGui::IsItemHovered( ) ) {
                 ImGui::BeginTooltip( );
                 ImGui::Text( "%s", image.GetName( ).c_str( ) );
                 ImGui::Separator( );
-                ImGui::Image( reinterpret_cast<ImTextureID>( static_cast<ImageId>( i ) ),
-                              ImVec2( image.GetExtent( ).width, image.GetExtent( ).height ) );
+                ImGui::Image( ( ImTextureID )( i ),
+                              ImVec2( ( f32 )image.GetExtent( ).width, ( f32 )image.GetExtent( ).height ) );
                 ImGui::EndTooltip( );
             }
             ImGui::NextColumn( );

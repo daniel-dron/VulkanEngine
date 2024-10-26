@@ -38,7 +38,7 @@ static std::vector<Material> LoadMaterials( const aiScene *scene ) {
 
     VulkanEngine::Get( ).console.AddLog( "Loading {} materials", n_materials );
 
-    for ( auto i = 0; i < n_materials; i++ ) {
+    for ( u32 i = 0; i < n_materials; i++ ) {
         Material material;
         const auto ai_material = scene->mMaterials[i];
 
@@ -102,12 +102,12 @@ static std::vector<ImageId> LoadImages( GfxDevice &gfx, const aiScene *scene ) {
     {
         WorkerPool pool( 20 );
 
-        for ( auto i = 0; i < scene->mNumTextures; i++ ) {
+        for ( u32 i = 0; i < scene->mNumTextures; i++ ) {
             auto texture = scene->mTextures[i];
             std::string name = texture->mFilename.C_Str( );
 
             pool.Work( [&gfx, &gfxMutex, &images, texture, name, i]( ) {
-                size_t size = texture->mWidth;
+                i32 size = ( i32 )texture->mWidth;
                 if ( texture->mHeight > 0 ) {
                     size = static_cast<unsigned long long>( texture->mWidth ) * texture->mHeight * sizeof( aiTexel );
                 }
@@ -181,7 +181,7 @@ static MeshId LoadMesh( GfxDevice &gfx, aiMesh *aiMesh ) {
     mesh.indices.clear( );
 
     mesh.vertices.reserve( aiMesh->mNumVertices );
-    for ( auto i = 0; i < aiMesh->mNumVertices; i++ ) {
+    for ( u32 i = 0; i < aiMesh->mNumVertices; i++ ) {
         Mesh::Vertex vertex{ };
         vertex.position = { aiMesh->mVertices[i].x, aiMesh->mVertices[i].y, aiMesh->mVertices[i].z };
 
@@ -205,7 +205,7 @@ static MeshId LoadMesh( GfxDevice &gfx, aiMesh *aiMesh ) {
 
     std::vector<uint32_t> indices;
     indices.reserve( aiMesh->mNumFaces * 3 );
-    for ( auto i = 0; i < aiMesh->mNumFaces; i++ ) {
+    for ( u32 i = 0; i < aiMesh->mNumFaces; i++ ) {
         auto &face = aiMesh->mFaces[i];
         indices.push_back( face.mIndices[0] );
         indices.push_back( face.mIndices[1] );
@@ -216,7 +216,7 @@ static MeshId LoadMesh( GfxDevice &gfx, aiMesh *aiMesh ) {
 
     // Generate max 6 LODS. meshop_simplify will return an empty index buffer if it can no longer simplify the mesh.
     // Whenever we query for LODs later, we need to be careful and check how many indexbuffers the vector actually has.
-    for ( auto i = 1; i < 6; i++ ) {
+    for ( u32 i = 1; i < 6; i++ ) {
         float ratio = std::pow( 0.5f, static_cast<float>( i ) );
         size_t target_index_count = size_t( mesh.indices[0].size( ) * ratio );
         float target_error = 1e-2f;
@@ -245,7 +245,7 @@ static MeshId LoadMesh( GfxDevice &gfx, aiMesh *aiMesh ) {
 static std::vector<MeshId> LoadMeshes( GfxDevice &gfx, const aiScene *scene ) {
     std::vector<MeshId> mesh_assets;
 
-    for ( auto i = 0; i < scene->mNumMeshes; i++ ) {
+    for ( u32 i = 0; i < scene->mNumMeshes; i++ ) {
         auto mesh = LoadMesh( gfx, scene->mMeshes[i] );
         mesh_assets.push_back( mesh );
     }
@@ -268,7 +268,7 @@ static std::vector<Scene::MeshAsset> MatchMaterialMeshes( const aiScene *scene, 
                                                           const std::vector<MaterialId> &materials ) {
     std::vector<Scene::MeshAsset> mesh_assets;
 
-    for ( auto i = 0; i < scene->mNumMeshes; i++ ) {
+    for ( u32 i = 0; i < scene->mNumMeshes; i++ ) {
         const auto mat_idx = materials[scene->mMeshes[i]->mMaterialIndex];
         mesh_assets.push_back( { meshes.at( i ), mat_idx } );
     }
@@ -314,7 +314,7 @@ static std::shared_ptr<Node> LoadNode( const aiScene *ai_scene, const aiNode *no
         sceneNode->meshIds.clear( );
     }
     else {
-        for ( auto i = 0; i < node->mNumMeshes; i++ ) {
+        for ( u32 i = 0; i < node->mNumMeshes; i++ ) {
             const auto mesh = node->mMeshes[i];
             const auto &aabb = ai_scene->mMeshes[mesh]->mAABB;
 
@@ -328,7 +328,7 @@ static std::shared_ptr<Node> LoadNode( const aiScene *ai_scene, const aiNode *no
         }
     }
 
-    for ( auto i = 0; i < node->mNumChildren; i++ ) {
+    for ( u32 i = 0; i < node->mNumChildren; i++ ) {
         auto child = LoadNode( ai_scene, node->mChildren[i] );
         child->parent = sceneNode;
         sceneNode->children.push_back( child );
@@ -381,7 +381,7 @@ void RgBtoHsv( const float fR, const float fG, const float fB, float &fH, float 
 
     if ( f_delta > 0 ) {
         if ( f_c_max == fR ) {
-            fH = 60 * ( fmod( ( ( fG - fB ) / f_delta ), 6 ) );
+            fH = 60 * ( ( f32 )fmod( ( ( fG - fB ) / f_delta ), 6 ) );
         }
         else if ( f_c_max == fG ) {
             fH = 60 * ( ( ( fB - fR ) / f_delta ) + 2 );
