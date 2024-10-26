@@ -118,3 +118,5 @@ foreach(SHADER_FILE ${ALL_GLSL_SHADER_FILES})
         source_group("Shaders" FILES ${SHADER_FILE})
     endif()
 endforeach()
+
+set_target_properties(ShadersCompile zlibstatic PROPERTIES FOLDER Dependencies)

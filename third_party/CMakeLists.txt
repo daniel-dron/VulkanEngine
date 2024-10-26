@@ -62,3 +62,6 @@ target_sources(tracy PRIVATE
 )
 target_compile_definitions(tracy PUBLIC TRACY_ENABLE)
 target_include_directories(tracy PUBLIC tracy)
+
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+set_target_properties(sdl_headers_copy tracy meshoptimizer assimp glm vma fmt imgui SDL2 vkbootstrap volk PROPERTIES FOLDER Dependencies)
