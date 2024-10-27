@@ -60,7 +60,7 @@ VkDescriptorSet DescriptorAllocator::Allocate( VkDevice device, VkDescriptorSetL
     alloc_info.pSetLayouts = &layout;
 
     VkDescriptorSet ds;
-    VK_CHECK( vkAllocateDescriptorSets( device, &alloc_info, &ds ) );
+    VKCALL( vkAllocateDescriptorSets( device, &alloc_info, &ds ) );
 
     return ds;
 }
@@ -163,7 +163,7 @@ VkDescriptorSet DescriptorAllocatorGrowable::Allocate( VkDevice device, VkDescri
         pool_to_use = GetPool( device );
         alloc_info.descriptorPool = pool_to_use;
 
-        VK_CHECK( vkAllocateDescriptorSets( device, &alloc_info, &ds ) );
+        VKCALL( vkAllocateDescriptorSets( device, &alloc_info, &ds ) );
     }
 
     m_readyPools.push_back( pool_to_use );
@@ -234,11 +234,11 @@ VkDescriptorSetLayout descriptor::CreateDescriptorSetLayout( VkDevice device, Vk
     };
 
     VkDescriptorSetLayout layout;
-    VK_CHECK( vkCreateDescriptorSetLayout( device, &info, nullptr, &layout ) );
+    VKCALL( vkCreateDescriptorSetLayout( device, &info, nullptr, &layout ) );
 
     return layout;
 }
 
 VkDescriptorSet MultiDescriptorSet::GetCurrentFrame( ) const {
-    return m_sets[VulkanEngine::Get( ).m_gfx->swapchain.frameNumber % Swapchain::FrameOverlap];
+    return m_sets[VulkanEngine::Get( ).gfx->swapchain.frameNumber % TL_Swapchain::FrameOverlap];
 }

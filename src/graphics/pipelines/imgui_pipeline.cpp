@@ -50,14 +50,14 @@ ImGuiPipeline::Result<> ImGuiPipeline::Init( GfxDevice &gfx ) {
 
     // buffers
     {
-        for ( size_t i = 0; i < Swapchain::FrameOverlap; i++ ) {
+        for ( size_t i = 0; i < TL_Swapchain::FrameOverlap; i++ ) {
             GpuBuffer index_buffer =
                     gfx.Allocate( sizeof( ImDrawIdx ) * MAX_IDX_COUNT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                   VMA_MEMORY_USAGE_CPU_TO_GPU, "imgui index buffer" );
             m_indexBuffers.push_back( index_buffer );
         }
 
-        for ( size_t i = 0; i < Swapchain::FrameOverlap; i++ ) {
+        for ( size_t i = 0; i < TL_Swapchain::FrameOverlap; i++ ) {
             GpuBuffer vertex_buffer =
                     gfx.Allocate( sizeof( ImDrawVert ) * MAX_VTX_COUNT,
                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
@@ -85,7 +85,7 @@ ImGuiPipeline::Result<> ImGuiPipeline::Init( GfxDevice &gfx ) {
     layout_info.setLayoutCount = 1;
     layout_info.pPushConstantRanges = &range;
     layout_info.pushConstantRangeCount = 1;
-    VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &m_layout ) );
+    VKCALL( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &m_layout ) );
 
     PipelineBuilder builder;
     builder.SetShaders( vert_shader.handle, frag_shader.handle );
@@ -136,7 +136,7 @@ void ImGuiPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, ImDrawData *drawD
 
     // ----------
     // copy buffers
-    const auto current_frame_index = gfx.swapchain.frameNumber % Swapchain::FrameOverlap;
+    const auto current_frame_index = gfx.swapchain.frameNumber % TL_Swapchain::FrameOverlap;
     size_t index_offset = 0;
     size_t vertex_offset = 0;
     for ( i32 i = 0; i < drawData->CmdListsCount; i++ ) {

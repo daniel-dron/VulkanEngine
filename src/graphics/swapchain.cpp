@@ -22,9 +22,9 @@
 #include "vk_engine.h"
 #include "vk_types.h"
 
-Swapchain::FrameData &Swapchain::GetCurrentFrame( ) { return frames[frameNumber % FrameOverlap]; }
+TL_FrameData &TL_Swapchain::GetCurrentFrame( ) { return frames[frameNumber % FrameOverlap]; }
 
-Swapchain::Result<> Swapchain::Init( GfxDevice *gfx, const uint32_t width, const uint32_t height ) {
+TL_Swapchain::Result<> TL_Swapchain::Init( GfxDevice *gfx, const uint32_t width, const uint32_t height ) {
     this->m_gfx = gfx;
     extent = VkExtent2D{ width, height };
 
@@ -33,10 +33,10 @@ Swapchain::Result<> Swapchain::Init( GfxDevice *gfx, const uint32_t width, const
     const VkCommandPoolCreateInfo command_pool_info =
             vk_init::CommandPoolCreateInfo( gfx->graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
     for ( int i = 0; i < FrameOverlap; i++ ) {
-        VK_CHECK( vkCreateCommandPool( gfx->device, &command_pool_info, nullptr, &frames[i].pool ) );
+        VKCALL( vkCreateCommandPool( gfx->device, &command_pool_info, nullptr, &frames[i].pool ) );
 
         VkCommandBufferAllocateInfo cmd_alloc_info = vk_init::CommandBufferAllocateInfo( frames[i].pool, 1 );
-        VK_CHECK( vkAllocateCommandBuffers( gfx->device, &cmd_alloc_info, &frames[i].commandBuffer ) );
+        VKCALL( vkAllocateCommandBuffers( gfx->device, &cmd_alloc_info, &frames[i].commandBuffer ) );
 
         const VkDebugUtilsObjectNameInfoEXT obj = {
                 .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
@@ -52,16 +52,16 @@ Swapchain::Result<> Swapchain::Init( GfxDevice *gfx, const uint32_t width, const
     auto semaphoreCreateInfo = vk_init::SemaphoreCreateInfo( );
 
     for ( int i = 0; i < FrameOverlap; i++ ) {
-        VK_CHECK( vkCreateFence( gfx->device, &fenceCreateInfo, nullptr, &frames[i].fence ) );
+        VKCALL( vkCreateFence( gfx->device, &fenceCreateInfo, nullptr, &frames[i].fence ) );
 
-        VK_CHECK( vkCreateSemaphore( gfx->device, &semaphoreCreateInfo, nullptr, &frames[i].renderSemaphore ) );
-        VK_CHECK( vkCreateSemaphore( gfx->device, &semaphoreCreateInfo, nullptr, &frames[i].swapchainSemaphore ) );
+        VKCALL( vkCreateSemaphore( gfx->device, &semaphoreCreateInfo, nullptr, &frames[i].renderSemaphore ) );
+        VKCALL( vkCreateSemaphore( gfx->device, &semaphoreCreateInfo, nullptr, &frames[i].swapchainSemaphore ) );
     }
 
     return { };
 }
 
-void Swapchain::Cleanup( ) {
+void TL_Swapchain::Cleanup( ) {
     for ( uint64_t i = 0; i < FrameOverlap; i++ ) {
         vkDestroyCommandPool( m_gfx->device, frames[i].pool, nullptr );
 
@@ -82,7 +82,7 @@ void Swapchain::Cleanup( ) {
     vkDestroySampler( m_gfx->device, m_linear, nullptr );
 }
 
-Swapchain::Result<> Swapchain::Recreate( const uint32_t width, const uint32_t height ) {
+TL_Swapchain::Result<> TL_Swapchain::Recreate( const uint32_t width, const uint32_t height ) {
     const auto old = swapchain;
     const auto old_views = views;
 
@@ -116,7 +116,7 @@ Swapchain::Result<> Swapchain::Recreate( const uint32_t width, const uint32_t he
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
             .pNext = nullptr,
     };
-    VK_CHECK( vkCreateSemaphore( m_gfx->device, &info, nullptr, &GetCurrentFrame( ).swapchainSemaphore ) );
+    VKCALL( vkCreateSemaphore( m_gfx->device, &info, nullptr, &GetCurrentFrame( ).swapchainSemaphore ) );
 
     vkDestroySwapchainKHR( m_gfx->device, old, nullptr );
     for ( const auto &view : old_views ) {
@@ -128,7 +128,7 @@ Swapchain::Result<> Swapchain::Recreate( const uint32_t width, const uint32_t he
     return { };
 }
 
-Swapchain::Result<> Swapchain::Create( uint32_t width, uint32_t height ) {
+TL_Swapchain::Result<> TL_Swapchain::Create( uint32_t width, uint32_t height ) {
     vkb::SwapchainBuilder builder{ m_gfx->chosenGpu, m_gfx->device, m_gfx->surface };
     format = VK_FORMAT_R8G8B8A8_SRGB;
 
@@ -156,7 +156,7 @@ Swapchain::Result<> Swapchain::Create( uint32_t width, uint32_t height ) {
     return { };
 }
 
-void Swapchain::CreateFrameImages( ) {
+void TL_Swapchain::CreateFrameImages( ) {
     const VkExtent3D draw_image_extent = { .width = extent.width, .height = extent.height, .depth = 1 };
 
     VkImageUsageFlags draw_image_usages{ };
@@ -190,7 +190,7 @@ void Swapchain::CreateFrameImages( ) {
     }
 }
 
-void Swapchain::CreateGBuffers( ) {
+void TL_Swapchain::CreateGBuffers( ) {
     constexpr VkImageUsageFlags usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     const VkExtent3D extent = { .width = this->extent.width, .height = this->extent.height, .depth = 1 };
 

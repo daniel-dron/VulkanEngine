@@ -35,7 +35,7 @@
   } while (0)
 #else
 #undef ENABLE_DEBUG_UTILS
-#define VK_CHECK(x) x
+#define VKCALL(x) x
 #endif
 
 #define WIDTH 2560

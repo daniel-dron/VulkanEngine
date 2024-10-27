@@ -344,7 +344,7 @@ void image::Allocate2D( VmaAllocator allocator, VkFormat format, VkExtent3D exte
             .usage = VMA_MEMORY_USAGE_GPU_ONLY,
             .requiredFlags = static_cast<VkMemoryPropertyFlags>( VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ),
     };
-    VK_CHECK( vmaCreateImage( allocator, &create_info, &alloc_info, image, allocation, nullptr ) );
+    VKCALL( vmaCreateImage( allocator, &create_info, &alloc_info, image, allocation, nullptr ) );
 }
 
 void image::AllocateCubemap( VmaAllocator allocator, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage,
@@ -370,7 +370,7 @@ void image::AllocateCubemap( VmaAllocator allocator, VkFormat format, VkExtent3D
             .usage = VMA_MEMORY_USAGE_GPU_ONLY,
             .requiredFlags = static_cast<VkMemoryPropertyFlags>( VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ),
     };
-    VK_CHECK( vmaCreateImage( allocator, &create_info, &alloc_info, image, allocation, nullptr ) );
+    VKCALL( vmaCreateImage( allocator, &create_info, &alloc_info, image, allocation, nullptr ) );
 }
 
 VkImageView image::CreateView2D( VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
@@ -393,7 +393,7 @@ VkImageView image::CreateView2D( VkDevice device, VkImage image, VkFormat format
                             .layerCount = 1,
                     },
     };
-    VK_CHECK( vkCreateImageView( device, &view_info, nullptr, &view ) );
+    VKCALL( vkCreateImageView( device, &view_info, nullptr, &view ) );
 
     return view;
 }
@@ -418,7 +418,7 @@ VkImageView image::CreateViewCubemap( VkDevice device, VkImage image, VkFormat f
                             .layerCount = 6,
                     },
     };
-    VK_CHECK( vkCreateImageView( device, &view_info, nullptr, &view ) );
+    VKCALL( vkCreateImageView( device, &view_info, nullptr, &view ) );
 
     return view;
 }
@@ -615,6 +615,6 @@ void image::Blit( VkCommandBuffer cmd, VkImage srcImage, VkExtent2D srcExtent, V
 MultiFrameGpuImage::MultiFrameGpuImage( const std::vector<ImageId> &images ) { m_frames = images; }
 
 ImageId MultiFrameGpuImage::GetCurrentImage( ) {
-    auto id = VulkanEngine::Get( ).m_gfx->swapchain.frameNumber % Swapchain::FrameOverlap;
+    auto id = VulkanEngine::Get( ).gfx->swapchain.frameNumber % TL_Swapchain::FrameOverlap;
     return m_frames[id];
 }

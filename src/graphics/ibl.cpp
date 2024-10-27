@@ -30,10 +30,10 @@ void Ibl::Init( GfxDevice &gfx, const std::string &path ) {
             gfx.imageCodex.LoadHdrFromFile( path, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     const VkCommandBufferAllocateInfo cmd_alloc_info = vk_init::CommandBufferAllocateInfo( gfx.computeCommandPool, 1 );
-    VK_CHECK( vkAllocateCommandBuffers( gfx.device, &cmd_alloc_info, &m_computeCommand ) );
+    VKCALL( vkAllocateCommandBuffers( gfx.device, &cmd_alloc_info, &m_computeCommand ) );
 
     const auto fence_create_info = vk_init::FenceCreateInfo( );
-    VK_CHECK( vkCreateFence( gfx.device, &fence_create_info, nullptr, &m_computeFence ) );
+    VKCALL( vkCreateFence( gfx.device, &fence_create_info, nullptr, &m_computeFence ) );
 
     InitTextures( gfx );
 
@@ -42,19 +42,19 @@ void Ibl::Init( GfxDevice &gfx, const std::string &path ) {
     VulkanEngine::Get( ).console.AddLog( "Dispatching IBL computes!" );
     // dispatch computes
     {
-        VK_CHECK( vkResetCommandBuffer( m_computeCommand, 0 ) );
+        VKCALL( vkResetCommandBuffer( m_computeCommand, 0 ) );
         const auto cmd_begin_info = vk_init::CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
-        VK_CHECK( vkBeginCommandBuffer( m_computeCommand, &cmd_begin_info ) );
+        VKCALL( vkBeginCommandBuffer( m_computeCommand, &cmd_begin_info ) );
 
         GenerateSkybox( gfx, m_computeCommand );
         GenerateIrradiance( gfx, m_computeCommand );
         GenerateRadiance( gfx, m_computeCommand );
         GenerateBrdf( gfx, m_computeCommand );
 
-        VK_CHECK( vkEndCommandBuffer( m_computeCommand ) );
+        VKCALL( vkEndCommandBuffer( m_computeCommand ) );
         auto cmd_info = vk_init::CommandBufferSubmitInfo( m_computeCommand );
         auto cmd_submit_info = vk_init::SubmitInfo( &cmd_info, nullptr, nullptr );
-        VK_CHECK( vkQueueSubmit2( gfx.computeQueue, 1, &cmd_submit_info, m_computeFence ) );
+        VKCALL( vkQueueSubmit2( gfx.computeQueue, 1, &cmd_submit_info, m_computeFence ) );
     }
 }
 

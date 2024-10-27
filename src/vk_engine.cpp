@@ -49,7 +49,9 @@
 #include <utils/ImGuiProfilerRenderer.h>
 #include "graphics/draw_command.h"
 
-VulkanEngine *g_loadedEngine = nullptr;
+#include <graphics/tl_renderer.h>
+
+VulkanEngine *g_TL = nullptr;
 
 // TODO: move
 void GpuBuffer::Upload( const GfxDevice &gfx, const void *data, const size_t size ) const {
@@ -74,17 +76,17 @@ VkDeviceAddress GpuBuffer::GetDeviceAddress( const GfxDevice &gfx ) {
     return deviceAddress;
 }
 
-VulkanEngine &VulkanEngine::Get( ) { return *g_loadedEngine; }
+VulkanEngine &VulkanEngine::Get( ) { return *g_TL; }
 
 void VulkanEngine::Init( ) {
-    assert( g_loadedEngine == nullptr );
-    g_loadedEngine = this;
+    assert( g_TL == nullptr );
+    g_TL = this;
 
     InitSdl( );
     InitVulkan( );
     InitDefaultData( );
     InitImGui( );
-    m_imGuiPipeline.Init( *m_gfx );
+    m_imGuiPipeline.Init( *gfx );
     EG_INPUT.Init( );
     InitScene( );
 
@@ -112,16 +114,16 @@ void VulkanEngine::InitSdl( ) {
 }
 
 void VulkanEngine::InitVulkan( ) {
-    m_gfx = std::make_unique<GfxDevice>( );
+    gfx = std::make_unique<GfxDevice>( );
 
     if ( m_rendererOptions.vsync ) {
-        m_gfx->swapchain.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+        gfx->swapchain.presentMode = VK_PRESENT_MODE_FIFO_KHR;
     }
     else {
-        m_gfx->swapchain.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+        gfx->swapchain.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
     }
 
-    m_gfx->Init( m_window );
+    gfx->Init( m_window );
 
     m_mainDeletionQueue.Flush( );
 }
@@ -150,17 +152,17 @@ void VulkanEngine::InitImGui( ) {
     };
 
     VkDescriptorPool imgui_pool;
-    VK_CHECK( vkCreateDescriptorPool( m_gfx->device, &pool_info, nullptr, &imgui_pool ) );
+    VKCALL( vkCreateDescriptorPool( gfx->device, &pool_info, nullptr, &imgui_pool ) );
 
     ImGui::CreateContext( );
 
     ImGui_ImplSDL2_InitForVulkan( m_window );
 
     ImGui_ImplVulkan_InitInfo init_info = {
-            .Instance = m_gfx->instance,
-            .PhysicalDevice = m_gfx->chosenGpu,
-            .Device = m_gfx->device,
-            .Queue = m_gfx->graphicsQueue,
+            .Instance = gfx->instance,
+            .PhysicalDevice = gfx->chosenGpu,
+            .Device = gfx->device,
+            .Queue = gfx->graphicsQueue,
             .DescriptorPool = imgui_pool,
             .MinImageCount = 3,
             .ImageCount = 3,
@@ -169,7 +171,7 @@ void VulkanEngine::InitImGui( ) {
 
     init_info.PipelineRenderingCreateInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
     init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &m_gfx->swapchain.format;
+    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &gfx->swapchain.format;
     init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
     ImGui_ImplVulkan_Init( &init_info );
@@ -260,7 +262,7 @@ void VulkanEngine::InitImGui( ) {
 
     m_mainDeletionQueue.PushFunction( [&, imgui_pool]( ) {
         ImGui_ImplVulkan_Shutdown( );
-        vkDestroyDescriptorPool( m_gfx->device, imgui_pool, nullptr );
+        vkDestroyDescriptorPool( gfx->device, imgui_pool, nullptr );
     } );
 }
 
@@ -276,10 +278,10 @@ auto RandomRange( const float min, const float max ) -> float {
 float Lerp( const float a, const float b, const float f ) { return a + f * ( b - a ); }
 
 void VulkanEngine::ConstructSsaoPipeline( ) {
-    m_ssaoBuffer = m_gfx->Allocate( sizeof( SsaoSettings ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                    VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Settings" );
-    m_ssaoKernel = m_gfx->Allocate( sizeof( Vec3 ) * 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                    VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Kernel" );
+    m_ssaoBuffer = gfx->Allocate( sizeof( SsaoSettings ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                  VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Settings" );
+    m_ssaoKernel = gfx->Allocate( sizeof( Vec3 ) * 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+                                  "SSAO Kernel" );
 
     std::vector<glm::vec3> kernels;
     for ( int i = 0; i < m_ssaoSettings.kernelSize; i++ ) {
@@ -294,7 +296,7 @@ void VulkanEngine::ConstructSsaoPipeline( ) {
 
         kernels.push_back( sample );
     }
-    m_ssaoKernel.Upload( *m_gfx, kernels.data( ), kernels.size( ) * sizeof( Vec3 ) );
+    m_ssaoKernel.Upload( *gfx, kernels.data( ), kernels.size( ) * sizeof( Vec3 ) );
 
     std::vector<glm::vec4> noise_data;
     for ( int i = 0; i < 16; i++ ) {
@@ -302,19 +304,19 @@ void VulkanEngine::ConstructSsaoPipeline( ) {
         noise_data.push_back( glm::vec4( noise, 1.0f ) );
     }
     m_ssaoSettings.noiseTexture =
-            m_gfx->imageCodex.LoadImageFromData( "SSAO Noise", noise_data.data( ), VkExtent3D{ 4, 4, 1 },
-                                                 VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+            gfx->imageCodex.LoadImageFromData( "SSAO Noise", noise_data.data( ), VkExtent3D{ 4, 4, 1 },
+                                               VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
-    m_ssaoSettings.depthTexture = m_gfx->swapchain.GetCurrentFrame( ).depth;
-    m_ssaoSettings.normalTexture = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.normal;
-    m_ssaoSettings.scene = m_gpuSceneData.GetDeviceAddress( *m_gfx );
-    m_ssaoBuffer.Upload( *m_gfx, &m_ssaoSettings, sizeof( SsaoSettings ) );
+    m_ssaoSettings.depthTexture = gfx->swapchain.GetCurrentFrame( ).depth;
+    m_ssaoSettings.normalTexture = gfx->swapchain.GetCurrentFrame( ).gBuffer.normal;
+    m_ssaoSettings.scene = m_gpuSceneData.GetDeviceAddress( *gfx );
+    m_ssaoBuffer.Upload( *gfx, &m_ssaoSettings, sizeof( SsaoSettings ) );
 
     // Create pipeline
-    auto &shader = m_gfx->shaderStorage->Get( "ssao", TCompute );
+    auto &shader = gfx->shaderStorage->Get( "ssao", TCompute );
     shader.RegisterReloadCallback( [&]( VkShaderModule module ) {
-        VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
-        m_ssaoPipeline.Cleanup( *m_gfx );
+        VKCALL( vkWaitForFences( gfx->device, 1, &gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
+        m_ssaoPipeline.Cleanup( *gfx );
 
         ActuallyConstructSsaoPipeline( );
     } );
@@ -323,31 +325,31 @@ void VulkanEngine::ConstructSsaoPipeline( ) {
 }
 
 void VulkanEngine::ActuallyConstructSsaoPipeline( ) {
-    auto &shader = m_gfx->shaderStorage->Get( "ssao", TCompute );
+    auto &shader = gfx->shaderStorage->Get( "ssao", TCompute );
     m_ssaoPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
     m_ssaoPipeline.AddDescriptorSetLayout( 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
     m_ssaoPipeline.AddDescriptorSetLayout( 2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-    m_ssaoPipeline.Build( *m_gfx, shader.handle, "ssao compute" );
+    m_ssaoPipeline.Build( *gfx, shader.handle, "ssao compute" );
 
-    m_ssaoSet = m_gfx->AllocateMultiSet( m_ssaoPipeline.GetLayout( ) );
+    m_ssaoSet = gfx->AllocateMultiSet( m_ssaoPipeline.GetLayout( ) );
 
     DescriptorWriter writer;
     writer.WriteBuffer( 0, m_ssaoBuffer.buffer, sizeof( SsaoSettings ), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
     writer.WriteBuffer( 1, m_ssaoKernel.buffer, sizeof( Vec3 ) * 64, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 
-    for ( u32 i = 0; i < m_gfx->swapchain.FrameOverlap; i++ ) {
-        auto &ssao_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.frames[i].ssao );
+    for ( u32 i = 0; i < gfx->swapchain.FrameOverlap; i++ ) {
+        auto &ssao_image = gfx->imageCodex.GetImage( gfx->swapchain.frames[i].ssao );
         writer.WriteImage( 2, ssao_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
                            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-        writer.UpdateSet( m_gfx->device, m_ssaoSet.m_sets[i] );
+        writer.UpdateSet( gfx->device, m_ssaoSet.m_sets[i] );
     }
 }
 
 void VulkanEngine::ConstructBlurPipeline( ) {
-    auto &shader = m_gfx->shaderStorage->Get( "blur", TCompute );
+    auto &shader = gfx->shaderStorage->Get( "blur", TCompute );
     shader.RegisterReloadCallback( [&]( VkShaderModule module ) {
-        VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
-        m_blurPipeline.Cleanup( *m_gfx );
+        VKCALL( vkWaitForFences( gfx->device, 1, &gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
+        m_blurPipeline.Cleanup( *gfx );
 
         ActuallyConstructBlurPipeline( );
     } );
@@ -356,52 +358,52 @@ void VulkanEngine::ConstructBlurPipeline( ) {
 }
 
 void VulkanEngine::ActuallyConstructBlurPipeline( ) {
-    auto &shader = m_gfx->shaderStorage->Get( "blur", TCompute );
+    auto &shader = gfx->shaderStorage->Get( "blur", TCompute );
     m_blurPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
     m_blurPipeline.AddPushConstantRange( sizeof( BlurSettings ) );
-    m_blurPipeline.Build( *m_gfx, shader.handle, "blur pipeline" );
+    m_blurPipeline.Build( *gfx, shader.handle, "blur pipeline" );
 
-    m_blurSet = m_gfx->AllocateMultiSet( m_blurPipeline.GetLayout( ) );
+    m_blurSet = gfx->AllocateMultiSet( m_blurPipeline.GetLayout( ) );
 }
 
 void VulkanEngine::ResizeSwapchain( uint32_t width, uint32_t height ) {
-    vkDeviceWaitIdle( m_gfx->device );
+    vkDeviceWaitIdle( gfx->device );
 
     m_windowExtent.width = width;
     m_windowExtent.height = height;
 
-    m_gfx->swapchain.Recreate( width, height );
+    gfx->swapchain.Recreate( width, height );
 }
 
 void VulkanEngine::Cleanup( ) {
     if ( m_isInitialized ) {
         // wait for gpu work to finish
-        vkDeviceWaitIdle( m_gfx->device );
+        vkDeviceWaitIdle( gfx->device );
 
-        m_pbrPipeline.Cleanup( *m_gfx );
-        m_wireframePipeline.Cleanup( *m_gfx );
-        m_gBufferPipeline.Cleanup( *m_gfx );
-        m_imGuiPipeline.Cleanup( *m_gfx );
-        m_skyboxPipeline.Cleanup( *m_gfx );
-        m_shadowMapPipeline.Cleanup( *m_gfx );
-        m_blurPipeline.Cleanup( *m_gfx );
+        m_pbrPipeline.Cleanup( *gfx );
+        m_wireframePipeline.Cleanup( *gfx );
+        m_gBufferPipeline.Cleanup( *gfx );
+        m_imGuiPipeline.Cleanup( *gfx );
+        m_skyboxPipeline.Cleanup( *gfx );
+        m_shadowMapPipeline.Cleanup( *gfx );
+        m_blurPipeline.Cleanup( *gfx );
 
-        m_postProcessPipeline.Cleanup( *m_gfx );
-        m_ssaoPipeline.Cleanup( *m_gfx );
-        m_gfx->Free( m_ssaoBuffer );
-        m_gfx->Free( m_ssaoKernel );
+        m_postProcessPipeline.Cleanup( *gfx );
+        m_ssaoPipeline.Cleanup( *gfx );
+        gfx->Free( m_ssaoBuffer );
+        gfx->Free( m_ssaoKernel );
 
-        m_ibl.Clean( *m_gfx );
+        m_ibl.Clean( *gfx );
 
         m_mainDeletionQueue.Flush( );
 
-        m_gfx->Cleanup( );
+        gfx->Cleanup( );
 
         SDL_DestroyWindow( m_window );
     }
 
     // clear engine pointer
-    g_loadedEngine = nullptr;
+    g_TL = nullptr;
 }
 
 void VulkanEngine::Draw( ) {
@@ -410,161 +412,100 @@ void VulkanEngine::Draw( ) {
     m_stats.drawcallCount = 0;
     m_stats.triangleCount = 0;
 
-    {
-        ZoneScopedN( "Wait Fence" );
-        // wait for last frame rendering phase. 1 sec timeout
-        VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
-        m_gfx->swapchain.GetCurrentFrame( ).deletionQueue.Flush( );
-        // Reset after acquire the next image from the swapchain
-        // In case of error, this fence would never get passed to the queue, thus
-        // never triggering leaving us with a timeout next time we wait for fence
-        VK_CHECK( vkResetFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence ) );
-    }
+    auto frame = gfx->swapchain.GetCurrentFrame( );
+    frame.deletionQueue.Flush( );
+    u32 swapchain_image_index = TL::StartFrame( frame );
+    auto cmd = frame.commandBuffer;
 
     // Query the pool timings
-    if ( m_gfx->swapchain.frameNumber != 0 ) {
-        vkGetQueryPoolResults( m_gfx->device, m_gfx->queryPoolTimestamps, 0, ( u32 )m_gfx->gpuTimestamps.size( ),
-                               m_gfx->gpuTimestamps.size( ) * sizeof( uint64_t ), m_gfx->gpuTimestamps.data( ),
+    if ( gfx->swapchain.frameNumber != 0 ) {
+        vkGetQueryPoolResults( gfx->device, gfx->queryPoolTimestamps, 0, ( u32 )gfx->gpuTimestamps.size( ),
+                               gfx->gpuTimestamps.size( ) * sizeof( uint64_t ), gfx->gpuTimestamps.data( ),
                                sizeof( uint64_t ), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT );
 
-        auto time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 0 ), m_gfx->gpuTimestamps.at( 1 ) ) / 1000.0f;
+        auto time = gfx->GetTimestampInMs( gfx->gpuTimestamps.at( 0 ), gfx->gpuTimestamps.at( 1 ) ) / 1000.0f;
         m_visualProfiler.AddTimer( "ShadowMap", time, utils::VisualProfiler::Gpu );
-        time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 2 ), m_gfx->gpuTimestamps.at( 3 ) ) / 1000.0f;
+        time = gfx->GetTimestampInMs( gfx->gpuTimestamps.at( 2 ), gfx->gpuTimestamps.at( 3 ) ) / 1000.0f;
         m_visualProfiler.AddTimer( "GBuffer", time, utils::VisualProfiler::Gpu );
-        time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 4 ), m_gfx->gpuTimestamps.at( 5 ) ) / 1000.0f;
+        time = gfx->GetTimestampInMs( gfx->gpuTimestamps.at( 4 ), gfx->gpuTimestamps.at( 5 ) ) / 1000.0f;
         m_visualProfiler.AddTimer( "SSAO", time, utils::VisualProfiler::Gpu );
-        time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 6 ), m_gfx->gpuTimestamps.at( 7 ) ) / 1000.0f;
+        time = gfx->GetTimestampInMs( gfx->gpuTimestamps.at( 6 ), gfx->gpuTimestamps.at( 7 ) ) / 1000.0f;
         m_visualProfiler.AddTimer( "Lighting", time, utils::VisualProfiler::Gpu );
-        time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 8 ), m_gfx->gpuTimestamps.at( 9 ) ) / 1000.0f;
+        time = gfx->GetTimestampInMs( gfx->gpuTimestamps.at( 8 ), gfx->gpuTimestamps.at( 9 ) ) / 1000.0f;
         m_visualProfiler.AddTimer( "Skybox", time, utils::VisualProfiler::Gpu );
-        time = m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 10 ), m_gfx->gpuTimestamps.at( 11 ) ) / 1000.0f;
+        time = gfx->GetTimestampInMs( gfx->gpuTimestamps.at( 10 ), gfx->gpuTimestamps.at( 11 ) ) / 1000.0f;
         m_visualProfiler.AddTimer( "Post Process", time, utils::VisualProfiler::Gpu );
     }
 
-    uint32_t swapchain_image_index;
-    {
-        ZoneScopedN( "vsync" );
+    auto &color = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).hdrColor );
 
-        VkResult e = ( vkAcquireNextImageKHR( m_gfx->device, m_gfx->swapchain.swapchain, 1000000000,
-                                              m_gfx->swapchain.GetCurrentFrame( ).swapchainSemaphore, nullptr,
-                                              &swapchain_image_index ) );
-        if ( e != VK_SUCCESS ) {
-            return;
-        }
-    }
+    auto &depth = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).depth );
 
-    auto &color = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).hdrColor );
-
-    auto &depth = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).depth );
-
-    m_drawExtent.height = static_cast<uint32_t>( std::min( m_gfx->swapchain.extent.height, color.GetExtent( ).height ) *
+    m_drawExtent.height = static_cast<uint32_t>( std::min( gfx->swapchain.extent.height, color.GetExtent( ).height ) *
                                                  m_renderScale );
-    m_drawExtent.width = static_cast<uint32_t>( std::min( m_gfx->swapchain.extent.width, color.GetExtent( ).width ) *
-                                                m_renderScale );
-
-    // commands
-    const auto cmd = m_gfx->swapchain.GetCurrentFrame( ).commandBuffer;
-    VK_CHECK( vkResetCommandBuffer( cmd, 0 ) );
-    const auto cmd_begin_info = vk_init::CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
-    VK_CHECK( vkBeginCommandBuffer( cmd, &cmd_begin_info ) );
-    vkCmdResetQueryPool( cmd, m_gfx->queryPoolTimestamps, 0, ( u32 )m_gfx->gpuTimestamps.size( ) );
+    m_drawExtent.width =
+            static_cast<uint32_t>( std::min( gfx->swapchain.extent.width, color.GetExtent( ).width ) * m_renderScale );
 
     depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 0 );
-    if ( m_gfx->swapchain.frameNumber == 0 || m_rendererOptions.reRenderShadowMaps ) {
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, gfx->queryPoolTimestamps, 0 );
+    if ( gfx->swapchain.frameNumber == 0 || m_rendererOptions.reRenderShadowMaps ) {
         m_rendererOptions.reRenderShadowMaps = false;
         ShadowMapPass( cmd );
     }
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 1 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gfx->queryPoolTimestamps, 1 );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 2 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, gfx->queryPoolTimestamps, 2 );
     GBufferPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 3 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gfx->queryPoolTimestamps, 3 );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 4 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, gfx->queryPoolTimestamps, 4 );
     SsaoPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 5 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gfx->queryPoolTimestamps, 5 );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 6 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, gfx->queryPoolTimestamps, 6 );
     PbrPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 7 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gfx->queryPoolTimestamps, 7 );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 8 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, gfx->queryPoolTimestamps, 8 );
     SkyboxPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 9 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gfx->queryPoolTimestamps, 9 );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 10 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, gfx->queryPoolTimestamps, 10 );
     PostProcessPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gfx->queryPoolTimestamps, 11 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gfx->queryPoolTimestamps, 11 );
 
     {
         ZoneScopedN( "Final Image" );
         if ( m_drawEditor ) {
-            DrawImGui( cmd, m_gfx->swapchain.views[swapchain_image_index] );
-            image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
+            DrawImGui( cmd, gfx->swapchain.views[swapchain_image_index] );
+            image::TransitionLayout( cmd, gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
                                      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
         }
         else {
-            auto &ppi = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
+            auto &ppi = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).postProcessImage );
             ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 
-            image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
+            image::TransitionLayout( cmd, gfx->swapchain.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
 
             image::Blit( cmd, ppi.GetImage( ), { ppi.GetExtent( ).width, ppi.GetExtent( ).height },
-                         m_gfx->swapchain.images[swapchain_image_index], m_gfx->swapchain.extent );
+                         gfx->swapchain.images[swapchain_image_index], gfx->swapchain.extent );
             if ( m_drawStats ) {
-                DrawImGui( cmd, m_gfx->swapchain.views[swapchain_image_index] );
+                DrawImGui( cmd, gfx->swapchain.views[swapchain_image_index] );
             }
 
-            image::TransitionLayout( cmd, m_gfx->swapchain.images[swapchain_image_index],
+            image::TransitionLayout( cmd, gfx->swapchain.images[swapchain_image_index],
                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
         }
     }
 
-    VK_CHECK( vkEndCommandBuffer( cmd ) );
-
-    //
     // send commands
-    //
-
-    // wait on _swapchainSemaphore. signaled when the swap chain is ready
-    // wait on _renderSemaphore. signaled when rendering has finished
-    auto cmdinfo = vk_init::CommandBufferSubmitInfo( cmd );
-
-    auto waitInfo = vk_init::SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
-                                                  m_gfx->swapchain.GetCurrentFrame( ).swapchainSemaphore );
-    auto signalInfo = vk_init::SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-                                                    m_gfx->swapchain.GetCurrentFrame( ).renderSemaphore );
-
-    auto submit = vk_init::SubmitInfo( &cmdinfo, &signalInfo, &waitInfo );
-
-    // submit command buffer and execute it
-    // _renderFence will now block until the commands finish
-    VK_CHECK( vkQueueSubmit2( m_gfx->graphicsQueue, 1, &submit, m_gfx->swapchain.GetCurrentFrame( ).fence ) );
-    FrameMarkNamed( "Queue Work" );
-
-    //
-    // present
-    //
-    VkPresentInfoKHR presentInfo = { };
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.pNext = nullptr;
-    presentInfo.pSwapchains = &m_gfx->swapchain.swapchain;
-    presentInfo.swapchainCount = 1;
-
-    // wait on _renderSemaphore, since we need the rendering to have finished
-    // to display to the screen
-    presentInfo.pWaitSemaphores = &m_gfx->swapchain.GetCurrentFrame( ).renderSemaphore;
-    presentInfo.waitSemaphoreCount = 1;
-
-    presentInfo.pImageIndices = &swapchain_image_index;
-
-    vkQueuePresentKHR( m_gfx->graphicsQueue, &presentInfo );
+    TL::EndFrame( frame, swapchain_image_index );
+    TL::Present( frame, swapchain_image_index );
 
     // increase frame number for next loop
-    m_gfx->swapchain.frameNumber++;
+    gfx->swapchain.frameNumber++;
 }
 
 void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) {
@@ -577,12 +518,12 @@ void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) {
     // ----------
     // Attachments
     {
-        auto &gbuffer = m_gfx->swapchain.GetCurrentFrame( ).gBuffer;
-        auto &albedo = m_gfx->imageCodex.GetImage( gbuffer.albedo );
-        auto &normal = m_gfx->imageCodex.GetImage( gbuffer.normal );
-        auto &position = m_gfx->imageCodex.GetImage( gbuffer.position );
-        auto &pbr = m_gfx->imageCodex.GetImage( gbuffer.pbr );
-        auto &depth = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).depth );
+        auto &gbuffer = gfx->swapchain.GetCurrentFrame( ).gBuffer;
+        auto &albedo = gfx->imageCodex.GetImage( gbuffer.albedo );
+        auto &normal = gfx->imageCodex.GetImage( gbuffer.normal );
+        auto &position = gfx->imageCodex.GetImage( gbuffer.position );
+        auto &pbr = gfx->imageCodex.GetImage( gbuffer.pbr );
+        auto &depth = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).depth );
 
         VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
         std::array<VkRenderingAttachmentInfo, 4> color_attachments = {
@@ -607,7 +548,7 @@ void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) {
 
     // ----------
     // Call pipeline
-    m_stats.triangleCount += m_gBufferPipeline.Draw( *m_gfx, cmd, m_drawCommands, m_sceneData ).triangleCount;
+    m_stats.triangleCount += m_gBufferPipeline.Draw( *gfx, cmd, m_drawCommands, m_sceneData ).triangleCount;
     m_stats.drawcallCount += ( u32 )m_drawCommands.size( );
 
     vkCmdEndRendering( cmd );
@@ -621,8 +562,8 @@ void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
     ZoneScopedN( "SSAO Pass" );
     START_LABEL( cmd, "SSAO Pass", Vec4( 1.0f, 0.5f, 0.3f, 1.0f ) );
 
-    auto bindless = m_gfx->GetBindlessSet( );
-    auto &output = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).ssao );
+    auto bindless = gfx->GetBindlessSet( );
+    auto &output = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).ssao );
 
     output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
 
@@ -637,7 +578,7 @@ void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
     // Blur
     DescriptorWriter writer;
     writer.WriteImage( 0, output.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-    writer.UpdateSet( m_gfx->device, m_blurSet.GetCurrentFrame( ) );
+    writer.UpdateSet( gfx->device, m_blurSet.GetCurrentFrame( ) );
 
     m_blurSettings.sourceTex = output.GetId( );
     m_blurSettings.size = 2;
@@ -660,7 +601,7 @@ void VulkanEngine::PbrPass( VkCommandBuffer cmd ) const {
     using namespace vk_init;
 
     {
-        auto &image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).hdrColor );
+        auto &image = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).hdrColor );
 
         VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 0.0f };
         VkRenderingAttachmentInfo color_attachment = AttachmentInfo( image.GetBaseView( ), &clear_color );
@@ -676,8 +617,8 @@ void VulkanEngine::PbrPass( VkCommandBuffer cmd ) const {
         vkCmdBeginRendering( cmd, &render_info );
     }
 
-    m_pbrPipeline.Draw( *m_gfx, cmd, m_sceneData, m_gpuDirectionalLights, m_gpuPointLights,
-                        m_gfx->swapchain.GetCurrentFrame( ).gBuffer, m_ibl.GetIrradiance( ), m_ibl.GetRadiance( ),
+    m_pbrPipeline.Draw( *gfx, cmd, m_sceneData, m_gpuDirectionalLights, m_gpuPointLights,
+                        gfx->swapchain.GetCurrentFrame( ).gBuffer, m_ibl.GetIrradiance( ), m_ibl.GetRadiance( ),
                         m_ibl.GetBrdf( ) );
 
     vkCmdEndRendering( cmd );
@@ -692,8 +633,8 @@ void VulkanEngine::SkyboxPass( VkCommandBuffer cmd ) const {
     using namespace vk_init;
 
     {
-        auto &image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).hdrColor );
-        auto &depth = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).depth );
+        auto &image = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).hdrColor );
+        auto &depth = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).depth );
 
         VkRenderingAttachmentInfo color_attachment = AttachmentInfo( image.GetBaseView( ), nullptr );
 
@@ -717,10 +658,10 @@ void VulkanEngine::SkyboxPass( VkCommandBuffer cmd ) const {
     }
 
     if ( m_rendererOptions.renderIrradianceInsteadSkybox ) {
-        m_skyboxPipeline.Draw( *m_gfx, cmd, m_ibl.GetIrradiance( ), m_sceneData );
+        m_skyboxPipeline.Draw( *gfx, cmd, m_ibl.GetIrradiance( ), m_sceneData );
     }
     else {
-        m_skyboxPipeline.Draw( *m_gfx, cmd, m_ibl.GetSkybox( ), m_sceneData );
+        m_skyboxPipeline.Draw( *gfx, cmd, m_ibl.GetSkybox( ), m_sceneData );
     }
 
     vkCmdEndRendering( cmd );
@@ -729,10 +670,10 @@ void VulkanEngine::SkyboxPass( VkCommandBuffer cmd ) const {
 }
 
 void VulkanEngine::PostProcessPass( VkCommandBuffer cmd ) const {
-    auto bindless = m_gfx->GetBindlessSet( );
-    auto &output = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
+    auto bindless = gfx->GetBindlessSet( );
+    auto &output = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).postProcessImage );
 
-    m_ppConfig.hdr = m_gfx->swapchain.GetCurrentFrame( ).hdrColor;
+    m_ppConfig.hdr = gfx->swapchain.GetCurrentFrame( ).hdrColor;
 
     output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
 
@@ -752,7 +693,7 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
 
     using namespace vk_init;
 
-    m_shadowMapPipeline.Draw( *m_gfx, cmd, m_shadowMapCommands, m_gpuDirectionalLights );
+    m_shadowMapPipeline.Draw( *gfx, cmd, m_shadowMapCommands, m_gpuDirectionalLights );
 
     END_LABEL( cmd );
 }
@@ -760,73 +701,73 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
 void VulkanEngine::InitDefaultData( ) {
     InitImages( );
 
-    m_gpuSceneData = m_gfx->Allocate( sizeof( GpuSceneData ),
-                                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                      VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
+    m_gpuSceneData = gfx->Allocate( sizeof( GpuSceneData ),
+                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                    VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
 
-    m_mainDeletionQueue.PushFunction( [=, this]( ) { m_gfx->Free( m_gpuSceneData ); } );
+    m_mainDeletionQueue.PushFunction( [=, this]( ) { gfx->Free( m_gpuSceneData ); } );
 
-    m_pbrPipeline.Init( *m_gfx );
-    m_wireframePipeline.Init( *m_gfx );
-    m_gBufferPipeline.Init( *m_gfx );
-    m_skyboxPipeline.Init( *m_gfx );
-    m_shadowMapPipeline.Init( *m_gfx );
+    m_pbrPipeline.Init( *gfx );
+    m_wireframePipeline.Init( *gfx );
+    m_gBufferPipeline.Init( *gfx );
+    m_skyboxPipeline.Init( *gfx );
+    m_shadowMapPipeline.Init( *gfx );
 
     // post process pipeline
-    auto &post_process_shader = m_gfx->shaderStorage->Get( "post_process", TCompute );
+    auto &post_process_shader = gfx->shaderStorage->Get( "post_process", TCompute );
     post_process_shader.RegisterReloadCallback( [&]( VkShaderModule shader ) {
-        VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
-        m_postProcessPipeline.Cleanup( *m_gfx );
+        VKCALL( vkWaitForFences( gfx->device, 1, &gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
+        m_postProcessPipeline.Cleanup( *gfx );
 
         m_postProcessPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
         m_postProcessPipeline.AddPushConstantRange( sizeof( PostProcessConfig ) );
-        m_postProcessPipeline.Build( *m_gfx, post_process_shader.handle, "post process compute" );
-        m_postProcessSet = m_gfx->AllocateMultiSet( m_postProcessPipeline.GetLayout( ) );
+        m_postProcessPipeline.Build( *gfx, post_process_shader.handle, "post process compute" );
+        m_postProcessSet = gfx->AllocateMultiSet( m_postProcessPipeline.GetLayout( ) );
 
         // TODO: this every frame for more than one inflight frame
-        for ( auto i = 0; i < Swapchain::FrameOverlap; i++ ) {
+        for ( auto i = 0; i < TL_Swapchain::FrameOverlap; i++ ) {
             DescriptorWriter writer;
-            auto &out_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
+            auto &out_image = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).postProcessImage );
             writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
                                VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-            writer.UpdateSet( m_gfx->device, m_postProcessSet.m_sets[i] );
+            writer.UpdateSet( gfx->device, m_postProcessSet.m_sets[i] );
         }
     } );
 
     m_postProcessPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
     m_postProcessPipeline.AddPushConstantRange( sizeof( PostProcessConfig ) );
-    m_postProcessPipeline.Build( *m_gfx, post_process_shader.handle, "post process compute" );
-    m_postProcessSet = m_gfx->AllocateMultiSet( m_postProcessPipeline.GetLayout( ) );
+    m_postProcessPipeline.Build( *gfx, post_process_shader.handle, "post process compute" );
+    m_postProcessSet = gfx->AllocateMultiSet( m_postProcessPipeline.GetLayout( ) );
 
     // TODO: this every frame for more than one inflight frame
-    for ( auto i = 0; i < Swapchain::FrameOverlap; i++ ) {
+    for ( auto i = 0; i < TL_Swapchain::FrameOverlap; i++ ) {
         DescriptorWriter writer;
-        auto &out_image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.GetCurrentFrame( ).postProcessImage );
+        auto &out_image = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).postProcessImage );
         writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
                            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-        writer.UpdateSet( m_gfx->device, m_postProcessSet.m_sets[i] );
+        writer.UpdateSet( gfx->device, m_postProcessSet.m_sets[i] );
     }
 
     // SSAO pipeline
     ConstructSsaoPipeline( );
     ConstructBlurPipeline( );
 
-    m_rendererOptions.ssaoResolution = { m_gfx->swapchain.extent.width, m_gfx->swapchain.extent.height };
+    m_rendererOptions.ssaoResolution = { gfx->swapchain.extent.width, gfx->swapchain.extent.height };
 }
 
 void VulkanEngine::InitImages( ) {
     // 3 default textures, white, grey, black. 1 pixel each
     uint32_t white = glm::packUnorm4x8( glm::vec4( 1, 1, 1, 1 ) );
-    m_whiteImage = m_gfx->imageCodex.LoadImageFromData( "debug_white_img", ( void * )&white, VkExtent3D{ 1, 1, 1 },
-                                                        VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_whiteImage = gfx->imageCodex.LoadImageFromData( "debug_white_img", ( void * )&white, VkExtent3D{ 1, 1, 1 },
+                                                      VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     uint32_t grey = glm::packUnorm4x8( glm::vec4( 0.66f, 0.66f, 0.66f, 1 ) );
-    m_greyImage = m_gfx->imageCodex.LoadImageFromData( "debug_grey_img", ( void * )&grey, VkExtent3D{ 1, 1, 1 },
-                                                       VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_greyImage = gfx->imageCodex.LoadImageFromData( "debug_grey_img", ( void * )&grey, VkExtent3D{ 1, 1, 1 },
+                                                     VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     uint32_t black = glm::packUnorm4x8( glm::vec4( 0, 0, 0, 0 ) );
-    m_blackImage = m_gfx->imageCodex.LoadImageFromData( "debug_black_img", ( void * )&white, VkExtent3D{ 1, 1, 1 },
-                                                        VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_blackImage = gfx->imageCodex.LoadImageFromData( "debug_black_img", ( void * )&white, VkExtent3D{ 1, 1, 1 },
+                                                      VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     // checkerboard image
     uint32_t magenta = glm::packUnorm4x8( glm::vec4( 1, 0, 1, 1 ) );
@@ -837,14 +778,14 @@ void VulkanEngine::InitImages( ) {
         }
     }
     m_errorCheckerboardImage =
-            m_gfx->imageCodex.LoadImageFromData( "debug_checkboard_img", ( void * )&white, VkExtent3D{ 16, 16, 1 },
-                                                 VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+            gfx->imageCodex.LoadImageFromData( "debug_checkboard_img", ( void * )&white, VkExtent3D{ 16, 16, 1 },
+                                               VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 }
 
 void VulkanEngine::InitScene( ) {
-    m_ibl.Init( *m_gfx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
+    m_ibl.Init( *gfx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
-    m_scene = GltfLoader::Load( *m_gfx, "../../assets/untitled.glb" );
+    m_scene = GltfLoader::Load( *gfx, "../../assets/untitled.glb" );
 
     // init camera
     if ( m_scene->cameras.empty( ) ) {
@@ -939,7 +880,7 @@ static void drawSceneHierarchy( Node &node ) {
 void VulkanEngine::Run( ) {
     bool b_quit = false;
 
-    static ImageId selected_set = m_gfx->swapchain.GetCurrentFrame( ).postProcessImage;
+    static ImageId selected_set = gfx->swapchain.GetCurrentFrame( ).postProcessImage;
     static int selected_set_n = 0;
 
     // main loop
@@ -996,7 +937,7 @@ void VulkanEngine::Run( ) {
         }
 
         if ( m_dirtSwapchain ) {
-            m_gfx->swapchain.Recreate( m_gfx->swapchain.extent.width, m_gfx->swapchain.extent.height );
+            gfx->swapchain.Recreate( gfx->swapchain.extent.width, gfx->swapchain.extent.height );
             m_dirtSwapchain = false;
         }
 
@@ -1064,18 +1005,18 @@ void VulkanEngine::Run( ) {
 
                             text_pos.y += 20;
                             ImGui::SetCursorPos( text_pos );
-                            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "Frame: %d", m_gfx->swapchain.frameNumber );
+                            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "Frame: %d", gfx->swapchain.frameNumber );
 
                             text_pos.y += 20;
                             ImGui::SetCursorPos( text_pos );
                             ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "GPU: %s",
-                                                m_gfx->deviceProperties.properties.deviceName );
+                                                gfx->deviceProperties.properties.deviceName );
 
                             text_pos.y += 20;
                             ImGui::SetCursorPos( text_pos );
                             ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "Image Codex: %d/%d",
-                                                m_gfx->imageCodex.GetImages( ).size( ),
-                                                m_gfx->imageCodex.bindlessRegistry.MaxBindlessImages );
+                                                gfx->imageCodex.GetImages( ).size( ),
+                                                gfx->imageCodex.bindlessRegistry.MaxBindlessImages );
 
                             text_pos.y += 20;
                             ImGui::SetCursorPos( text_pos );
@@ -1130,31 +1071,31 @@ void VulkanEngine::Run( ) {
                 if ( ImGui::BeginPopup( "Viewport Context" ) ) {
                     ImGui::SeparatorText( "GBuffer" );
                     if ( ImGui::RadioButton( "PBR Pass", &selected_set_n, 0 ) ) {
-                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).postProcessImage;
+                        selected_set = gfx->swapchain.GetCurrentFrame( ).postProcessImage;
                     }
                     if ( ImGui::RadioButton( "Albedo", &selected_set_n, 1 ) ) {
-                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.albedo;
+                        selected_set = gfx->swapchain.GetCurrentFrame( ).gBuffer.albedo;
                     }
                     if ( ImGui::RadioButton( "Position", &selected_set_n, 2 ) ) {
-                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.position;
+                        selected_set = gfx->swapchain.GetCurrentFrame( ).gBuffer.position;
                     }
                     if ( ImGui::RadioButton( "Normal", &selected_set_n, 3 ) ) {
-                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.normal;
+                        selected_set = gfx->swapchain.GetCurrentFrame( ).gBuffer.normal;
                     }
                     if ( ImGui::RadioButton( "PBR", &selected_set_n, 4 ) ) {
-                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).gBuffer.pbr;
+                        selected_set = gfx->swapchain.GetCurrentFrame( ).gBuffer.pbr;
                     }
                     if ( ImGui::RadioButton( "HDR", &selected_set_n, 5 ) ) {
-                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).hdrColor;
+                        selected_set = gfx->swapchain.GetCurrentFrame( ).hdrColor;
                     }
                     if ( ImGui::RadioButton( "ShadowMap", &selected_set_n, 6 ) ) {
                         selected_set = m_scene->directionalLights.at( 0 ).shadowMap;
                     }
                     if ( ImGui::RadioButton( "Depth", &selected_set_n, 7 ) ) {
-                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).depth;
+                        selected_set = gfx->swapchain.GetCurrentFrame( ).depth;
                     }
                     if ( ImGui::RadioButton( "SSAO", &selected_set_n, 8 ) ) {
-                        selected_set = m_gfx->swapchain.GetCurrentFrame( ).ssao;
+                        selected_set = gfx->swapchain.GetCurrentFrame( ).ssao;
                     }
                     ImGui::Separator( );
                     ImGui::SliderFloat( "Render Scale", &m_renderScale, 0.3f, 1.f );
@@ -1164,10 +1105,10 @@ void VulkanEngine::Run( ) {
                     ImGui::Checkbox( "Render Irradiance Map", &m_rendererOptions.renderIrradianceInsteadSkybox );
                     if ( ImGui::Checkbox( "VSync", &m_rendererOptions.vsync ) ) {
                         if ( m_rendererOptions.vsync ) {
-                            m_gfx->swapchain.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+                            gfx->swapchain.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
                         }
                         else {
-                            m_gfx->swapchain.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+                            gfx->swapchain.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
                         }
                         m_dirtSwapchain = true;
                     }
@@ -1198,7 +1139,7 @@ void VulkanEngine::Run( ) {
 
                     if ( ImGui::CollapsingHeader( "GPU Info" ) ) {
                         ImGui::Indent( );
-                        m_gfx->DrawDebug( );
+                        gfx->DrawDebug( );
                         ImGui::Unindent( );
                     }
 
@@ -1220,16 +1161,16 @@ void VulkanEngine::Run( ) {
 
                             ImGui::Checkbox( "SSAO", &m_ssaoSettings.enable );
                             if ( ImGui::DragFloat2( "Resolution", &m_rendererOptions.ssaoResolution.x, 1, 100,
-                                                    ( f32 )m_gfx->swapchain.extent.width ) ) {
-                                for ( auto i = 0; i < Swapchain::FrameOverlap; i++ ) {
-                                    auto &image = m_gfx->imageCodex.GetImage( m_gfx->swapchain.frames[i].ssao );
+                                                    ( f32 )gfx->swapchain.extent.width ) ) {
+                                for ( auto i = 0; i < TL_Swapchain::FrameOverlap; i++ ) {
+                                    auto &image = gfx->imageCodex.GetImage( gfx->swapchain.frames[i].ssao );
                                     image.Resize( VkExtent3D{
                                             static_cast<uint32_t>( m_rendererOptions.ssaoResolution.x ),
                                             static_cast<uint32_t>( m_rendererOptions.ssaoResolution.y ), 1 } );
                                 }
-                                VK_CHECK( vkWaitForFences( m_gfx->device, 1, &m_gfx->swapchain.GetCurrentFrame( ).fence,
-                                                           true, 1000000000 ) );
-                                m_ssaoPipeline.Cleanup( *m_gfx );
+                                VKCALL( vkWaitForFences( gfx->device, 1, &gfx->swapchain.GetCurrentFrame( ).fence, true,
+                                                         1000000000 ) );
+                                m_ssaoPipeline.Cleanup( *gfx );
 
                                 ActuallyConstructSsaoPipeline( );
                             }
@@ -1264,7 +1205,7 @@ void VulkanEngine::Run( ) {
 
                     if ( ImGui::CollapsingHeader( "Image Codex" ) ) {
                         ImGui::Indent( );
-                        m_gfx->imageCodex.DrawDebug( );
+                        gfx->imageCodex.DrawDebug( );
                         ImGui::Unindent( );
                     }
 
@@ -1311,15 +1252,14 @@ void VulkanEngine::Run( ) {
 
                 if ( ImGui::Begin( "Stats" ) ) {
                     ImGui::Text( "frametime %f ms", m_stats.frametime );
-                    ImGui::Text(
-                            "GPU: %f ms",
-                            m_gfx->GetTimestampInMs( m_gfx->gpuTimestamps.at( 0 ), m_gfx->gpuTimestamps.at( 1 ) ) );
+                    ImGui::Text( "GPU: %f ms",
+                                 gfx->GetTimestampInMs( gfx->gpuTimestamps.at( 0 ), gfx->gpuTimestamps.at( 1 ) ) );
                 }
                 ImGui::End( );
             }
 
             if ( m_drawEditor == false && m_drawStats == true ) {
-                auto extent = m_gfx->swapchain.extent;
+                auto extent = gfx->swapchain.extent;
                 m_visualProfiler.Render( { 0, static_cast<float>( extent.height ) - 450 }, ImVec2( 200, 450 ) );
             }
 
@@ -1335,7 +1275,7 @@ void VulkanEngine::Run( ) {
         m_stats.frametime = elapsed.count( ) / 1000.f;
 
         if ( m_timer >= 500.0f ) {
-            m_gfx->shaderStorage->Reconstruct( );
+            gfx->shaderStorage->Reconstruct( );
             m_timer = 0.0f;
         }
 
@@ -1364,7 +1304,7 @@ void VulkanEngine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targe
         vkCmdBeginRendering( cmd, &render_info );
     }
 
-    m_imGuiPipeline.Draw( *m_gfx, cmd, ImGui::GetDrawData( ) );
+    m_imGuiPipeline.Draw( *gfx, cmd, ImGui::GetDrawData( ) );
 
     vkCmdEndRendering( cmd );
 }
@@ -1434,8 +1374,8 @@ VisibilityLODResult VulkanEngine::VisibilityCheckWithLOD( const Mat4 &transform,
             Vec3 ndc = Vec3( clip ) / clip.w;
 
             ndc = glm::clamp( ndc, -1.0f, 1.0f );
-            Vec2 screen = Vec2( ( ndc.x + 1.0f ) * 0.5f * m_gfx->swapchain.extent.width,
-                                ( 1.0f - ndc.y ) * 0.5f * m_gfx->swapchain.extent.height );
+            Vec2 screen = Vec2( ( ndc.x + 1.0f ) * 0.5f * gfx->swapchain.extent.width,
+                                ( 1.0f - ndc.y ) * 0.5f * gfx->swapchain.extent.height );
 
             min_x = std::min( min_x, screen.x );
             max_x = std::max( max_x, screen.x );
@@ -1518,7 +1458,7 @@ void VulkanEngine::UpdateScene( ) {
     {
         auto start_commands = utils::GetTime( );
         for ( auto &node : m_scene->topNodes ) {
-            CreateDrawCommands( *m_gfx.get( ), *m_scene, *node );
+            CreateDrawCommands( *gfx.get( ), *m_scene, *node );
         }
         auto end_commands = utils::GetTime( );
         m_visualProfiler.AddTimer( "Create Commands", end_commands - start_commands, utils::VisualProfiler::Cpu );
@@ -1577,9 +1517,9 @@ void VulkanEngine::UpdateScene( ) {
         m_gpuPointLights.push_back( gpu_light );
     }
 
-    m_gpuSceneData.Upload( *m_gfx, &m_sceneData, sizeof( GpuSceneData ) );
+    m_gpuSceneData.Upload( *gfx, &m_sceneData, sizeof( GpuSceneData ) );
 
-    m_ssaoBuffer.Upload( *m_gfx, &m_ssaoSettings, sizeof( SsaoSettings ) );
+    m_ssaoBuffer.Upload( *gfx, &m_ssaoSettings, sizeof( SsaoSettings ) );
 
     const auto end = utils::GetTime( );
     m_visualProfiler.AddTimer( "Scene", end - start, utils::VisualProfiler::Cpu );

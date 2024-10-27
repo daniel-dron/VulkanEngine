@@ -20,49 +20,50 @@
 
 class GfxDevice;
 
-class Swapchain {
-public:
-	enum class Error { };
+struct TL_FrameData {
+    VkCommandPool pool;
+    VkCommandBuffer commandBuffer;
+    VkSemaphore swapchainSemaphore;
+    VkSemaphore renderSemaphore;
+    VkFence fence;
+    DeletionQueue deletionQueue;
+    ImageId hdrColor;
+    ImageId ssao;
+    ImageId postProcessImage;
+    ImageId depth;
+    GBuffer gBuffer;
+};
 
-	template<typename T = void>
-	using Result = std::expected<void, Error>;
+class TL_Swapchain {
+public:
+    enum class Error {};
+
+    template<typename T = void>
+    using Result = std::expected<void, Error>;
 
     static constexpr unsigned int FrameOverlap = 2;
 
-	struct FrameData {
-		VkCommandPool pool;
-		VkCommandBuffer commandBuffer;
-		VkSemaphore swapchainSemaphore;
-		VkSemaphore renderSemaphore;
-		VkFence fence;
-		DeletionQueue deletionQueue;
-		ImageId hdrColor;
-		ImageId ssao;
-		ImageId postProcessImage;
-		ImageId depth;
-		GBuffer gBuffer;
-	};
+    VkSwapchainKHR swapchain;
+    std::array<TL_FrameData, FrameOverlap> frames;
+    std::vector<VkImage> images;
+    std::vector<VkImageView> views;
+    VkFormat format;
+    VkExtent2D extent;
+    VkPresentModeKHR presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
 
-	VkSwapchainKHR swapchain;
-	std::array<FrameData, FrameOverlap> frames;
-	std::vector<VkImage> images;
-	std::vector<VkImageView> views;
-	VkFormat format;
-	VkExtent2D extent;
-	VkPresentModeKHR presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+    uint64_t frameNumber = 0;
+    TL_FrameData &GetCurrentFrame( );
 
-	uint64_t frameNumber = 0;
-	FrameData& GetCurrentFrame( );
+    Result<> Init( GfxDevice *gfx, uint32_t width, uint32_t height );
+    void Cleanup( );
 
-	Result<> Init( GfxDevice* gfx, uint32_t width, uint32_t height );
-	void Cleanup( );
+    Result<> Recreate( uint32_t width, uint32_t height );
 
-	Result<> Recreate( uint32_t width, uint32_t height );
 private:
-	Result<> Create( uint32_t width, uint32_t height );
-	void CreateFrameImages( );
-	void CreateGBuffers( );
+    Result<> Create( uint32_t width, uint32_t height );
+    void CreateFrameImages( );
+    void CreateGBuffers( );
 
-	VkSampler m_linear = nullptr;
-	GfxDevice* m_gfx = nullptr;
+    VkSampler m_linear = nullptr;
+    GfxDevice *m_gfx = nullptr;
 };

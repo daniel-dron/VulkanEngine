@@ -44,7 +44,7 @@ WireframePipeline::Result<> WireframePipeline::Init( GfxDevice &gfx ) {
     layout_info.setLayoutCount = 1;
     layout_info.pPushConstantRanges = &range;
     layout_info.pushConstantRangeCount = 1;
-    VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &m_layout ) );
+    VKCALL( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &m_layout ) );
 
     PipelineBuilder builder;
     builder.SetShaders( vert_shader.handle, frag_shader.handle );

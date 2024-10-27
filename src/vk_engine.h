@@ -34,6 +34,8 @@
 
 class VulkanEngine;
 
+extern VulkanEngine* g_TL;
+
 struct RendererOptions {
     bool wireframe = false;
     bool vsync = true;
@@ -66,7 +68,7 @@ public:
     void ResizeSwapchain( uint32_t width, uint32_t height );
 
     ImGuiConsole console;
-    std::unique_ptr<GfxDevice> m_gfx;
+    std::unique_ptr<GfxDevice> gfx;
 
 private:
     void InitSdl( );

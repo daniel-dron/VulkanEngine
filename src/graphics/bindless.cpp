@@ -31,7 +31,7 @@ void BindlessRegistry::Init( GfxDevice &gfx ) {
                                                   .poolSizeCount = 2u,
                                                   .pPoolSizes = pool_sizes };
 
-        VK_CHECK( vkCreateDescriptorPool( gfx.device, &info, nullptr, &pool ) );
+        VKCALL( vkCreateDescriptorPool( gfx.device, &info, nullptr, &pool ) );
     }
 
     // Descriptor Set Layout
@@ -65,7 +65,7 @@ void BindlessRegistry::Init( GfxDevice &gfx ) {
                 .bindingCount = ( u32 )bindings.size( ),
                 .pBindings = bindings.data( ) };
 
-        VK_CHECK( vkCreateDescriptorSetLayout( gfx.device, &info, nullptr, &layout ) );
+        VKCALL( vkCreateDescriptorSetLayout( gfx.device, &info, nullptr, &layout ) );
     }
 
     // Allocate descriptor set
@@ -77,7 +77,7 @@ void BindlessRegistry::Init( GfxDevice &gfx ) {
                 .pSetLayouts = &layout,
         };
 
-        VK_CHECK( vkAllocateDescriptorSets( gfx.device, &alloc_info, &set ) );
+        VKCALL( vkAllocateDescriptorSets( gfx.device, &alloc_info, &set ) );
 
 
         const VkDebugUtilsObjectNameInfoEXT obj = { .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
@@ -143,7 +143,7 @@ void BindlessRegistry::InitSamplers( GfxDevice &gfx ) {
                 .magFilter = VK_FILTER_NEAREST,
                 .minFilter = VK_FILTER_NEAREST,
         };
-        VK_CHECK( vkCreateSampler( gfx.device, &create_info, nullptr, &nearestSampler ) );
+        VKCALL( vkCreateSampler( gfx.device, &create_info, nullptr, &nearestSampler ) );
         AddSampler( gfx, NearestSamplerId, nearestSampler );
     }
 
@@ -157,7 +157,7 @@ void BindlessRegistry::InitSamplers( GfxDevice &gfx ) {
                                                       .maxAnisotropy = 16.0f,
                                                       .minLod = 0.0f,
                                                       .maxLod = 10.0f };
-        VK_CHECK( vkCreateSampler( gfx.device, &create_info, nullptr, &linearSampler ) );
+        VKCALL( vkCreateSampler( gfx.device, &create_info, nullptr, &linearSampler ) );
         AddSampler( gfx, LinearSamplerId, linearSampler );
     }
 
@@ -169,7 +169,7 @@ void BindlessRegistry::InitSamplers( GfxDevice &gfx ) {
                 .compareEnable = VK_TRUE,
                 .compareOp = VK_COMPARE_OP_GREATER_OR_EQUAL,
         };
-        VK_CHECK( vkCreateSampler( gfx.device, &create_info, nullptr, &shadowMapSampler ) );
+        VKCALL( vkCreateSampler( gfx.device, &create_info, nullptr, &shadowMapSampler ) );
         AddSampler( gfx, ShadowSamplerId, shadowMapSampler );
     }
 }

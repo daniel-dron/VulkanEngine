@@ -36,21 +36,21 @@ ImmediateExecutor::Result<> ImmediateExecutor::Init( GfxDevice *gfx ) {
             .pNext = nullptr,
             .flags = VK_FENCE_CREATE_SIGNALED_BIT,
     };
-    VK_CHECK( vkCreateFence( gfx->device, &fence_info, nullptr, &fence ) );
+    VKCALL( vkCreateFence( gfx->device, &fence_info, nullptr, &fence ) );
 
     // Pool and buffer creation
     const VkCommandPoolCreateInfo pool_info = { .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
                                                 .pNext = nullptr,
                                                 .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
                                                 .queueFamilyIndex = gfx->graphicsQueueFamily };
-    VK_CHECK( vkCreateCommandPool( gfx->device, &pool_info, nullptr, &pool ) );
+    VKCALL( vkCreateCommandPool( gfx->device, &pool_info, nullptr, &pool ) );
 
     const VkCommandBufferAllocateInfo buffer_info = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
                                                       .pNext = nullptr,
                                                       .commandPool = pool,
                                                       .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
                                                       .commandBufferCount = 1 };
-    VK_CHECK( vkAllocateCommandBuffers( gfx->device, &buffer_info, &commandBuffer ) );
+    VKCALL( vkAllocateCommandBuffers( gfx->device, &buffer_info, &commandBuffer ) );
 
     return { };
 }
@@ -58,8 +58,8 @@ ImmediateExecutor::Result<> ImmediateExecutor::Init( GfxDevice *gfx ) {
 void ImmediateExecutor::Execute( std::function<void( VkCommandBuffer cmd )> &&func ) {
     mutex.lock( );
 
-    VK_CHECK( vkResetFences( m_gfx->device, 1, &fence ) );
-    VK_CHECK( vkResetCommandBuffer( commandBuffer, 0 ) );
+    VKCALL( vkResetFences( m_gfx->device, 1, &fence ) );
+    VKCALL( vkResetCommandBuffer( commandBuffer, 0 ) );
 
     const auto cmd = commandBuffer;
     constexpr VkCommandBufferBeginInfo info = {
@@ -68,11 +68,11 @@ void ImmediateExecutor::Execute( std::function<void( VkCommandBuffer cmd )> &&fu
             .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
             .pInheritanceInfo = nullptr,
     };
-    VK_CHECK( vkBeginCommandBuffer( cmd, &info ) );
+    VKCALL( vkBeginCommandBuffer( cmd, &info ) );
 
     func( cmd );
 
-    VK_CHECK( vkEndCommandBuffer( cmd ) );
+    VKCALL( vkEndCommandBuffer( cmd ) );
 
     const VkCommandBufferSubmitInfo submit_info = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
@@ -91,8 +91,8 @@ void ImmediateExecutor::Execute( std::function<void( VkCommandBuffer cmd )> &&fu
             .pSignalSemaphoreInfos = nullptr,
     };
 
-    VK_CHECK( vkQueueSubmit2( m_gfx->graphicsQueue, 1, &submit, fence ) );
-    VK_CHECK( vkWaitForFences( m_gfx->device, 1, &fence, true, 9999999999 ) );
+    VKCALL( vkQueueSubmit2( m_gfx->graphicsQueue, 1, &submit, fence ) );
+    VKCALL( vkWaitForFences( m_gfx->device, 1, &fence, true, 9999999999 ) );
 
     mutex.unlock( );
 }
@@ -135,7 +135,7 @@ GpuBuffer GfxDevice::Allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryU
                                                .usage = vmaUsage };
 
     GpuBuffer buffer{ };
-    VK_CHECK( vmaCreateBuffer( allocator, &info, &vma_info, &buffer.buffer, &buffer.allocation, &buffer.info ) );
+    VKCALL( vmaCreateBuffer( allocator, &info, &vma_info, &buffer.buffer, &buffer.allocation, &buffer.info ) );
     buffer.name = name;
 
 #ifdef ENABLE_DEBUG_UTILS
@@ -353,9 +353,9 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
     computeQueueFamily = bs_device.get_queue_index( QueueType::compute ).value( );
     const VkCommandPoolCreateInfo command_pool_info =
             vk_init::CommandPoolCreateInfo( computeQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
-    VK_CHECK( vkCreateCommandPool( device, &command_pool_info, nullptr, &computeCommandPool ) );
+    VKCALL( vkCreateCommandPool( device, &command_pool_info, nullptr, &computeCommandPool ) );
     VkCommandBufferAllocateInfo cmd_alloc_info = vk_init::CommandBufferAllocateInfo( computeCommandPool, 1 );
-    VK_CHECK( vkAllocateCommandBuffers( device, &cmd_alloc_info, &computeCommand ) );
+    VKCALL( vkAllocateCommandBuffers( device, &cmd_alloc_info, &computeCommand ) );
 
     // Query Pool
     VkQueryPoolCreateInfo query_pool_create_info = {
@@ -364,7 +364,7 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
             .queryType = VK_QUERY_TYPE_TIMESTAMP,
             .queryCount = static_cast<uint32_t>( gpuTimestamps.size( ) ),
     };
-    VK_CHECK( vkCreateQueryPool( device, &query_pool_create_info, nullptr, &queryPoolTimestamps ) );
+    VKCALL( vkCreateQueryPool( device, &query_pool_create_info, nullptr, &queryPoolTimestamps ) );
 
     InitDebugFunctions( );
 

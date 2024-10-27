@@ -133,7 +133,7 @@ public:
 	VmaAllocator allocator;
 
 	VkSurfaceKHR surface;
-	::Swapchain swapchain;
+	::TL_Swapchain swapchain;
 
 	ImageCodex imageCodex;
 	MaterialCodex materialCodex;

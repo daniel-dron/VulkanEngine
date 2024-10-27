@@ -43,7 +43,7 @@ void BindlessCompute::Build( const GfxDevice &gfx, VkShaderModule shader, const 
     layout_info.setLayoutCount = 2;
     layout_info.pPushConstantRanges = m_pushConstantRanges.data( );
     layout_info.pushConstantRangeCount = ( u32 )m_pushConstantRanges.size( );
-    VK_CHECK( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &m_layout ) );
+    VKCALL( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &m_layout ) );
 
     const VkPipelineShaderStageCreateInfo stage_create_info = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -59,7 +59,7 @@ void BindlessCompute::Build( const GfxDevice &gfx, VkShaderModule shader, const 
     create_info.layout = m_layout;
     create_info.stage = stage_create_info;
 
-    VK_CHECK( vkCreateComputePipelines( gfx.device, VK_NULL_HANDLE, 1, &create_info, nullptr, &m_pipeline ) );
+    VKCALL( vkCreateComputePipelines( gfx.device, VK_NULL_HANDLE, 1, &create_info, nullptr, &m_pipeline ) );
 
 #ifdef ENABLE_DEBUG_UTILS
     const VkDebugUtilsObjectNameInfoEXT obj = {
