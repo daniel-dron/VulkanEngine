@@ -184,7 +184,7 @@ MultiFrameImageId ImageCodex::CreateMultiFrameEmptyImage( const std::string &nam
     std::vector<ImageId> frames;
 
     // upload each image to the bindless registry and to the individual id system
-    for ( auto i = 0; i < TL_Swapchain::FrameOverlap; i++ ) {
+    for ( auto i = 0; i < TL_VkContext::FrameOverlap; i++ ) {
         frames.push_back( CreateEmptyImage( name, extent, format, usage, mipmapped ) );
     }
 

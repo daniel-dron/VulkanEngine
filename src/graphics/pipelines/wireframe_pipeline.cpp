@@ -55,8 +55,8 @@ WireframePipeline::Result<> WireframePipeline::Init( TL_VkContext &gfx ) {
     builder.DisableBlending( );
     builder.EnableDepthTest( true, VK_COMPARE_OP_GREATER_OR_EQUAL );
 
-    auto &color = gfx.imageCodex.GetImage( gfx.swapchain.GetCurrentFrame( ).hdrColor );
-    auto &depth = gfx.imageCodex.GetImage( gfx.swapchain.GetCurrentFrame( ).depth );
+    auto &color = gfx.imageCodex.GetImage( gfx.GetCurrentFrame( ).hdrColor );
+    auto &depth = gfx.imageCodex.GetImage( gfx.GetCurrentFrame( ).depth );
     builder.SetColorAttachmentFormat( color.GetFormat( ) );
     builder.SetDepthFormat( depth.GetFormat( ) );
     builder.SetLayout( m_layout );
@@ -96,7 +96,7 @@ DrawStats WireframePipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const
     auto bindless_set = gfx.GetBindlessSet( );
     vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &bindless_set, 0, nullptr );
 
-    auto &target_image = gfx.imageCodex.GetImage( gfx.swapchain.GetCurrentFrame( ).hdrColor );
+    auto &target_image = gfx.imageCodex.GetImage( gfx.GetCurrentFrame( ).hdrColor );
 
     const VkViewport viewport = {
             .x = 0,

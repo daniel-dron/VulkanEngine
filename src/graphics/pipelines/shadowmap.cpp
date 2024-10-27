@@ -28,7 +28,7 @@ ShadowMap::Result<> ShadowMap::Init( TL_VkContext &gfx ) {
     auto &vert_shader = gfx.shaderStorage->Get( "shadowmap", TVertex );
 
     auto reconstruct_shader_callback = [&]( VkShaderModule shader ) {
-        VKCALL( vkWaitForFences( gfx.device, 1, &gfx.swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
+        VKCALL( vkWaitForFences( gfx.device, 1, &gfx.GetCurrentFrame( ).fence, true, 1000000000 ) );
         Cleanup( gfx );
 
         Reconstruct( gfx );
@@ -140,7 +140,7 @@ void ShadowMap::Reconstruct( TL_VkContext &gfx ) {
     builder.DisableBlending( );
     builder.EnableDepthTest( true, VK_COMPARE_OP_LESS );
 
-    VkFormat format = gfx.imageCodex.GetImage( gfx.swapchain.GetCurrentFrame( ).depth ).GetFormat( );
+    VkFormat format = gfx.imageCodex.GetImage( gfx.GetCurrentFrame( ).depth ).GetFormat( );
     builder.SetDepthFormat( format );
 
     builder.SetLayout( m_layout );

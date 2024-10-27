@@ -29,7 +29,7 @@ GBufferPipeline::Result<> GBufferPipeline::Init( TL_VkContext &gfx ) {
     auto &vert_shader = gfx.shaderStorage->Get( "gbuffer", TVertex );
 
     auto reconstruct_shader_callback = [&]( VkShaderModule shader ) {
-        VKCALL( vkWaitForFences( gfx.device, 1, &gfx.swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
+        VKCALL( vkWaitForFences( gfx.device, 1, &gfx.GetCurrentFrame( ).fence, true, 1000000000 ) );
         Cleanup( gfx );
 
         Reconstruct( gfx );
@@ -63,7 +63,7 @@ DrawStats GBufferPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const s
     const auto bindless_set = gfx.GetBindlessSet( );
     vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &bindless_set, 0, nullptr );
 
-    auto &target_image = gfx.imageCodex.GetImage( gfx.swapchain.GetCurrentFrame( ).gBuffer.albedo );
+    auto &target_image = gfx.imageCodex.GetImage( gfx.GetCurrentFrame( ).gBuffer.albedo );
 
     VkViewport viewport = {
             .x = 0,
@@ -140,12 +140,12 @@ void GBufferPipeline::Reconstruct( TL_VkContext &gfx ) {
     builder.DisableBlending( );
     builder.EnableDepthTest( true, VK_COMPARE_OP_LESS );
 
-    auto &g_buffer = gfx.swapchain.GetCurrentFrame( ).gBuffer;
+    auto &g_buffer = gfx.GetCurrentFrame( ).gBuffer;
     auto &albedo = gfx.imageCodex.GetImage( g_buffer.albedo );
     auto &normal = gfx.imageCodex.GetImage( g_buffer.normal );
     auto &position = gfx.imageCodex.GetImage( g_buffer.position );
     auto &pbr = gfx.imageCodex.GetImage( g_buffer.pbr );
-    auto &depth = gfx.imageCodex.GetImage( gfx.swapchain.GetCurrentFrame( ).depth );
+    auto &depth = gfx.imageCodex.GetImage( gfx.GetCurrentFrame( ).depth );
 
     std::array formats = {
             albedo.GetFormat( ),

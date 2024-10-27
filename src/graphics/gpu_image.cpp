@@ -614,7 +614,7 @@ void image::Blit( VkCommandBuffer cmd, VkImage srcImage, VkExtent2D srcExtent, V
 
 MultiFrameGpuImage::MultiFrameGpuImage( const std::vector<ImageId> &images ) { m_frames = images; }
 
-ImageId MultiFrameGpuImage::GetCurrentImage( ) {
-    auto id = TL_Engine::Get( ).gfx->swapchain.frameNumber % TL_Swapchain::FrameOverlap;
+ImageId MultiFrameGpuImage::GetCurrentImage( ) const {
+    const auto id = TL_Engine::Get( ).renderer->vkctx.frameNumber % TL_VkContext::FrameOverlap;
     return m_frames[id];
 }

@@ -102,6 +102,8 @@ void ImmediateExecutor::Cleanup( ) const {
     vkDestroyCommandPool( m_gfx->device, pool, nullptr );
 }
 
+TL_VkContext::TL_VkContext( SDL_Window *window ) { Init( window ); }
+
 TL_VkContext::Result<> TL_VkContext::Init( SDL_Window *window ) {
     RETURN_IF_ERROR( InitDevice( window ) );
     RETURN_IF_ERROR( InitAllocator( ) );
@@ -118,7 +120,8 @@ TL_VkContext::Result<> TL_VkContext::Init( SDL_Window *window ) {
     imageCodex.Init( this );
     materialCodex.Init( *this );
 
-    swapchain.Init( this, WIDTH, HEIGHT );
+    // .Init( this, WIDTH, HEIGHT );
+    InitSwapchain( WIDTH, HEIGHT );
 
     return { };
 }
@@ -126,7 +129,7 @@ TL_VkContext::Result<> TL_VkContext::Init( SDL_Window *window ) {
 void TL_VkContext::Execute( std::function<void( VkCommandBuffer )> &&func ) { executor.Execute( std::move( func ) ); }
 
 GpuBuffer TL_VkContext::Allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage,
-                               const std::string &name ) {
+                                  const std::string &name ) {
     const VkBufferCreateInfo info = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, .pNext = nullptr, .size = size, .usage = usage };
 
@@ -161,7 +164,8 @@ void TL_VkContext::Free( const GpuBuffer &buffer ) {
 }
 
 void TL_VkContext::Cleanup( ) {
-    swapchain.Cleanup( );
+    CleanupSwapchain( );
+
     materialCodex.Cleanup( *this );
     imageCodex.Cleanup( );
     meshCodex.Cleanup( *this );
@@ -182,7 +186,7 @@ VkDescriptorSet TL_VkContext::AllocateSet( VkDescriptorSetLayout layout ) { retu
 
 MultiDescriptorSet TL_VkContext::AllocateMultiSet( VkDescriptorSetLayout layout ) {
     std::vector<VkDescriptorSet> sets;
-    for ( auto i = 0; i < swapchain.FrameOverlap; i++ ) {
+    for ( auto i = 0; i < FrameOverlap; i++ ) {
         sets.push_back( AllocateSet( layout ) );
     }
 
@@ -200,6 +204,8 @@ float TL_VkContext::GetTimestampInMs( uint64_t start, uint64_t end ) const {
     const auto period = deviceProperties.properties.limits.timestampPeriod;
     return ( end - start ) * period / 1000000.0f;
 }
+
+TL_FrameData &TL_VkContext::GetCurrentFrame( ) { return frames.at( frameNumber % FrameOverlap ); }
 
 void TL_VkContext::DrawDebug( ) const {
     auto props = deviceProperties.properties;
@@ -384,6 +390,119 @@ TL_VkContext::Result<> TL_VkContext::InitAllocator( ) {
     }
 
     return { };
+}
+
+void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
+    extent = VkExtent2D( width, height );
+
+    SwapchainBuilder builder( chosenGpu, device, surface );
+    format = VK_FORMAT_R8G8B8A8_SRGB;
+
+    auto swapchain_res = builder.set_desired_format( VkSurfaceFormatKHR{
+                                                             .format = format,
+                                                             .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+                                                     } )
+                                 .set_desired_present_mode( presentMode )
+                                 .add_image_usage_flags( VK_IMAGE_USAGE_TRANSFER_DST_BIT )
+                                 .build( );
+
+    // TODO: throw instead
+    assert( swapchain_res.has_value( ) );
+
+    auto &bs_swapchain = swapchain_res.value( );
+
+    swapchain = bs_swapchain.swapchain;
+    images = bs_swapchain.get_images( ).value( );
+    views = bs_swapchain.get_image_views( ).value( );
+
+    assert( images.size( ) != 0 );
+    assert( views.size( ) != 0 );
+
+    const VkCommandPoolCreateInfo command_pool_info =
+            vk_init::CommandPoolCreateInfo( graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
+    for ( int i = 0; i < FrameOverlap; i++ ) {
+        VKCALL( vkCreateCommandPool( device, &command_pool_info, nullptr, &frames[i].pool ) );
+
+        VkCommandBufferAllocateInfo cmd_alloc_info = vk_init::CommandBufferAllocateInfo( frames[i].pool, 1 );
+        VKCALL( vkAllocateCommandBuffers( device, &cmd_alloc_info, &frames[i].commandBuffer ) );
+
+        const VkDebugUtilsObjectNameInfoEXT obj = {
+                .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+                .pNext = nullptr,
+                .objectType = VK_OBJECT_TYPE_COMMAND_BUFFER,
+                .objectHandle = reinterpret_cast<uint64_t>( frames[i].commandBuffer ),
+                .pObjectName = "Main CMD",
+        };
+        vkSetDebugUtilsObjectNameEXT( device, &obj );
+    }
+
+    auto fenceCreateInfo = vk_init::FenceCreateInfo( VK_FENCE_CREATE_SIGNALED_BIT );
+    auto semaphoreCreateInfo = vk_init::SemaphoreCreateInfo( );
+
+    for ( int i = 0; i < FrameOverlap; i++ ) {
+        VKCALL( vkCreateFence( device, &fenceCreateInfo, nullptr, &frames[i].fence ) );
+
+        VKCALL( vkCreateSemaphore( device, &semaphoreCreateInfo, nullptr, &frames[i].renderSemaphore ) );
+        VKCALL( vkCreateSemaphore( device, &semaphoreCreateInfo, nullptr, &frames[i].swapchainSemaphore ) );
+    }
+
+    const VkExtent3D draw_image_extent = { .width = extent.width, .height = extent.height, .depth = 1 };
+
+    VkImageUsageFlags draw_image_usages{ };
+    draw_image_usages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    draw_image_usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
+    VkImageUsageFlags depth_image_usages{ };
+    depth_image_usages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    depth_image_usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
+    constexpr VkImageUsageFlags usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    const VkExtent3D extent = { .width = this->extent.width, .height = this->extent.height, .depth = 1 };
+
+    // TODO: transition to correct layout ( check validation layers )
+    for ( auto &frame : frames ) {
+        std::vector<unsigned char> empty_image_data;
+        empty_image_data.resize( extent.width * extent.height * 8, 0 );
+        frame.hdrColor = imageCodex.LoadImageFromData( "hdr image pbr", empty_image_data.data( ), draw_image_extent,
+                                                       VK_FORMAT_R16G16B16A16_SFLOAT, draw_image_usages, false );
+
+        frame.postProcessImage =
+                imageCodex.CreateEmptyImage( "post process", draw_image_extent, VK_FORMAT_R8G8B8A8_UNORM,
+                                             draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
+
+        empty_image_data.resize( extent.width * extent.height * 4, 0 );
+        frame.depth = imageCodex.LoadImageFromData( "main depth image", empty_image_data.data( ), draw_image_extent,
+                                                    VK_FORMAT_D32_SFLOAT, depth_image_usages, false );
+        std::vector<unsigned char> empty_data;
+        empty_data.resize( extent.width * extent.height * 4 * 2, 0 );
+
+        frame.gBuffer.position = imageCodex.LoadImageFromData( "gbuffer.position", empty_data.data( ), extent,
+                                                               VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+        frame.gBuffer.normal = imageCodex.LoadImageFromData( "gbuffer.normal", empty_data.data( ), extent,
+                                                             VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+        frame.gBuffer.pbr = imageCodex.LoadImageFromData( "gbuffer.pbr", empty_data.data( ), extent,
+                                                          VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+        frame.gBuffer.albedo = imageCodex.LoadImageFromData( "gbuffer.albedo", empty_data.data( ), extent,
+                                                             VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+    }
+}
+void TL_VkContext::CleanupSwapchain( ) {
+    for ( uint64_t i = 0; i < FrameOverlap; i++ ) {
+        vkDestroyCommandPool( device, frames[i].pool, nullptr );
+
+        // sync objects
+        vkDestroyFence( device, frames[i].fence, nullptr );
+        vkDestroySemaphore( device, frames[i].renderSemaphore, nullptr );
+        vkDestroySemaphore( device, frames[i].swapchainSemaphore, nullptr );
+
+        frames[i].deletionQueue.Flush( );
+    }
+
+    vkDestroySwapchainKHR( device, swapchain, nullptr );
+
+    for ( const auto &view : views ) {
+        vkDestroyImageView( device, view, nullptr );
+    }
 }
 
 void TL_VkContext::InitDebugFunctions( ) const {

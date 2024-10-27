@@ -29,6 +29,7 @@
 #include <vk_types.h>
 #include <vulkan/vulkan_core.h>
 #include "camera/camera.h"
+#include "graphics/tl_renderer.h"
 #include "graphics/tl_vkcontext.h"
 #include "utils/profiler.h"
 
@@ -69,7 +70,7 @@ public:
     void ResizeSwapchain( uint32_t width, uint32_t height );
 
     ImGuiConsole console;
-    std::unique_ptr<TL_VkContext> gfx;
+    std::unique_ptr<TL::Renderer> renderer = nullptr;
 
 private:
     void InitSdl( );

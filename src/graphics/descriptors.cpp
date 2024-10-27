@@ -240,5 +240,5 @@ VkDescriptorSetLayout descriptor::CreateDescriptorSetLayout( VkDevice device, Vk
 }
 
 VkDescriptorSet MultiDescriptorSet::GetCurrentFrame( ) const {
-    return m_sets[TL_Engine::Get( ).gfx->swapchain.frameNumber % TL_Swapchain::FrameOverlap];
+    return m_sets[TL_Engine::Get( ).renderer->vkctx.frameNumber % TL_VkContext::FrameOverlap];
 }

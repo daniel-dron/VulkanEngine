@@ -27,7 +27,7 @@ SkyboxPipeline::Result<> SkyboxPipeline::Init( TL_VkContext &gfx ) {
     auto &vert_shader = gfx.shaderStorage->Get( "skybox", TVertex );
 
     auto reconstruct_shader_callback = [&]( VkShaderModule shader ) {
-        VKCALL( vkWaitForFences( gfx.device, 1, &gfx.swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
+        VKCALL( vkWaitForFences( gfx.device, 1, &gfx.GetCurrentFrame( ).fence, true, 1000000000 ) );
         Cleanup( gfx );
 
         Reconstruct( gfx );
@@ -121,8 +121,8 @@ void SkyboxPipeline::Reconstruct( TL_VkContext &gfx ) {
     builder.DisableBlending( );
     builder.EnableDepthTest( false, VK_COMPARE_OP_LESS_OR_EQUAL );
 
-    auto &color = gfx.imageCodex.GetImage( gfx.swapchain.GetCurrentFrame( ).hdrColor );
-    auto &depth = gfx.imageCodex.GetImage( gfx.swapchain.GetCurrentFrame( ).depth );
+    auto &color = gfx.imageCodex.GetImage( gfx.GetCurrentFrame( ).hdrColor );
+    auto &depth = gfx.imageCodex.GetImage( gfx.GetCurrentFrame( ).depth );
     builder.SetColorAttachmentFormat( color.GetFormat( ) );
     builder.SetDepthFormat( depth.GetFormat( ) );
     builder.SetLayout( m_layout );
@@ -159,7 +159,7 @@ void SkyboxPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImageId skybo
     const auto bindless_set = gfx.GetBindlessSet( );
     vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &bindless_set, 0, nullptr );
 
-    auto &target_image = gfx.imageCodex.GetImage( gfx.swapchain.GetCurrentFrame( ).hdrColor );
+    auto &target_image = gfx.imageCodex.GetImage( gfx.GetCurrentFrame( ).hdrColor );
 
     const VkViewport viewport = {
             .x = 0,

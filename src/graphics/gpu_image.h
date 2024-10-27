@@ -135,7 +135,7 @@ public:
         return *this;
     }
 
-    ImageId GetCurrentImage( );
+    ImageId GetCurrentImage( ) const;
 
     MultiFrameImageId GetId( ) const { return m_id; }
     void SetId( MultiFrameImageId id ) { m_id = id; }

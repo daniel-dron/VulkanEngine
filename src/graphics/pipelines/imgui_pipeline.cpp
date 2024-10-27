@@ -50,14 +50,14 @@ ImGuiPipeline::Result<> ImGuiPipeline::Init( TL_VkContext &gfx ) {
 
     // buffers
     {
-        for ( size_t i = 0; i < TL_Swapchain::FrameOverlap; i++ ) {
+        for ( size_t i = 0; i < TL_VkContext::FrameOverlap; i++ ) {
             GpuBuffer index_buffer =
                     gfx.Allocate( sizeof( ImDrawIdx ) * MAX_IDX_COUNT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                   VMA_MEMORY_USAGE_CPU_TO_GPU, "imgui index buffer" );
             m_indexBuffers.push_back( index_buffer );
         }
 
-        for ( size_t i = 0; i < TL_Swapchain::FrameOverlap; i++ ) {
+        for ( size_t i = 0; i < TL_VkContext::FrameOverlap; i++ ) {
             GpuBuffer vertex_buffer =
                     gfx.Allocate( sizeof( ImDrawVert ) * MAX_VTX_COUNT,
                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
@@ -97,7 +97,7 @@ ImGuiPipeline::Result<> ImGuiPipeline::Init( TL_VkContext &gfx ) {
                             VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA );
     builder.DisableDepthTest( );
 
-    builder.SetColorAttachmentFormat( gfx.swapchain.format );
+    builder.SetColorAttachmentFormat( gfx.format );
     builder.SetLayout( m_layout );
     m_pipeline = builder.Build( gfx.device );
 
@@ -136,7 +136,7 @@ void ImGuiPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImDrawData *dr
 
     // ----------
     // copy buffers
-    const auto current_frame_index = gfx.swapchain.frameNumber % TL_Swapchain::FrameOverlap;
+    const auto current_frame_index = gfx.frameNumber % TL_VkContext::FrameOverlap;
     size_t index_offset = 0;
     size_t vertex_offset = 0;
     for ( i32 i = 0; i < drawData->CmdListsCount; i++ ) {
@@ -171,7 +171,7 @@ void ImGuiPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImDrawData *dr
     auto bindless_set = gfx.GetBindlessSet( );
     vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &bindless_set, 0, nullptr );
 
-    auto &target_image = gfx.imageCodex.GetImage( gfx.swapchain.GetCurrentFrame( ).hdrColor );
+    auto &target_image = gfx.imageCodex.GetImage( gfx.GetCurrentFrame( ).hdrColor );
     VkViewport viewport = {
             .x = 0,
             .y = 0,
