@@ -52,6 +52,7 @@
 #include <graphics/tl_renderer.h>
 
 VulkanEngine *g_TL = nullptr;
+utils::VisualProfiler g_visualProfiler = utils::VisualProfiler( 300 );
 
 // TODO: move
 void GpuBuffer::Upload( const GfxDevice &gfx, const void *data, const size_t size ) const {
@@ -90,16 +91,16 @@ void VulkanEngine::Init( ) {
     EG_INPUT.Init( );
     InitScene( );
 
-    m_visualProfiler.RegisterTask( "GBuffer", utils::colors::CARROT, utils::VisualProfiler::Cpu );
-    m_visualProfiler.RegisterTask( "Create Commands", utils::colors::EMERALD, utils::VisualProfiler::Cpu );
-    m_visualProfiler.RegisterTask( "Scene", utils::colors::EMERALD, utils::VisualProfiler::Cpu );
+    g_visualProfiler.RegisterTask( "GBuffer", utils::colors::CARROT, utils::VisualProfiler::Cpu );
+    g_visualProfiler.RegisterTask( "Create Commands", utils::colors::EMERALD, utils::VisualProfiler::Cpu );
+    g_visualProfiler.RegisterTask( "Scene", utils::colors::EMERALD, utils::VisualProfiler::Cpu );
 
-    m_visualProfiler.RegisterTask( "ShadowMap", utils::colors::TURQUOISE, utils::VisualProfiler::Gpu );
-    m_visualProfiler.RegisterTask( "GBuffer", utils::colors::ALIZARIN, utils::VisualProfiler::Gpu );
-    m_visualProfiler.RegisterTask( "SSAO", utils::colors::SILVER, utils::VisualProfiler::Gpu );
-    m_visualProfiler.RegisterTask( "Lighting", utils::colors::AMETHYST, utils::VisualProfiler::Gpu );
-    m_visualProfiler.RegisterTask( "Skybox", utils::colors::SUN_FLOWER, utils::VisualProfiler::Gpu );
-    m_visualProfiler.RegisterTask( "Post Process", utils::colors::PETER_RIVER, utils::VisualProfiler::Gpu );
+    g_visualProfiler.RegisterTask( "ShadowMap", utils::colors::TURQUOISE, utils::VisualProfiler::Gpu );
+    g_visualProfiler.RegisterTask( "GBuffer", utils::colors::ALIZARIN, utils::VisualProfiler::Gpu );
+    g_visualProfiler.RegisterTask( "SSAO", utils::colors::SILVER, utils::VisualProfiler::Gpu );
+    g_visualProfiler.RegisterTask( "Lighting", utils::colors::AMETHYST, utils::VisualProfiler::Gpu );
+    g_visualProfiler.RegisterTask( "Skybox", utils::colors::SUN_FLOWER, utils::VisualProfiler::Gpu );
+    g_visualProfiler.RegisterTask( "Post Process", utils::colors::PETER_RIVER, utils::VisualProfiler::Gpu );
 
     m_isInitialized = true;
 }
@@ -413,43 +414,18 @@ void VulkanEngine::Draw( ) {
     m_stats.triangleCount = 0;
 
     auto frame = gfx->swapchain.GetCurrentFrame( );
+    
     frame.deletionQueue.Flush( );
     u32 swapchain_image_index = TL::StartFrame( frame );
     auto cmd = frame.commandBuffer;
 
-    // Query the pool timings
-    if ( gfx->swapchain.frameNumber != 0 ) {
-        vkGetQueryPoolResults( gfx->device, gfx->queryPoolTimestamps, 0, ( u32 )gfx->gpuTimestamps.size( ),
-                               gfx->gpuTimestamps.size( ) * sizeof( uint64_t ), gfx->gpuTimestamps.data( ),
-                               sizeof( uint64_t ), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT );
-
-        auto time = gfx->GetTimestampInMs( gfx->gpuTimestamps.at( 0 ), gfx->gpuTimestamps.at( 1 ) ) / 1000.0f;
-        m_visualProfiler.AddTimer( "ShadowMap", time, utils::VisualProfiler::Gpu );
-        time = gfx->GetTimestampInMs( gfx->gpuTimestamps.at( 2 ), gfx->gpuTimestamps.at( 3 ) ) / 1000.0f;
-        m_visualProfiler.AddTimer( "GBuffer", time, utils::VisualProfiler::Gpu );
-        time = gfx->GetTimestampInMs( gfx->gpuTimestamps.at( 4 ), gfx->gpuTimestamps.at( 5 ) ) / 1000.0f;
-        m_visualProfiler.AddTimer( "SSAO", time, utils::VisualProfiler::Gpu );
-        time = gfx->GetTimestampInMs( gfx->gpuTimestamps.at( 6 ), gfx->gpuTimestamps.at( 7 ) ) / 1000.0f;
-        m_visualProfiler.AddTimer( "Lighting", time, utils::VisualProfiler::Gpu );
-        time = gfx->GetTimestampInMs( gfx->gpuTimestamps.at( 8 ), gfx->gpuTimestamps.at( 9 ) ) / 1000.0f;
-        m_visualProfiler.AddTimer( "Skybox", time, utils::VisualProfiler::Gpu );
-        time = gfx->GetTimestampInMs( gfx->gpuTimestamps.at( 10 ), gfx->gpuTimestamps.at( 11 ) ) / 1000.0f;
-        m_visualProfiler.AddTimer( "Post Process", time, utils::VisualProfiler::Gpu );
-    }
-
     auto &color = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).hdrColor );
-
     auto &depth = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).depth );
-
-    m_drawExtent.height = static_cast<uint32_t>( std::min( gfx->swapchain.extent.height, color.GetExtent( ).height ) *
-                                                 m_renderScale );
-    m_drawExtent.width =
-            static_cast<uint32_t>( std::min( gfx->swapchain.extent.width, color.GetExtent( ).width ) * m_renderScale );
 
     depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, gfx->queryPoolTimestamps, 0 );
-    if ( gfx->swapchain.frameNumber == 0 || m_rendererOptions.reRenderShadowMaps ) {
+    if ( m_rendererOptions.reRenderShadowMaps ) {
         m_rendererOptions.reRenderShadowMaps = false;
         ShadowMapPass( cmd );
     }
@@ -537,7 +513,7 @@ void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) {
 
         VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
                                         .pNext = nullptr,
-                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
+                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, gfx->swapchain.extent },
                                         .layerCount = 1,
                                         .colorAttachmentCount = ( u32 )color_attachments.size( ),
                                         .pColorAttachments = color_attachments.data( ),
@@ -554,7 +530,7 @@ void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) {
     vkCmdEndRendering( cmd );
 
     auto end = utils::GetTime( );
-    m_visualProfiler.AddTimer( "GBuffer", end - start, utils::VisualProfiler::Cpu );
+    g_visualProfiler.AddTimer( "GBuffer", end - start, utils::VisualProfiler::Cpu );
     END_LABEL( cmd );
 }
 
@@ -572,7 +548,6 @@ void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
     m_ssaoPipeline.BindDescriptorSet( cmd, m_ssaoSet.GetCurrentFrame( ), 1 );
     m_ssaoPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16,
                              6 );
-
 
     // ----------
     // Blur
@@ -608,7 +583,7 @@ void VulkanEngine::PbrPass( VkCommandBuffer cmd ) const {
 
         VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
                                         .pNext = nullptr,
-                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
+                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, gfx->swapchain.extent },
                                         .layerCount = 1,
                                         .colorAttachmentCount = 1,
                                         .pColorAttachments = &color_attachment,
@@ -648,7 +623,7 @@ void VulkanEngine::SkyboxPass( VkCommandBuffer cmd ) const {
         };
         VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
                                         .pNext = nullptr,
-                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
+                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, gfx->swapchain.extent },
                                         .layerCount = 1,
                                         .colorAttachmentCount = 1,
                                         .pColorAttachments = &color_attachment,
@@ -1029,7 +1004,7 @@ void VulkanEngine::Run( ) {
                             auto window_pos = ImGui::GetWindowPos( );
                             ImVec2 position = { window_pos.x + image_pos.x,
                                                 window_pos.y + image_pos.y + image_size.y - 450 };
-                            m_visualProfiler.Render( position, ImVec2( 200, 450 ) );
+                            g_visualProfiler.Render( position, ImVec2( 200, 450 ) );
                         }
 
                         if ( m_selectedNode != nullptr ) {
@@ -1098,7 +1073,6 @@ void VulkanEngine::Run( ) {
                         selected_set = gfx->swapchain.GetCurrentFrame( ).ssao;
                     }
                     ImGui::Separator( );
-                    ImGui::SliderFloat( "Render Scale", &m_renderScale, 0.3f, 1.f );
                     ImGui::DragFloat( "Exposure", &m_ppConfig.exposure, 0.001f, 0.00f, 10.0f );
                     ImGui::DragFloat( "Gamma", &m_ppConfig.gamma, 0.01f, 0.01f, 10.0f );
                     ImGui::Checkbox( "Wireframe", &m_rendererOptions.wireframe );
@@ -1260,7 +1234,7 @@ void VulkanEngine::Run( ) {
 
             if ( m_drawEditor == false && m_drawStats == true ) {
                 auto extent = gfx->swapchain.extent;
-                m_visualProfiler.Render( { 0, static_cast<float>( extent.height ) - 450 }, ImVec2( 200, 450 ) );
+                g_visualProfiler.Render( { 0, static_cast<float>( extent.height ) - 450 }, ImVec2( 200, 450 ) );
             }
 
             ImGui::Render( );
@@ -1281,7 +1255,7 @@ void VulkanEngine::Run( ) {
 
         m_timer += m_stats.frametime;
         const auto end_task = utils::GetTime( );
-        // m_visualProfiler.AddTimer( "Main", end_task - start_task, utils::VisualProfiler::Cpu );
+        // g_visualProfiler.AddTimer( "Main", end_task - start_task, utils::VisualProfiler::Cpu );
     }
 }
 
@@ -1294,7 +1268,7 @@ void VulkanEngine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targe
         const VkRenderingInfo render_info = {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
                 .pNext = nullptr,
-                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, m_drawExtent },
+                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, gfx->swapchain.extent },
                 .layerCount = 1,
                 .colorAttachmentCount = 1,
                 .pColorAttachments = &color_attachment,
@@ -1461,7 +1435,7 @@ void VulkanEngine::UpdateScene( ) {
             CreateDrawCommands( *gfx.get( ), *m_scene, *node );
         }
         auto end_commands = utils::GetTime( );
-        m_visualProfiler.AddTimer( "Create Commands", end_commands - start_commands, utils::VisualProfiler::Cpu );
+        g_visualProfiler.AddTimer( "Create Commands", end_commands - start_commands, utils::VisualProfiler::Cpu );
     }
 
     // camera
@@ -1522,5 +1496,5 @@ void VulkanEngine::UpdateScene( ) {
     m_ssaoBuffer.Upload( *gfx, &m_ssaoSettings, sizeof( SsaoSettings ) );
 
     const auto end = utils::GetTime( );
-    m_visualProfiler.AddTimer( "Scene", end - start, utils::VisualProfiler::Cpu );
+    g_visualProfiler.AddTimer( "Scene", end - start, utils::VisualProfiler::Cpu );
 }

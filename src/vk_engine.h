@@ -35,6 +35,7 @@
 class VulkanEngine;
 
 extern VulkanEngine* g_TL;
+extern utils::VisualProfiler g_visualProfiler;
 
 struct RendererOptions {
     bool wireframe = false;
@@ -42,7 +43,7 @@ struct RendererOptions {
     bool renderIrradianceInsteadSkybox = false;
     Vec2 ssaoResolution;
 
-    bool reRenderShadowMaps     = false;    // whether to rerender the shadow map every frame.
+    bool reRenderShadowMaps     = true;    // whether to rerender the shadow map every frame.
 
     // Frustum settings
     bool frustumCulling         = true;     // Turn on/off the entire culling system checks
@@ -112,8 +113,6 @@ private:
     bool m_dirtSwapchain = false;
 
     DeletionQueue m_mainDeletionQueue;
-    VkExtent2D m_drawExtent = { };
-    float m_renderScale = 1.f;
 
     MaterialCodex m_materialCodex = { };
     PbrPipeline m_pbrPipeline = { };
@@ -185,7 +184,6 @@ private:
     std::unique_ptr<FirstPersonFlyingController> m_fpsController;
     CameraController *m_cameraController = nullptr;
 
-    utils::VisualProfiler m_visualProfiler = utils::VisualProfiler( 300 );
     RendererOptions m_rendererOptions;
 
     bool m_open = true;
