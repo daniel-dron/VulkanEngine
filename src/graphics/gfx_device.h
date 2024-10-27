@@ -142,7 +142,7 @@ public:
 	std::unique_ptr<ShaderStorage> shaderStorage;
 
     VkQueryPool queryPoolTimestamps = nullptr;
-    std::array<uint64_t, 12> gpuTimestamps;
+    std::array<uint64_t, 10> gpuTimestamps;
 
 	void DrawDebug( ) const;
 

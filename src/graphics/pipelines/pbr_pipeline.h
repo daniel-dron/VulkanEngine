@@ -40,7 +40,6 @@ private:
         uint32_t irradianceTex;
         uint32_t radianceTex;
         uint32_t brdfLut;
-        uint32_t ssaoTex;
     };
 
     struct IblSettings {

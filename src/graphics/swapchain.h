@@ -28,7 +28,6 @@ struct TL_FrameData {
     VkFence fence;
     DeletionQueue deletionQueue;
     ImageId hdrColor;
-    ImageId ssao;
     ImageId postProcessImage;
     ImageId depth;
     GBuffer gBuffer;

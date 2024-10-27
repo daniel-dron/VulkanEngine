@@ -52,7 +52,10 @@ void PbrPipeline::Cleanup( GfxDevice &gfx ) {
     gfx.Free( m_gpuPointLights );
 }
 
-DrawStats PbrPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, const GpuSceneData &sceneData, const std::vector<GpuDirectionalLight> &directionalLights, const std::vector<GpuPointLightData> &pointLights, const GBuffer &gBuffer, uint32_t irradianceMap, uint32_t radianceMap, uint32_t brdfLut ) const {
+DrawStats PbrPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, const GpuSceneData &sceneData,
+                             const std::vector<GpuDirectionalLight> &directionalLights,
+                             const std::vector<GpuPointLightData> &pointLights, const GBuffer &gBuffer,
+                             uint32_t irradianceMap, uint32_t radianceMap, uint32_t brdfLut ) const {
     DrawStats stats = { };
 
     GpuSceneData *gpu_scene_addr = nullptr;
@@ -67,13 +70,16 @@ DrawStats PbrPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, const GpuScene
     vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &bindless_set, 0, nullptr );
 
     m_gpuIbl.Upload( gfx, &m_ibl, sizeof( IblSettings ) );
-    m_gpuDirectionalLights.Upload( gfx, directionalLights.data( ), sizeof( GpuDirectionalLight ) * directionalLights.size( ) );
+    m_gpuDirectionalLights.Upload( gfx, directionalLights.data( ),
+                                   sizeof( GpuDirectionalLight ) * directionalLights.size( ) );
     m_gpuPointLights.Upload( gfx, pointLights.data( ), sizeof( GpuPointLightData ) * pointLights.size( ) );
 
     DescriptorWriter writer;
     writer.WriteBuffer( 0, m_gpuIbl.buffer, sizeof( IblSettings ), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-    writer.WriteBuffer( 1, m_gpuDirectionalLights.buffer, sizeof( GpuDirectionalLight ) * 10, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-    writer.WriteBuffer( 2, m_gpuPointLights.buffer, sizeof( GpuPointLightData ) * 10, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+    writer.WriteBuffer( 1, m_gpuDirectionalLights.buffer, sizeof( GpuDirectionalLight ) * 10, 0,
+                        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+    writer.WriteBuffer( 2, m_gpuPointLights.buffer, sizeof( GpuPointLightData ) * 10, 0,
+                        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
     auto set = m_sets.GetCurrentFrame( );
     writer.UpdateSet( gfx.device, set );
     vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 1, 1, &set, 0, nullptr );
@@ -91,31 +97,29 @@ DrawStats PbrPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, const GpuScene
     vkCmdSetViewport( cmd, 0, 1, &viewport );
 
     const VkRect2D scissor = {
-            .offset = {
-                    .x = 0,
-                    .y = 0,
-            },
+            .offset =
+                    {
+                            .x = 0,
+                            .y = 0,
+                    },
             .extent = { .width = target_image.GetExtent( ).width, .height = target_image.GetExtent( ).height },
     };
     vkCmdSetScissor( cmd, 0, 1, &scissor );
 
     const VkBufferDeviceAddressInfo address_info = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-            .pNext = nullptr,
-            .buffer = m_gpuSceneData.buffer };
+            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = m_gpuSceneData.buffer };
     auto gpu_scene_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
 
-    const PushConstants push_constants = {
-            .sceneDataAddress = gpu_scene_address,
-            .albedoTex = gBuffer.albedo,
-            .normalTex = gBuffer.normal,
-            .positionTex = gBuffer.position,
-            .pbrTex = gBuffer.pbr,
-            .irradianceTex = irradianceMap,
-            .radianceTex = radianceMap,
-            .brdfLut = brdfLut,
-            .ssaoTex = gfx.swapchain.GetCurrentFrame( ).ssao };
-    vkCmdPushConstants( cmd, m_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( PushConstants ), &push_constants );
+    const PushConstants push_constants = { .sceneDataAddress = gpu_scene_address,
+                                           .albedoTex = gBuffer.albedo,
+                                           .normalTex = gBuffer.normal,
+                                           .positionTex = gBuffer.position,
+                                           .pbrTex = gBuffer.pbr,
+                                           .irradianceTex = irradianceMap,
+                                           .radianceTex = radianceMap,
+                                           .brdfLut = brdfLut };
+    vkCmdPushConstants( cmd, m_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                        sizeof( PushConstants ), &push_constants );
 
     vkCmdDraw( cmd, 3, 1, 0, 0 );
 
@@ -139,10 +143,9 @@ void PbrPipeline::Reconstruct( GfxDevice &gfx ) {
     auto &frag_shader = gfx.shaderStorage->Get( "pbr", TFragment );
     auto &vert_shader = gfx.shaderStorage->Get( "fullscreen_tri", TVertex );
 
-    VkPushConstantRange range = {
-            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            .offset = 0,
-            .size = sizeof( PushConstants ) };
+    VkPushConstantRange range = { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                  .offset = 0,
+                                  .size = sizeof( PushConstants ) };
 
     DescriptorLayoutBuilder layout_builder;
     layout_builder.AddBinding( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
@@ -181,19 +184,22 @@ void PbrPipeline::Reconstruct( GfxDevice &gfx ) {
     m_pipeline = builder.Build( gfx.device );
 
 #ifdef ENABLE_DEBUG_UTILS
-    const VkDebugUtilsObjectNameInfoEXT obj = {
-            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-            .pNext = nullptr,
-            .objectType = VK_OBJECT_TYPE_PIPELINE,
-            .objectHandle = reinterpret_cast<uint64_t>( m_pipeline ),
-            .pObjectName = "PBR Pipeline" };
+    const VkDebugUtilsObjectNameInfoEXT obj = { .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+                                                .pNext = nullptr,
+                                                .objectType = VK_OBJECT_TYPE_PIPELINE,
+                                                .objectHandle = reinterpret_cast<uint64_t>( m_pipeline ),
+                                                .pObjectName = "PBR Pipeline" };
     vkSetDebugUtilsObjectNameEXT( gfx.device, &obj );
 #endif
 
-    m_gpuSceneData = gfx.Allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+    m_gpuSceneData = gfx.Allocate( sizeof( GpuSceneData ),
+                                   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                    VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data PBR Pipeline" );
 
-    m_gpuIbl = gfx.Allocate( sizeof( IblSettings ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "IBL Settings" );
-    m_gpuDirectionalLights = gfx.Allocate( sizeof( GpuDirectionalLight ) * 10, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Directional Lights" );
-    m_gpuPointLights = gfx.Allocate( sizeof( GpuPointLightData ) * 10, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Point Lights" );
+    m_gpuIbl = gfx.Allocate( sizeof( IblSettings ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+                             "IBL Settings" );
+    m_gpuDirectionalLights = gfx.Allocate( sizeof( GpuDirectionalLight ) * 10, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                           VMA_MEMORY_USAGE_CPU_TO_GPU, "Directional Lights" );
+    m_gpuPointLights = gfx.Allocate( sizeof( GpuPointLightData ) * 10, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                     VMA_MEMORY_USAGE_CPU_TO_GPU, "Point Lights" );
 }

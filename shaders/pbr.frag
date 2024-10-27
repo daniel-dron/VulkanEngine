@@ -33,7 +33,6 @@ layout( push_constant ) uniform constants {
     uint irradiance_map;
     uint radiance_map;
     uint brdf_lut;
-    uint ssao_tex;
 } pc;
 
 layout (location = 0) in vec2 in_uvs;
@@ -117,9 +116,6 @@ float CalculateShadowForDirectionalLight(DirectionalLight light, vec3 position_w
 }
 
 vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, vec3 normal, vec3 view_dir) {
-    float ssao = sampleTexture2DLinear(pc.ssao_tex, in_uvs).r;
-    ssao = 1.0f;
-
     vec3 N = normal;
     vec3 V = view_dir;
     vec3 R = reflect(-V, N); 
@@ -209,7 +205,7 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
     vec3 ambient = (kD * diffuse + specular) * ao;
     vec3 color = ambient + Lo + emissive;
 
-    return color * ssao;
+    return color;
 }
 
 vec4 reconstructWorldPosition(vec2 screenPos, float depth, mat4 invView, mat4 invProj, vec2 screenSize) {

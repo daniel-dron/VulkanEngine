@@ -53,19 +53,20 @@ namespace TL {
         auto time = g_TL->gfx->GetTimestampInMs( g_TL->gfx->gpuTimestamps.at( 0 ), g_TL->gfx->gpuTimestamps.at( 1 ) ) /
                 1000.0f;
         g_visualProfiler.AddTimer( "ShadowMap", time, utils::VisualProfiler::Gpu );
+        
         time = g_TL->gfx->GetTimestampInMs( g_TL->gfx->gpuTimestamps.at( 2 ), g_TL->gfx->gpuTimestamps.at( 3 ) ) /
                 1000.0f;
         g_visualProfiler.AddTimer( "GBuffer", time, utils::VisualProfiler::Gpu );
+        
         time = g_TL->gfx->GetTimestampInMs( g_TL->gfx->gpuTimestamps.at( 4 ), g_TL->gfx->gpuTimestamps.at( 5 ) ) /
                 1000.0f;
-        g_visualProfiler.AddTimer( "SSAO", time, utils::VisualProfiler::Gpu );
+        g_visualProfiler.AddTimer( "Lighting", time, utils::VisualProfiler::Gpu );
+        
         time = g_TL->gfx->GetTimestampInMs( g_TL->gfx->gpuTimestamps.at( 6 ), g_TL->gfx->gpuTimestamps.at( 7 ) ) /
                 1000.0f;
-        g_visualProfiler.AddTimer( "Lighting", time, utils::VisualProfiler::Gpu );
-        time = g_TL->gfx->GetTimestampInMs( g_TL->gfx->gpuTimestamps.at( 8 ), g_TL->gfx->gpuTimestamps.at( 9 ) ) /
-                1000.0f;
         g_visualProfiler.AddTimer( "Skybox", time, utils::VisualProfiler::Gpu );
-        time = g_TL->gfx->GetTimestampInMs( g_TL->gfx->gpuTimestamps.at( 10 ), g_TL->gfx->gpuTimestamps.at( 11 ) ) /
+
+        time = g_TL->gfx->GetTimestampInMs( g_TL->gfx->gpuTimestamps.at( 8 ), g_TL->gfx->gpuTimestamps.at( 9 ) ) /
                 1000.0f;
         g_visualProfiler.AddTimer( "Post Process", time, utils::VisualProfiler::Gpu );
 

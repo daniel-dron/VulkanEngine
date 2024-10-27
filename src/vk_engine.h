@@ -41,7 +41,6 @@ struct RendererOptions {
     bool wireframe = false;
     bool vsync = true;
     bool renderIrradianceInsteadSkybox = false;
-    Vec2 ssaoResolution;
 
     bool reRenderShadowMaps     = true;    // whether to rerender the shadow map every frame.
 
@@ -78,18 +77,11 @@ private:
     void InitImGui( );
     void DrawImGui( VkCommandBuffer cmd, VkImageView targetImageView );
 
-    void ConstructSsaoPipeline( );
-    void ActuallyConstructSsaoPipeline( );
-
-    void ConstructBlurPipeline( );
-    void ActuallyConstructBlurPipeline( );
-
     void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, Node &node );
     VisibilityLODResult VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
                                                 const Frustum &frustum );
 
     void GBufferPass( VkCommandBuffer cmd );
-    void SsaoPass( VkCommandBuffer cmd ) const;
     void PbrPass( VkCommandBuffer cmd ) const;
     void SkyboxPass( VkCommandBuffer cmd ) const;
     void PostProcessPass( VkCommandBuffer cmd ) const;
@@ -132,25 +124,6 @@ private:
     mutable PostProcessConfig m_ppConfig = { };
     BindlessCompute m_postProcessPipeline = { };
     MultiDescriptorSet m_postProcessSet;
-
-    // ssao
-    struct SsaoSettings {
-        bool enable = false;
-        int kernelSize = 32;
-        float radius = 0.5;
-        float bias = 0.025f;
-        int blurSize = 2;
-        float power = 2;
-        int noiseTexture;
-        int depthTexture;
-        int normalTexture;
-        VkDeviceAddress scene;
-    };
-    mutable SsaoSettings m_ssaoSettings = { };
-    BindlessCompute m_ssaoPipeline = { };
-    MultiDescriptorSet m_ssaoSet;
-    GpuBuffer m_ssaoBuffer = { };
-    GpuBuffer m_ssaoKernel = { };
 
     // blur
     struct BlurSettings {

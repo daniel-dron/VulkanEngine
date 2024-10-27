@@ -97,7 +97,6 @@ void VulkanEngine::Init( ) {
 
     g_visualProfiler.RegisterTask( "ShadowMap", utils::colors::TURQUOISE, utils::VisualProfiler::Gpu );
     g_visualProfiler.RegisterTask( "GBuffer", utils::colors::ALIZARIN, utils::VisualProfiler::Gpu );
-    g_visualProfiler.RegisterTask( "SSAO", utils::colors::SILVER, utils::VisualProfiler::Gpu );
     g_visualProfiler.RegisterTask( "Lighting", utils::colors::AMETHYST, utils::VisualProfiler::Gpu );
     g_visualProfiler.RegisterTask( "Skybox", utils::colors::SUN_FLOWER, utils::VisualProfiler::Gpu );
     g_visualProfiler.RegisterTask( "Post Process", utils::colors::PETER_RIVER, utils::VisualProfiler::Gpu );
@@ -278,95 +277,6 @@ auto RandomRange( const float min, const float max ) -> float {
 
 float Lerp( const float a, const float b, const float f ) { return a + f * ( b - a ); }
 
-void VulkanEngine::ConstructSsaoPipeline( ) {
-    m_ssaoBuffer = gfx->Allocate( sizeof( SsaoSettings ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                  VMA_MEMORY_USAGE_CPU_TO_GPU, "SSAO Settings" );
-    m_ssaoKernel = gfx->Allocate( sizeof( Vec3 ) * 64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
-                                  "SSAO Kernel" );
-
-    std::vector<glm::vec3> kernels;
-    for ( int i = 0; i < m_ssaoSettings.kernelSize; i++ ) {
-        glm::vec3 sample( RandomRange( 0.0, 1.0 ) * 2.0 - 1.0, RandomRange( 0.0, 1.0 ) * 2.0 - 1.0,
-                          RandomRange( 0.0, 1.0 ) );
-        sample = glm::normalize( sample );
-        sample *= RandomRange( 0.0, 1.0 );
-
-        const float scale = static_cast<float>( i ) / static_cast<float>( m_ssaoSettings.kernelSize );
-        const float scale_mul = Lerp( 0.1f, 1.0f, scale * scale );
-        sample *= scale_mul;
-
-        kernels.push_back( sample );
-    }
-    m_ssaoKernel.Upload( *gfx, kernels.data( ), kernels.size( ) * sizeof( Vec3 ) );
-
-    std::vector<glm::vec4> noise_data;
-    for ( int i = 0; i < 16; i++ ) {
-        glm::vec3 noise( RandomRange( 0.0, 1.0 ), RandomRange( 0.0, 1.0 ), 0.0f );
-        noise_data.push_back( glm::vec4( noise, 1.0f ) );
-    }
-    m_ssaoSettings.noiseTexture =
-            gfx->imageCodex.LoadImageFromData( "SSAO Noise", noise_data.data( ), VkExtent3D{ 4, 4, 1 },
-                                               VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, false );
-
-    m_ssaoSettings.depthTexture = gfx->swapchain.GetCurrentFrame( ).depth;
-    m_ssaoSettings.normalTexture = gfx->swapchain.GetCurrentFrame( ).gBuffer.normal;
-    m_ssaoSettings.scene = m_gpuSceneData.GetDeviceAddress( *gfx );
-    m_ssaoBuffer.Upload( *gfx, &m_ssaoSettings, sizeof( SsaoSettings ) );
-
-    // Create pipeline
-    auto &shader = gfx->shaderStorage->Get( "ssao", TCompute );
-    shader.RegisterReloadCallback( [&]( VkShaderModule module ) {
-        VKCALL( vkWaitForFences( gfx->device, 1, &gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
-        m_ssaoPipeline.Cleanup( *gfx );
-
-        ActuallyConstructSsaoPipeline( );
-    } );
-
-    ActuallyConstructSsaoPipeline( );
-}
-
-void VulkanEngine::ActuallyConstructSsaoPipeline( ) {
-    auto &shader = gfx->shaderStorage->Get( "ssao", TCompute );
-    m_ssaoPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-    m_ssaoPipeline.AddDescriptorSetLayout( 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-    m_ssaoPipeline.AddDescriptorSetLayout( 2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-    m_ssaoPipeline.Build( *gfx, shader.handle, "ssao compute" );
-
-    m_ssaoSet = gfx->AllocateMultiSet( m_ssaoPipeline.GetLayout( ) );
-
-    DescriptorWriter writer;
-    writer.WriteBuffer( 0, m_ssaoBuffer.buffer, sizeof( SsaoSettings ), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-    writer.WriteBuffer( 1, m_ssaoKernel.buffer, sizeof( Vec3 ) * 64, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-
-    for ( u32 i = 0; i < gfx->swapchain.FrameOverlap; i++ ) {
-        auto &ssao_image = gfx->imageCodex.GetImage( gfx->swapchain.frames[i].ssao );
-        writer.WriteImage( 2, ssao_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
-                           VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-        writer.UpdateSet( gfx->device, m_ssaoSet.m_sets[i] );
-    }
-}
-
-void VulkanEngine::ConstructBlurPipeline( ) {
-    auto &shader = gfx->shaderStorage->Get( "blur", TCompute );
-    shader.RegisterReloadCallback( [&]( VkShaderModule module ) {
-        VKCALL( vkWaitForFences( gfx->device, 1, &gfx->swapchain.GetCurrentFrame( ).fence, true, 1000000000 ) );
-        m_blurPipeline.Cleanup( *gfx );
-
-        ActuallyConstructBlurPipeline( );
-    } );
-
-    ActuallyConstructBlurPipeline( );
-}
-
-void VulkanEngine::ActuallyConstructBlurPipeline( ) {
-    auto &shader = gfx->shaderStorage->Get( "blur", TCompute );
-    m_blurPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-    m_blurPipeline.AddPushConstantRange( sizeof( BlurSettings ) );
-    m_blurPipeline.Build( *gfx, shader.handle, "blur pipeline" );
-
-    m_blurSet = gfx->AllocateMultiSet( m_blurPipeline.GetLayout( ) );
-}
-
 void VulkanEngine::ResizeSwapchain( uint32_t width, uint32_t height ) {
     vkDeviceWaitIdle( gfx->device );
 
@@ -390,9 +300,6 @@ void VulkanEngine::Cleanup( ) {
         m_blurPipeline.Cleanup( *gfx );
 
         m_postProcessPipeline.Cleanup( *gfx );
-        m_ssaoPipeline.Cleanup( *gfx );
-        gfx->Free( m_ssaoBuffer );
-        gfx->Free( m_ssaoKernel );
 
         m_ibl.Clean( *gfx );
 
@@ -436,20 +343,16 @@ void VulkanEngine::Draw( ) {
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gfx->queryPoolTimestamps, 3 );
 
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, gfx->queryPoolTimestamps, 4 );
-    SsaoPass( cmd );
+    PbrPass( cmd );
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gfx->queryPoolTimestamps, 5 );
 
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, gfx->queryPoolTimestamps, 6 );
-    PbrPass( cmd );
+    SkyboxPass( cmd );
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gfx->queryPoolTimestamps, 7 );
 
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, gfx->queryPoolTimestamps, 8 );
-    SkyboxPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gfx->queryPoolTimestamps, 9 );
-
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, gfx->queryPoolTimestamps, 10 );
     PostProcessPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gfx->queryPoolTimestamps, 11 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gfx->queryPoolTimestamps, 9 );
 
     {
         ZoneScopedN( "Final Image" );
@@ -531,41 +434,6 @@ void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) {
 
     auto end = utils::GetTime( );
     g_visualProfiler.AddTimer( "GBuffer", end - start, utils::VisualProfiler::Cpu );
-    END_LABEL( cmd );
-}
-
-void VulkanEngine::SsaoPass( VkCommandBuffer cmd ) const {
-    ZoneScopedN( "SSAO Pass" );
-    START_LABEL( cmd, "SSAO Pass", Vec4( 1.0f, 0.5f, 0.3f, 1.0f ) );
-
-    auto bindless = gfx->GetBindlessSet( );
-    auto &output = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).ssao );
-
-    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
-
-    m_ssaoPipeline.Bind( cmd );
-    m_ssaoPipeline.BindDescriptorSet( cmd, bindless, 0 );
-    m_ssaoPipeline.BindDescriptorSet( cmd, m_ssaoSet.GetCurrentFrame( ), 1 );
-    m_ssaoPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16,
-                             6 );
-
-    // ----------
-    // Blur
-    DescriptorWriter writer;
-    writer.WriteImage( 0, output.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-    writer.UpdateSet( gfx->device, m_blurSet.GetCurrentFrame( ) );
-
-    m_blurSettings.sourceTex = output.GetId( );
-    m_blurSettings.size = 2;
-
-    m_blurPipeline.Bind( cmd );
-    m_blurPipeline.BindDescriptorSet( cmd, bindless, 0 );
-    m_blurPipeline.BindDescriptorSet( cmd, m_blurSet.GetCurrentFrame( ), 1 );
-    m_blurPipeline.PushConstants( cmd, sizeof( BlurSettings ), &m_blurSettings );
-    m_blurPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16,
-                             6 );
-    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
-
     END_LABEL( cmd );
 }
 
@@ -722,12 +590,6 @@ void VulkanEngine::InitDefaultData( ) {
                            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
         writer.UpdateSet( gfx->device, m_postProcessSet.m_sets[i] );
     }
-
-    // SSAO pipeline
-    ConstructSsaoPipeline( );
-    ConstructBlurPipeline( );
-
-    m_rendererOptions.ssaoResolution = { gfx->swapchain.extent.width, gfx->swapchain.extent.height };
 }
 
 void VulkanEngine::InitImages( ) {
@@ -1069,9 +931,6 @@ void VulkanEngine::Run( ) {
                     if ( ImGui::RadioButton( "Depth", &selected_set_n, 7 ) ) {
                         selected_set = gfx->swapchain.GetCurrentFrame( ).depth;
                     }
-                    if ( ImGui::RadioButton( "SSAO", &selected_set_n, 8 ) ) {
-                        selected_set = gfx->swapchain.GetCurrentFrame( ).ssao;
-                    }
                     ImGui::Separator( );
                     ImGui::DragFloat( "Exposure", &m_ppConfig.exposure, 0.001f, 0.00f, 10.0f );
                     ImGui::DragFloat( "Gamma", &m_ppConfig.gamma, 0.01f, 0.01f, 10.0f );
@@ -1129,31 +988,6 @@ void VulkanEngine::Run( ) {
                         ImGui::Indent( );
 
                         m_pbrPipeline.DrawDebug( );
-
-                        if ( ImGui::CollapsingHeader( "SSAO" ) ) {
-                            ImGui::Indent( );
-
-                            ImGui::Checkbox( "SSAO", &m_ssaoSettings.enable );
-                            if ( ImGui::DragFloat2( "Resolution", &m_rendererOptions.ssaoResolution.x, 1, 100,
-                                                    ( f32 )gfx->swapchain.extent.width ) ) {
-                                for ( auto i = 0; i < TL_Swapchain::FrameOverlap; i++ ) {
-                                    auto &image = gfx->imageCodex.GetImage( gfx->swapchain.frames[i].ssao );
-                                    image.Resize( VkExtent3D{
-                                            static_cast<uint32_t>( m_rendererOptions.ssaoResolution.x ),
-                                            static_cast<uint32_t>( m_rendererOptions.ssaoResolution.y ), 1 } );
-                                }
-                                VKCALL( vkWaitForFences( gfx->device, 1, &gfx->swapchain.GetCurrentFrame( ).fence, true,
-                                                         1000000000 ) );
-                                m_ssaoPipeline.Cleanup( *gfx );
-
-                                ActuallyConstructSsaoPipeline( );
-                            }
-                            ImGui::DragFloat( "SSAO Radius", &m_ssaoSettings.radius, 0.01f, 0.0f, 1.0f );
-                            ImGui::DragFloat( "SSAO Bias", &m_ssaoSettings.bias, 0.01f, 0.0f, 1.0f );
-                            ImGui::DragFloat( "SSAO Power", &m_ssaoSettings.power, 0.01f, 0.0f, 1.0f );
-
-                            ImGui::Unindent( );
-                        }
 
                         if ( ImGui::CollapsingHeader( "Frustum Culling" ) ) {
                             ImGui::Indent( );
@@ -1492,8 +1326,6 @@ void VulkanEngine::UpdateScene( ) {
     }
 
     m_gpuSceneData.Upload( *gfx, &m_sceneData, sizeof( GpuSceneData ) );
-
-    m_ssaoBuffer.Upload( *gfx, &m_ssaoSettings, sizeof( SsaoSettings ) );
 
     const auto end = utils::GetTime( );
     g_visualProfiler.AddTimer( "Scene", end - start, utils::VisualProfiler::Cpu );
