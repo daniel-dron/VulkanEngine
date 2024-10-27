@@ -23,7 +23,7 @@
 #include <vk_engine.h>
 
 int main( int argc, char* argv[] ) {
-	VulkanEngine engine;
+	TL_Engine engine;
 
 	engine.Init( );
 

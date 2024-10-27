@@ -24,7 +24,7 @@
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan.h>
 #define ENABLE_DEBUG_UTILS
-#define VK_CHECK(x)                                                       \
+#define VKCALL(x)                                                       \
   do {                                                                    \
     VkResult err = x;                                                     \
     if (err) {                                                            \
@@ -95,7 +95,7 @@ struct DeletionQueue {
 	}
 };
 
-class GfxDevice;
+class TL_VkContext;
 
 struct GpuBuffer {
 	VkBuffer buffer;
@@ -104,8 +104,8 @@ struct GpuBuffer {
 	std::string name;
 	VkDeviceAddress deviceAddress = 0;
 
-	void Upload(const GfxDevice& gfx, const void * data, size_t size ) const;
-	VkDeviceAddress GetDeviceAddress( const GfxDevice & gfx );
+	void Upload(const TL_VkContext& gfx, const void * data, size_t size ) const;
+	VkDeviceAddress GetDeviceAddress( const TL_VkContext & gfx );
 };
 
 struct EngineStats {

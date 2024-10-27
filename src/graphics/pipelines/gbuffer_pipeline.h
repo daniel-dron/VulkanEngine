@@ -19,9 +19,9 @@ struct MeshDrawCommand;
 
 class GBufferPipeline : public Pipeline {
 public:
-    Result<> Init( GfxDevice &gfx ) override;
-    void Cleanup( GfxDevice &gfx ) override;
-    DrawStats Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands, const GpuSceneData &sceneData ) const;
+    Result<> Init( TL_VkContext &gfx ) override;
+    void Cleanup( TL_VkContext &gfx ) override;
+    DrawStats Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands, const GpuSceneData &sceneData ) const;
 
 private:
     struct PushConstants {
@@ -31,7 +31,7 @@ private:
         uint32_t materialId;
     };
 
-    void Reconstruct( GfxDevice &gfx );
+    void Reconstruct( TL_VkContext &gfx );
 
     GpuBuffer m_gpuSceneData = { };
 };

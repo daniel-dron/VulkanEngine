@@ -17,10 +17,10 @@
 
 class SkyboxPipeline : public Pipeline {
 public:
-    Result<> Init( GfxDevice &gfx ) override;
-    void Cleanup( GfxDevice &gfx ) override;
+    Result<> Init( TL_VkContext &gfx ) override;
+    void Cleanup( TL_VkContext &gfx ) override;
 
-    void Draw( GfxDevice &gfx, VkCommandBuffer cmd, ImageId skyboxTexture, const GpuSceneData &sceneData ) const;
+    void Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImageId skyboxTexture, const GpuSceneData &sceneData ) const;
 
 private:
     struct PushConstants {
@@ -29,8 +29,8 @@ private:
         uint32_t textureId;
     };
 
-    void CreateCubeMesh( GfxDevice &gfx );
-    void Reconstruct( GfxDevice &gfx );
+    void CreateCubeMesh( TL_VkContext &gfx );
+    void Reconstruct( TL_VkContext &gfx );
 
     MeshId m_cubeMesh = 0;
     GpuBuffer m_gpuSceneData = { };

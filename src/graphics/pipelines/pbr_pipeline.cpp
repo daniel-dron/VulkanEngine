@@ -20,12 +20,12 @@
 
 #include <imgui.h>
 
-#include "graphics/gfx_device.h"
+#include "graphics/tl_vkcontext.h"
 #include "vk_engine.h"
 
 using namespace vk_init;
 
-PbrPipeline::Result<> PbrPipeline::Init( GfxDevice &gfx ) {
+PbrPipeline::Result<> PbrPipeline::Init( TL_VkContext &gfx ) {
     auto &frag_shader = gfx.shaderStorage->Get( "pbr", TFragment );
 
     auto reconstruct_shader_callback = [&]( VkShaderModule shader ) {
@@ -42,7 +42,7 @@ PbrPipeline::Result<> PbrPipeline::Init( GfxDevice &gfx ) {
     return { };
 }
 
-void PbrPipeline::Cleanup( GfxDevice &gfx ) {
+void PbrPipeline::Cleanup( TL_VkContext &gfx ) {
     vkDestroyPipelineLayout( gfx.device, m_layout, nullptr );
     vkDestroyPipeline( gfx.device, m_pipeline, nullptr );
     vkDestroyDescriptorSetLayout( gfx.device, m_ubLayout, nullptr );
@@ -52,7 +52,7 @@ void PbrPipeline::Cleanup( GfxDevice &gfx ) {
     gfx.Free( m_gpuPointLights );
 }
 
-DrawStats PbrPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, const GpuSceneData &sceneData,
+DrawStats PbrPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const GpuSceneData &sceneData,
                              const std::vector<GpuDirectionalLight> &directionalLights,
                              const std::vector<GpuPointLightData> &pointLights, const GBuffer &gBuffer,
                              uint32_t irradianceMap, uint32_t radianceMap, uint32_t brdfLut ) const {
@@ -139,7 +139,7 @@ void PbrPipeline::DrawDebug( ) {
     }
 }
 
-void PbrPipeline::Reconstruct( GfxDevice &gfx ) {
+void PbrPipeline::Reconstruct( TL_VkContext &gfx ) {
     auto &frag_shader = gfx.shaderStorage->Get( "pbr", TFragment );
     auto &vert_shader = gfx.shaderStorage->Get( "fullscreen_tri", TVertex );
 

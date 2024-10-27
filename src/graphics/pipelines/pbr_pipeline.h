@@ -19,14 +19,14 @@
 
 class PbrPipeline : public Pipeline {
 public:
-    Result<> Init( GfxDevice &gfx ) override;
-    void Cleanup( GfxDevice &gfx ) override;
-    DrawStats Draw( GfxDevice &gfx, VkCommandBuffer cmd, const GpuSceneData &sceneData, const std::vector<GpuDirectionalLight> &directionalLights, const std::vector<GpuPointLightData> &pointLights, const GBuffer &gBuffer, uint32_t irradianceMap, uint32_t radianceMap, uint32_t brdfLut ) const;
+    Result<> Init( TL_VkContext &gfx ) override;
+    void Cleanup( TL_VkContext &gfx ) override;
+    DrawStats Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const GpuSceneData &sceneData, const std::vector<GpuDirectionalLight> &directionalLights, const std::vector<GpuPointLightData> &pointLights, const GBuffer &gBuffer, uint32_t irradianceMap, uint32_t radianceMap, uint32_t brdfLut ) const;
 
     void DrawDebug( );
 
 private:
-    void Reconstruct( GfxDevice &gfx );
+    void Reconstruct( TL_VkContext &gfx );
 
     VkDescriptorSetLayout m_ubLayout = nullptr;
     MultiDescriptorSet m_sets;

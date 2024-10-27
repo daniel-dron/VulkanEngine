@@ -15,7 +15,7 @@
 
 #include <vk_types.h>
 
-class GfxDevice;
+class TL_VkContext;
 
 struct AABB {
     Vec3 min;
@@ -57,12 +57,12 @@ struct Mesh {
 
 class MeshCodex {
 public:
-    void Cleanup( GfxDevice &gfx ) const;
+    void Cleanup( TL_VkContext &gfx ) const;
 
-    MeshId AddMesh( GfxDevice &gfx, const Mesh &mesh );
+    MeshId AddMesh( TL_VkContext &gfx, const Mesh &mesh );
     const GpuMesh &GetMesh( MeshId id ) const;
 
 private:
-    GpuMesh UploadMesh( GfxDevice &gfx, const Mesh &mesh ) const;
+    GpuMesh UploadMesh( TL_VkContext &gfx, const Mesh &mesh ) const;
     std::vector<GpuMesh> m_meshes;
 };

@@ -19,13 +19,13 @@
 #include <vk_pipelines.h>
 
 #include "../draw_command.h"
-#include "graphics/gfx_device.h"
 #include "graphics/shader_storage.h"
+#include "graphics/tl_vkcontext.h"
 #include "vk_engine.h"
 
 using namespace vk_init;
 
-WireframePipeline::Result<> WireframePipeline::Init( GfxDevice &gfx ) {
+WireframePipeline::Result<> WireframePipeline::Init( TL_VkContext &gfx ) {
     auto &frag_shader = gfx.shaderStorage->Get( "wireframe", TFragment );
     auto &vert_shader = gfx.shaderStorage->Get( "wireframe", TVertex );
 
@@ -77,13 +77,13 @@ WireframePipeline::Result<> WireframePipeline::Init( GfxDevice &gfx ) {
     return { };
 }
 
-void WireframePipeline::Cleanup( GfxDevice &gfx ) {
+void WireframePipeline::Cleanup( TL_VkContext &gfx ) {
     vkDestroyPipelineLayout( gfx.device, m_layout, nullptr );
     vkDestroyPipeline( gfx.device, m_pipeline, nullptr );
     gfx.Free( m_gpuSceneData );
 }
 
-DrawStats WireframePipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands, const GpuSceneData &sceneData ) const {
+DrawStats WireframePipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands, const GpuSceneData &sceneData ) const {
     DrawStats stats = { };
 
     GpuSceneData *gpu_scene_addr = nullptr;

@@ -16,7 +16,7 @@
 #include <vk_types.h>
 #include <expected>
 
-class GfxDevice;
+class TL_VkContext;
 
 class Pipeline {
 public:
@@ -32,8 +32,8 @@ public:
 	template<typename T = void>
 	using Result = std::expected<T, PipelineError>;
 
-	virtual Result<> Init( GfxDevice& gfx ) = 0;
-	virtual void Cleanup( GfxDevice& gfx ) = 0;
+	virtual Result<> Init( TL_VkContext& gfx ) = 0;
+	virtual void Cleanup( TL_VkContext& gfx ) = 0;
 
 protected:
 	VkPipeline m_pipeline = nullptr;

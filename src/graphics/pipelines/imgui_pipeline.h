@@ -18,10 +18,10 @@
 
 class ImGuiPipeline : public Pipeline {
 public:
-    Result<> Init( GfxDevice &gfx ) override;
-    void Cleanup( GfxDevice &gfx ) override;
+    Result<> Init( TL_VkContext &gfx ) override;
+    void Cleanup( TL_VkContext &gfx ) override;
 
-    void Draw( GfxDevice &gfx, VkCommandBuffer cmd, ImDrawData *drawData );
+    void Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImDrawData *drawData );
 
 private:
     struct PushConstants {

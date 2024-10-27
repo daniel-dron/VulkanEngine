@@ -27,7 +27,7 @@ namespace TL {
     // Will queue up the work agreggated in the frame command buffer. This function is non blocking,
     // as the only thing it does is queue up the work to the right graphics queue.
     // It will also transition the swapchain image to its expected layout to be presented in the future.
-    void EndFrame( const TL_FrameData &frame, u32 swapchain_image_index ) noexcept;
+    void EndFrame( const TL_FrameData &frame ) noexcept;
 
     // Will present the swapchain image to the screen.
     void Present( const TL_FrameData &frame, u32 swapchain_image_index ) noexcept;

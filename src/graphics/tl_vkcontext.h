@@ -25,7 +25,7 @@
 
 #include "shader_storage.h"
 
-class GfxDevice;
+class TL_VkContext;
 class ShaderStorage;
 
 #ifdef ENABLE_DEBUG_UTILS
@@ -67,18 +67,18 @@ struct ImmediateExecutor {
 	template<typename T = void>
 	using Result = std::expected<T, Error>;
 
-	Result<> Init( GfxDevice* gfx );
+	Result<> Init( TL_VkContext* gfx );
 	void Execute( std::function<void( VkCommandBuffer )>&& func );
 	void Cleanup( ) const;
 
 private:
-	GfxDevice *m_gfx = nullptr;
+	TL_VkContext *m_gfx = nullptr;
 };
 
-class GfxDevice {
+class TL_VkContext {
 public:
-	using Ptr = GfxDevice*;
-	using Ref = std::shared_ptr<GfxDevice>;
+	using Ptr = TL_VkContext*;
+	using Ref = std::shared_ptr<TL_VkContext>;
 
 	enum class Error {
 		InstanceCreationFailed,

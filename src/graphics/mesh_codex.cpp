@@ -16,9 +16,9 @@
 #include "mesh_codex.h"
 
 #include <format>
-#include <graphics/gfx_device.h>
+#include <graphics/tl_vkcontext.h>
 
-void MeshCodex::Cleanup( GfxDevice &gfx ) const {
+void MeshCodex::Cleanup( TL_VkContext &gfx ) const {
     for ( const auto &mesh : m_meshes ) {
         for ( auto &buffer : mesh.indexBuffer ) {
             gfx.Free( buffer );
@@ -27,7 +27,7 @@ void MeshCodex::Cleanup( GfxDevice &gfx ) const {
     }
 }
 
-MeshId MeshCodex::AddMesh( GfxDevice &gfx, const Mesh &mesh ) {
+MeshId MeshCodex::AddMesh( TL_VkContext &gfx, const Mesh &mesh ) {
     const auto gpu_mesh = UploadMesh( gfx, mesh );
 
     const auto id = ( MeshId )m_meshes.size( );
@@ -38,7 +38,7 @@ MeshId MeshCodex::AddMesh( GfxDevice &gfx, const Mesh &mesh ) {
 
 const GpuMesh &MeshCodex::GetMesh( MeshId id ) const { return m_meshes.at( id ); }
 
-GpuMesh MeshCodex::UploadMesh( GfxDevice &gfx, const Mesh &mesh ) const {
+GpuMesh MeshCodex::UploadMesh( TL_VkContext &gfx, const Mesh &mesh ) const {
     GpuMesh gpu_mesh{ };
     gpu_mesh.aabb = mesh.aabb;
 

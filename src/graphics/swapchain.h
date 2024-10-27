@@ -18,7 +18,7 @@
 
 #include "gbuffer.h"
 
-class GfxDevice;
+class TL_VkContext;
 
 struct TL_FrameData {
     VkCommandPool pool;
@@ -53,7 +53,7 @@ public:
     uint64_t frameNumber = 0;
     TL_FrameData &GetCurrentFrame( );
 
-    Result<> Init( GfxDevice *gfx, uint32_t width, uint32_t height );
+    Result<> Init( TL_VkContext *gfx, uint32_t width, uint32_t height );
     void Cleanup( );
 
     Result<> Recreate( uint32_t width, uint32_t height );
@@ -64,5 +64,5 @@ private:
     void CreateGBuffers( );
 
     VkSampler m_linear = nullptr;
-    GfxDevice *m_gfx = nullptr;
+    TL_VkContext *m_gfx = nullptr;
 };

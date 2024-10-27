@@ -19,9 +19,9 @@ struct MeshDrawCommand;
 
 class WireframePipeline : public Pipeline {
 public:
-    Result<> Init( GfxDevice &gfx ) override;
-    void Cleanup( GfxDevice &gfx ) override;
-    DrawStats Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands, const GpuSceneData &sceneData ) const;
+    Result<> Init( TL_VkContext &gfx ) override;
+    void Cleanup( TL_VkContext &gfx ) override;
+    DrawStats Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands, const GpuSceneData &sceneData ) const;
 
     VkPipeline GetPipeline( ) const { return this->m_pipeline; }
 

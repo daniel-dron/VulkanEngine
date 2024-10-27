@@ -19,12 +19,12 @@
 #include <vk_pipelines.h>
 
 #include "graphics/draw_command.h"
-#include "graphics/gfx_device.h"
+#include "graphics/tl_vkcontext.h"
 #include "vk_engine.h"
 
 using namespace vk_init;
 
-GBufferPipeline::Result<> GBufferPipeline::Init( GfxDevice &gfx ) {
+GBufferPipeline::Result<> GBufferPipeline::Init( TL_VkContext &gfx ) {
     auto &frag_shader = gfx.shaderStorage->Get( "gbuffer", TFragment );
     auto &vert_shader = gfx.shaderStorage->Get( "gbuffer", TVertex );
 
@@ -43,13 +43,13 @@ GBufferPipeline::Result<> GBufferPipeline::Init( GfxDevice &gfx ) {
     return { };
 }
 
-void GBufferPipeline::Cleanup( GfxDevice &gfx ) {
+void GBufferPipeline::Cleanup( TL_VkContext &gfx ) {
     vkDestroyPipelineLayout( gfx.device, m_layout, nullptr );
     vkDestroyPipeline( gfx.device, m_pipeline, nullptr );
     gfx.Free( m_gpuSceneData );
 }
 
-DrawStats GBufferPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands, const GpuSceneData &sceneData ) const {
+DrawStats GBufferPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands, const GpuSceneData &sceneData ) const {
     DrawStats stats = { };
 
     GpuSceneData *gpu_scene_addr = nullptr;
@@ -110,7 +110,7 @@ DrawStats GBufferPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std:
     return stats;
 }
 
-void GBufferPipeline::Reconstruct( GfxDevice &gfx ) {
+void GBufferPipeline::Reconstruct( TL_VkContext &gfx ) {
     auto &frag_shader = gfx.shaderStorage->Get( "gbuffer", TFragment );
     auto &vert_shader = gfx.shaderStorage->Get( "gbuffer", TVertex );
 

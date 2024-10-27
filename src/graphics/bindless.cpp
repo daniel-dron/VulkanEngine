@@ -13,12 +13,12 @@
 
 #include <pch.h>
 
-#include <graphics/gfx_device.h>
+#include <graphics/tl_vkcontext.h>
 #include "bindless.h"
 
 #include "vk_engine.h"
 
-void BindlessRegistry::Init( GfxDevice &gfx ) {
+void BindlessRegistry::Init( TL_VkContext &gfx ) {
     // Create descriptor pool
     {
         VkDescriptorPoolSize pool_sizes[] = { { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MaxBindlessImages },
@@ -91,7 +91,7 @@ void BindlessRegistry::Init( GfxDevice &gfx ) {
     InitSamplers( gfx );
 }
 
-void BindlessRegistry::Cleanup( const GfxDevice &gfx ) {
+void BindlessRegistry::Cleanup( const TL_VkContext &gfx ) {
     vkDestroySampler( gfx.device, nearestSampler, nullptr );
     vkDestroySampler( gfx.device, linearSampler, nullptr );
     vkDestroySampler( gfx.device, shadowMapSampler, nullptr );
@@ -100,7 +100,7 @@ void BindlessRegistry::Cleanup( const GfxDevice &gfx ) {
     vkDestroyDescriptorPool( gfx.device, pool, nullptr );
 }
 
-void BindlessRegistry::AddImage( const GfxDevice &gfx, ImageId id, const VkImageView view ) {
+void BindlessRegistry::AddImage( const TL_VkContext &gfx, ImageId id, const VkImageView view ) {
     VkDescriptorImageInfo image_info = {
             .imageView = view,
             .imageLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
@@ -118,7 +118,7 @@ void BindlessRegistry::AddImage( const GfxDevice &gfx, ImageId id, const VkImage
     vkUpdateDescriptorSets( gfx.device, 1, &write_set, 0, nullptr );
 }
 
-void BindlessRegistry::AddSampler( GfxDevice &gfx, std::uint32_t id, const VkSampler sampler ) {
+void BindlessRegistry::AddSampler( TL_VkContext &gfx, std::uint32_t id, const VkSampler sampler ) {
     VkDescriptorImageInfo info = { .sampler = sampler, .imageLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL };
     const VkWriteDescriptorSet write_set = {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -132,7 +132,7 @@ void BindlessRegistry::AddSampler( GfxDevice &gfx, std::uint32_t id, const VkSam
     vkUpdateDescriptorSets( gfx.device, 1, &write_set, 0, nullptr );
 }
 
-void BindlessRegistry::InitSamplers( GfxDevice &gfx ) {
+void BindlessRegistry::InitSamplers( TL_VkContext &gfx ) {
     static constexpr std::uint32_t NearestSamplerId = 0;
     static constexpr std::uint32_t LinearSamplerId = 1;
     static constexpr std::uint32_t ShadowSamplerId = 2;

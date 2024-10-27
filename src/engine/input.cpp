@@ -76,7 +76,7 @@ void Input::Init( ) {
     m_translationLut[SDL_SCANCODE_ESCAPE] = EG_KEY::ESCAPE;
 }
 
-void Input::PollEvents( VulkanEngine *engine ) {
+void Input::PollEvents( TL_Engine *engine ) {
     ZoneScopedN( "poll events" );
 
     // reset key states
@@ -96,7 +96,7 @@ void Input::PollEvents( VulkanEngine *engine ) {
     }
 }
 
-void Input::ProcessSdlEvent( SDL_Event &event, VulkanEngine *engine ) {
+void Input::ProcessSdlEvent( SDL_Event &event, TL_Engine *engine ) {
     if ( event.type == SDL_QUIT ) {
         m_shouldQuit = true;
     }
@@ -174,7 +174,7 @@ bool Input::ShouldQuit( ) { return m_shouldQuit; }
 
 float Input::GetMouseWheel( ) { return m_mwheel; }
 
-void EngineInput::ProcessSdlEvent( SDL_Event &event, VulkanEngine *engine ) {
+void EngineInput::ProcessSdlEvent( SDL_Event &event, TL_Engine *engine ) {
     ImGui_ImplSDL2_ProcessEvent( &event );
 
     Input::ProcessSdlEvent( event, engine );

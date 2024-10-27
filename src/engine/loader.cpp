@@ -22,9 +22,9 @@
 #include <utils/workers.h>
 #include "loader.h"
 
-#include <graphics/gfx_device.h>
 #include <graphics/image_codex.h>
 #include <graphics/light.h>
+#include <graphics/tl_vkcontext.h>
 
 #include <meshoptimizer.h>
 
@@ -36,7 +36,7 @@ static std::vector<Material> LoadMaterials( const aiScene *scene ) {
     std::vector<Material> materials;
     materials.reserve( n_materials );
 
-    VulkanEngine::Get( ).console.AddLog( "Loading {} materials", n_materials );
+    TL_Engine::Get( ).console.AddLog( "Loading {} materials", n_materials );
 
     for ( u32 i = 0; i < n_materials; i++ ) {
         Material material;
@@ -91,7 +91,7 @@ static std::vector<Material> LoadMaterials( const aiScene *scene ) {
     return materials;
 }
 
-static std::vector<ImageId> LoadImages( GfxDevice &gfx, const aiScene *scene ) {
+static std::vector<ImageId> LoadImages( TL_VkContext &gfx, const aiScene *scene ) {
     std::vector<ImageId> images;
     images.resize( scene->mNumTextures );
 
@@ -133,11 +133,11 @@ static std::vector<ImageId> LoadImages( GfxDevice &gfx, const aiScene *scene ) {
                     stbi_image_free( data );
                 }
                 else {
-                    VulkanEngine::Get( ).console.AddLog( "Failed to load image {}\n\t{}", name,
+                    TL_Engine::Get( ).console.AddLog( "Failed to load image {}\n\t{}", name,
                                                          stbi_failure_reason( ) );
                 }
 
-                VulkanEngine::Get( ).console.AddLog( "Loaded Texture: {} {}", i, name );
+                TL_Engine::Get( ).console.AddLog( "Loaded Texture: {} {}", i, name );
             } );
         }
     }
@@ -145,7 +145,7 @@ static std::vector<ImageId> LoadImages( GfxDevice &gfx, const aiScene *scene ) {
     return images;
 }
 
-void ProcessMaterials( std::vector<Material> &preprocessedMaterials, const std::vector<ImageId> &images, GfxDevice &gfx,
+void ProcessMaterials( std::vector<Material> &preprocessedMaterials, const std::vector<ImageId> &images, TL_VkContext &gfx,
                        const aiScene *aiScene ) {
     for ( auto &[base_color, metalness_factor, roughness_factor, color_id, metal_roughness_id, normal_id, name] :
           preprocessedMaterials ) {
@@ -175,7 +175,7 @@ void ProcessMaterials( std::vector<Material> &preprocessedMaterials, const std::
     }
 }
 
-static MeshId LoadMesh( GfxDevice &gfx, aiMesh *aiMesh ) {
+static MeshId LoadMesh( TL_VkContext &gfx, aiMesh *aiMesh ) {
     Mesh mesh;
     mesh.vertices.clear( );
     mesh.indices.clear( );
@@ -242,7 +242,7 @@ static MeshId LoadMesh( GfxDevice &gfx, aiMesh *aiMesh ) {
     return gfx.meshCodex.AddMesh( gfx, mesh );
 }
 
-static std::vector<MeshId> LoadMeshes( GfxDevice &gfx, const aiScene *scene ) {
+static std::vector<MeshId> LoadMeshes( TL_VkContext &gfx, const aiScene *scene ) {
     std::vector<MeshId> mesh_assets;
 
     for ( u32 i = 0; i < scene->mNumMeshes; i++ ) {
@@ -253,7 +253,7 @@ static std::vector<MeshId> LoadMeshes( GfxDevice &gfx, const aiScene *scene ) {
     return mesh_assets;
 }
 
-static std::vector<MaterialId> UploadMaterials( GfxDevice &gfx, const std::vector<Material> &materials ) {
+static std::vector<MaterialId> UploadMaterials( TL_VkContext &gfx, const std::vector<Material> &materials ) {
     std::vector<MaterialId> gpu_materials;
 
     gpu_materials.reserve( materials.size( ) );
@@ -301,7 +301,7 @@ static std::shared_ptr<Node> LoadNode( const aiScene *ai_scene, const aiNode *no
     auto sceneNode = std::make_shared<Node>( );
 
     sceneNode->name = node->mName.C_Str( );
-    VulkanEngine::Get( ).console.AddLog( "{}", sceneNode->name.c_str( ) );
+    TL_Engine::Get( ).console.AddLog( "{}", sceneNode->name.c_str( ) );
 
     auto transform = AssimpToGlm( node->mTransformation );
     if ( node->mTransformation == aiMatrix4x4( ) ) {
@@ -421,7 +421,7 @@ void ConvertHsvToImGui( float &h, float &s, float &v, float sourceHueMax = 360.0
     v = std::clamp( v, 0.0f, 1.0f );
 }
 
-static void LoadLights( GfxDevice &gfx, const aiScene *aiScene, Scene &scene ) {
+static void LoadLights( TL_VkContext &gfx, const aiScene *aiScene, Scene &scene ) {
     if ( !aiScene->HasLights( ) ) {
         return;
     }
@@ -467,7 +467,7 @@ static void LoadLights( GfxDevice &gfx, const aiScene *aiScene, Scene &scene ) {
     }
 }
 
-std::unique_ptr<Scene> GltfLoader::Load( GfxDevice &gfx, const std::string &path ) {
+std::unique_ptr<Scene> GltfLoader::Load( TL_VkContext &gfx, const std::string &path ) {
     auto scene_ptr = std::make_unique<Scene>( );
     auto &scene = *scene_ptr;
 
@@ -478,16 +478,16 @@ std::unique_ptr<Scene> GltfLoader::Load( GfxDevice &gfx, const std::string &path
                                              aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_FlipUVs |
                                                      aiProcess_FlipWindingOrder | aiProcess_GenBoundingBoxes );
 
-    VulkanEngine::Get( ).console.AddLog( "Loading meshes..." );
+    TL_Engine::Get( ).console.AddLog( "Loading meshes..." );
     const std::vector<MeshId> meshes = LoadMeshes( gfx, ai_scene );
 
-    VulkanEngine::Get( ).console.AddLog( "Loading materials..." );
+    TL_Engine::Get( ).console.AddLog( "Loading materials..." );
     std::vector<Material> materials = LoadMaterials( ai_scene );
 
-    VulkanEngine::Get( ).console.AddLog( "Loading images..." );
+    TL_Engine::Get( ).console.AddLog( "Loading images..." );
     const std::vector<ImageId> images = LoadImages( gfx, ai_scene );
 
-    VulkanEngine::Get( ).console.AddLog( "Matching materials..." );
+    TL_Engine::Get( ).console.AddLog( "Matching materials..." );
     ProcessMaterials( materials, images, gfx, ai_scene );
 
     const auto gpu_materials = UploadMaterials( gfx, materials );

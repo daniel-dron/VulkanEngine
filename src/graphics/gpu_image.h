@@ -15,7 +15,7 @@
 
 #include <vk_types.h>
 
-class GfxDevice;
+class TL_VkContext;
 
 enum ImageType {
     TUnknown,
@@ -28,10 +28,10 @@ public:
     using Ptr = std::shared_ptr<GpuImage>;
 
     GpuImage( ) = delete;
-    GpuImage( GfxDevice *gfx, const std::string &name, void *data, VkExtent3D extent, VkFormat format,
+    GpuImage( TL_VkContext *gfx, const std::string &name, void *data, VkExtent3D extent, VkFormat format,
               ImageType imageType = T2D, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT,
               bool generateMipmaps = false );
-    GpuImage( GfxDevice *gfx, const std::string &name, VkExtent3D extent, VkFormat format, ImageType imageType = T2D,
+    GpuImage( TL_VkContext *gfx, const std::string &name, VkExtent3D extent, VkFormat format, ImageType imageType = T2D,
               VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT, bool generateMipmaps = false );
     ~GpuImage( );
 
@@ -95,7 +95,7 @@ private:
     void ActuallyCreateEmptyCubemap( );
 
 private:
-    GfxDevice *m_gfx;
+    TL_VkContext *m_gfx;
 
     ImageId m_id = -1;
 

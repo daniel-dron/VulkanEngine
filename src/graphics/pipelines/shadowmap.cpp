@@ -18,12 +18,12 @@
 #include "shadowmap.h"
 
 #include "graphics/draw_command.h"
-#include "graphics/gfx_device.h"
+#include "graphics/tl_vkcontext.h"
 #include "vk_engine.h"
 
 using namespace vk_init;
 
-ShadowMap::Result<> ShadowMap::Init( GfxDevice &gfx ) {
+ShadowMap::Result<> ShadowMap::Init( TL_VkContext &gfx ) {
     auto &frag_shader = gfx.shaderStorage->Get( "shadowmap", TFragment );
     auto &vert_shader = gfx.shaderStorage->Get( "shadowmap", TVertex );
 
@@ -42,12 +42,12 @@ ShadowMap::Result<> ShadowMap::Init( GfxDevice &gfx ) {
     return { };
 }
 
-void ShadowMap::Cleanup( GfxDevice &gfx ) {
+void ShadowMap::Cleanup( TL_VkContext &gfx ) {
     vkDestroyPipelineLayout( gfx.device, m_layout, nullptr );
     vkDestroyPipeline( gfx.device, m_pipeline, nullptr );
 }
 
-DrawStats ShadowMap::Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands,
+DrawStats ShadowMap::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands,
                            const std::vector<GpuDirectionalLight> &lights ) const {
     DrawStats stats = { };
 
@@ -116,7 +116,7 @@ DrawStats ShadowMap::Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std::vecto
     return stats;
 }
 
-void ShadowMap::Reconstruct( GfxDevice &gfx ) {
+void ShadowMap::Reconstruct( TL_VkContext &gfx ) {
     auto &frag_shader = gfx.shaderStorage->Get( "shadowmap", TFragment );
     auto &vert_shader = gfx.shaderStorage->Get( "shadowmap", TVertex );
 

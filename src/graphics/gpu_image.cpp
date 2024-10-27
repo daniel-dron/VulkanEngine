@@ -15,12 +15,12 @@
 
 #include "gpu_image.h"
 
-#include <graphics/gfx_device.h>
+#include <graphics/tl_vkcontext.h>
 #include <vk_types.h>
 
 #include "vk_engine.h"
 
-GpuImage::GpuImage( GfxDevice *gfx, const std::string &name, void *data, const VkExtent3D extent, const VkFormat format,
+GpuImage::GpuImage( TL_VkContext *gfx, const std::string &name, void *data, const VkExtent3D extent, const VkFormat format,
                     const ImageType imageType, const VkImageUsageFlags usage, bool generateMipmaps ) :
     m_gfx( gfx ),
     m_name( name ), m_extent( extent ), m_format( format ), m_usage( usage ), m_mipmapped( generateMipmaps ) {
@@ -39,7 +39,7 @@ GpuImage::GpuImage( GfxDevice *gfx, const std::string &name, void *data, const V
     }
 }
 
-GpuImage::GpuImage( GfxDevice *gfx, const std::string &name, VkExtent3D extent, VkFormat format, ImageType imageType,
+GpuImage::GpuImage( TL_VkContext *gfx, const std::string &name, VkExtent3D extent, VkFormat format, ImageType imageType,
                     VkImageUsageFlags usage, bool generateMipmaps ) :
     m_gfx( gfx ),
     m_name( name ), m_extent( extent ), m_format( format ), m_usage( usage ), m_mipmapped( generateMipmaps ) {
@@ -615,6 +615,6 @@ void image::Blit( VkCommandBuffer cmd, VkImage srcImage, VkExtent2D srcExtent, V
 MultiFrameGpuImage::MultiFrameGpuImage( const std::vector<ImageId> &images ) { m_frames = images; }
 
 ImageId MultiFrameGpuImage::GetCurrentImage( ) {
-    auto id = VulkanEngine::Get( ).gfx->swapchain.frameNumber % TL_Swapchain::FrameOverlap;
+    auto id = TL_Engine::Get( ).gfx->swapchain.frameNumber % TL_Swapchain::FrameOverlap;
     return m_frames[id];
 }

@@ -17,7 +17,7 @@
 
 #include <span>
 
-class GfxDevice;
+class TL_VkContext;
 
 class DescriptorLayoutBuilder {
 public:

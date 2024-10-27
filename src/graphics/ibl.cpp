@@ -15,8 +15,8 @@
 
 #include "ibl.h"
 
-#include <graphics/gfx_device.h>
 #include <graphics/image_codex.h>
+#include <graphics/tl_vkcontext.h>
 
 #include <graphics/pipelines/compute_pipeline.h>
 #include <imgui.h>
@@ -25,7 +25,7 @@
 #include "vk_engine.h"
 #include "vk_initializers.h"
 
-void Ibl::Init( GfxDevice &gfx, const std::string &path ) {
+void Ibl::Init( TL_VkContext &gfx, const std::string &path ) {
     m_hdrTexture =
             gfx.imageCodex.LoadHdrFromFile( path, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
@@ -39,7 +39,7 @@ void Ibl::Init( GfxDevice &gfx, const std::string &path ) {
 
     InitComputes( gfx );
 
-    VulkanEngine::Get( ).console.AddLog( "Dispatching IBL computes!" );
+    TL_Engine::Get( ).console.AddLog( "Dispatching IBL computes!" );
     // dispatch computes
     {
         VKCALL( vkResetCommandBuffer( m_computeCommand, 0 ) );
@@ -58,7 +58,7 @@ void Ibl::Init( GfxDevice &gfx, const std::string &path ) {
     }
 }
 
-void Ibl::Clean( const GfxDevice &gfx ) {
+void Ibl::Clean( const TL_VkContext &gfx ) {
     vkFreeCommandBuffers( gfx.device, gfx.computeCommandPool, 1, &m_computeCommand );
     vkDestroyFence( gfx.device, m_computeFence, nullptr );
 
@@ -68,7 +68,7 @@ void Ibl::Clean( const GfxDevice &gfx ) {
     m_brdfPipeline.Cleanup( gfx );
 }
 
-void Ibl::InitComputes( GfxDevice &gfx ) {
+void Ibl::InitComputes( TL_VkContext &gfx ) {
     auto &equirectangular_shader = gfx.shaderStorage->Get( "equirectangular_map", TCompute );
     auto &irradiance_shader = gfx.shaderStorage->Get( "irradiance", TCompute );
     auto &radiance_shader = gfx.shaderStorage->Get( "radiance", TCompute );
@@ -137,7 +137,7 @@ void Ibl::InitComputes( GfxDevice &gfx ) {
     }
 }
 
-void Ibl::InitTextures( GfxDevice &gfx ) {
+void Ibl::InitTextures( TL_VkContext &gfx ) {
     VkImageUsageFlags usages{ };
     usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
     usages |= VK_IMAGE_USAGE_STORAGE_BIT;
@@ -152,7 +152,7 @@ void Ibl::InitTextures( GfxDevice &gfx ) {
             gfx.imageCodex.CreateEmptyImage( "BRDF", VkExtent3D{ 512, 512, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, usages );
 }
 
-void Ibl::GenerateSkybox( GfxDevice &gfx, const VkCommandBuffer cmd ) const {
+void Ibl::GenerateSkybox( TL_VkContext &gfx, const VkCommandBuffer cmd ) const {
     const auto bindless = gfx.GetBindlessSet( );
     const auto input = m_hdrTexture;
     const auto output = m_skybox;
@@ -167,7 +167,7 @@ void Ibl::GenerateSkybox( GfxDevice &gfx, const VkCommandBuffer cmd ) const {
                                         ( output_image.GetExtent( ).height + 15 ) / 16, 6 );
 }
 
-void Ibl::GenerateIrradiance( GfxDevice &gfx, const VkCommandBuffer cmd ) const {
+void Ibl::GenerateIrradiance( TL_VkContext &gfx, const VkCommandBuffer cmd ) const {
     const auto bindless = gfx.GetBindlessSet( );
     const auto input = m_skybox;
     const auto output = m_irradiance;
@@ -181,7 +181,7 @@ void Ibl::GenerateIrradiance( GfxDevice &gfx, const VkCommandBuffer cmd ) const 
                                    ( output_image.GetExtent( ).height + 15 ) / 16, 6 );
 }
 
-void Ibl::GenerateRadiance( GfxDevice &gfx, const VkCommandBuffer cmd ) const {
+void Ibl::GenerateRadiance( TL_VkContext &gfx, const VkCommandBuffer cmd ) const {
     const auto bindless = gfx.GetBindlessSet( );
     const auto input = m_skybox;
     const auto output = m_radiance;
@@ -212,7 +212,7 @@ void Ibl::GenerateRadiance( GfxDevice &gfx, const VkCommandBuffer cmd ) const {
     }
 }
 
-void Ibl::GenerateBrdf( GfxDevice &gfx, const VkCommandBuffer cmd ) const {
+void Ibl::GenerateBrdf( TL_VkContext &gfx, const VkCommandBuffer cmd ) const {
     const auto bindless = gfx.GetBindlessSet( );
     const auto output = m_brdf;
     auto &output_image = gfx.imageCodex.GetImage( output );

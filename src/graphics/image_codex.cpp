@@ -17,11 +17,11 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
-#include "gfx_device.h"
+#include "tl_vkcontext.h"
 
 #include <imgui.h>
 
-void ImageCodex::Init( GfxDevice *gfx ) {
+void ImageCodex::Init( TL_VkContext *gfx ) {
     this->m_gfx = gfx;
     bindlessRegistry.Init( *this->m_gfx );
 

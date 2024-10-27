@@ -22,7 +22,7 @@
 
 using namespace vk_init;
 
-SkyboxPipeline::Result<> SkyboxPipeline::Init( GfxDevice &gfx ) {
+SkyboxPipeline::Result<> SkyboxPipeline::Init( TL_VkContext &gfx ) {
     auto &frag_shader = gfx.shaderStorage->Get( "skybox", TFragment );
     auto &vert_shader = gfx.shaderStorage->Get( "skybox", TVertex );
 
@@ -44,7 +44,7 @@ SkyboxPipeline::Result<> SkyboxPipeline::Init( GfxDevice &gfx ) {
     return { };
 }
 
-void SkyboxPipeline::CreateCubeMesh( GfxDevice &gfx ) {
+void SkyboxPipeline::CreateCubeMesh( TL_VkContext &gfx ) {
     const std::vector<Mesh::Vertex> vertices = {
             // Front face
             { { -1.0f, 1.0f, 1.0f }, 0.0f, { 0.0f, 0.0f, 1.0f }, 0.0f, { 1.0f, 2.0f, 3.0f }, 0.0f, { 4.0f, 5.0f, 6.0f }, 0.0f },
@@ -91,7 +91,7 @@ void SkyboxPipeline::CreateCubeMesh( GfxDevice &gfx ) {
     m_cubeMesh = gfx.meshCodex.AddMesh( gfx, mesh );
 }
 
-void SkyboxPipeline::Reconstruct( GfxDevice &gfx ) {
+void SkyboxPipeline::Reconstruct( TL_VkContext &gfx ) {
     auto &frag_shader = gfx.shaderStorage->Get( "skybox", TFragment );
     auto &vert_shader = gfx.shaderStorage->Get( "skybox", TVertex );
 
@@ -141,13 +141,13 @@ void SkyboxPipeline::Reconstruct( GfxDevice &gfx ) {
     m_gpuSceneData = gfx.Allocate( sizeof( GpuSceneData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, "Scene Data GBuffer Pipeline" );
 }
 
-void SkyboxPipeline::Cleanup( GfxDevice &gfx ) {
+void SkyboxPipeline::Cleanup( TL_VkContext &gfx ) {
     vkDestroyPipelineLayout( gfx.device, m_layout, nullptr );
     vkDestroyPipeline( gfx.device, m_pipeline, nullptr );
     gfx.Free( m_gpuSceneData );
 }
 
-void SkyboxPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, ImageId skyboxTexture, const GpuSceneData &sceneData ) const {
+void SkyboxPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImageId skyboxTexture, const GpuSceneData &sceneData ) const {
     GpuSceneData *gpu_scene_addr = nullptr;
     vmaMapMemory( gfx.allocator, m_gpuSceneData.allocation, reinterpret_cast<void **>( &gpu_scene_addr ) );
     *gpu_scene_addr = sceneData;

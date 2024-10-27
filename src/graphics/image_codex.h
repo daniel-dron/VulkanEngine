@@ -17,13 +17,13 @@
 #include <graphics/gpu_image.h>
 #include <vk_types.h>
 
-class GfxDevice;
+class TL_VkContext;
 
 class ImageCodex {
 public:
     static constexpr ImageId InvalidImageId = std::numeric_limits<uint32_t>::max( ) - 1;
 
-    void Init( GfxDevice *gfx );
+    void Init( TL_VkContext *gfx );
     void Cleanup( );
 
     const std::vector<GpuImage> &GetImages( );
@@ -62,5 +62,5 @@ private:
 
     std::vector<GpuImage> m_images;
     std::vector<MultiFrameGpuImage> m_multiFrameImages;
-    GfxDevice *m_gfx = nullptr;
+    TL_VkContext *m_gfx = nullptr;
 };

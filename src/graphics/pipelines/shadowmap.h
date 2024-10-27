@@ -19,10 +19,10 @@ struct MeshDrawCommand;
 
 class ShadowMap : public Pipeline {
 public:
-    Result<> Init( GfxDevice &gfx ) override;
-    void Cleanup( GfxDevice &gfx ) override;
+    Result<> Init( TL_VkContext &gfx ) override;
+    void Cleanup( TL_VkContext &gfx ) override;
 
-    DrawStats Draw( GfxDevice &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands,
+    DrawStats Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const std::vector<MeshDrawCommand> &drawCommands,
                     const std::vector<GpuDirectionalLight> &lights ) const;
 
 private:
@@ -33,5 +33,5 @@ private:
         VkDeviceAddress vertexBufferAddress;
     };
 
-    void Reconstruct( GfxDevice &gfx );
+    void Reconstruct( TL_VkContext &gfx );
 };

@@ -17,12 +17,12 @@
 #include <graphics/pipelines/compute_pipeline.h>
 #include <vk_types.h>
 
-class GfxDevice;
+class TL_VkContext;
 
 class Ibl {
 public:
-    void Init( GfxDevice &gfx, const std::string &path );
-    void Clean( const GfxDevice &gfx ) ;
+    void Init( TL_VkContext &gfx, const std::string &path );
+    void Clean( const TL_VkContext &gfx ) ;
 
     ImageId GetSkybox( ) const { return m_skybox; }
     ImageId GetIrradiance( ) const { return m_irradiance; }
@@ -30,13 +30,13 @@ public:
     ImageId GetBrdf( ) const { return m_brdf; }
 
 private:
-    void InitComputes( GfxDevice &gfx );
-    void InitTextures( GfxDevice &gfx );
+    void InitComputes( TL_VkContext &gfx );
+    void InitTextures( TL_VkContext &gfx );
 
-    void GenerateSkybox( GfxDevice &gfx, VkCommandBuffer cmd ) const;
-    void GenerateIrradiance( GfxDevice &gfx, VkCommandBuffer cmd ) const;
-    void GenerateRadiance( GfxDevice &gfx, VkCommandBuffer cmd ) const;
-    void GenerateBrdf( GfxDevice &gfx, VkCommandBuffer cmd ) const;
+    void GenerateSkybox( TL_VkContext &gfx, VkCommandBuffer cmd ) const;
+    void GenerateIrradiance( TL_VkContext &gfx, VkCommandBuffer cmd ) const;
+    void GenerateRadiance( TL_VkContext &gfx, VkCommandBuffer cmd ) const;
+    void GenerateBrdf( TL_VkContext &gfx, VkCommandBuffer cmd ) const;
 
     VkCommandBuffer m_computeCommand = nullptr;
     VkFence m_computeFence = nullptr;

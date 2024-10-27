@@ -13,14 +13,14 @@
 
 #pragma once
 
-#include <graphics/gfx_device.h>
+#include <graphics/tl_vkcontext.h>
 #include <vk_types.h>
 
 class BindlessCompute {
 public:
     void AddDescriptorSetLayout( uint32_t binding, VkDescriptorType type );
     void AddPushConstantRange( uint32_t size );
-    void Build( const GfxDevice &gfx, VkShaderModule shader, const std::string &name );
+    void Build( const TL_VkContext &gfx, VkShaderModule shader, const std::string &name );
 
     VkDescriptorSetLayout GetLayout( ) const { return m_descriptorLayout; };
 
@@ -29,7 +29,7 @@ public:
     void PushConstants( VkCommandBuffer cmd, uint32_t size, const void *value ) const;
     void Dispatch( VkCommandBuffer cmd, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ ) const;
 
-    void Cleanup( const GfxDevice &gfx );
+    void Cleanup( const TL_VkContext &gfx );
 
 private:
     VkPipelineLayout m_layout = VK_NULL_HANDLE;

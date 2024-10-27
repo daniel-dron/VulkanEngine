@@ -51,11 +51,11 @@
 
 #include <graphics/tl_renderer.h>
 
-VulkanEngine *g_TL = nullptr;
+TL_Engine *g_TL = nullptr;
 utils::VisualProfiler g_visualProfiler = utils::VisualProfiler( 300 );
 
 // TODO: move
-void GpuBuffer::Upload( const GfxDevice &gfx, const void *data, const size_t size ) const {
+void GpuBuffer::Upload( const TL_VkContext &gfx, const void *data, const size_t size ) const {
     void *mapped_buffer = { };
 
     vmaMapMemory( gfx.allocator, allocation, &mapped_buffer );
@@ -63,7 +63,7 @@ void GpuBuffer::Upload( const GfxDevice &gfx, const void *data, const size_t siz
     vmaUnmapMemory( gfx.allocator, allocation );
 }
 
-VkDeviceAddress GpuBuffer::GetDeviceAddress( const GfxDevice &gfx ) {
+VkDeviceAddress GpuBuffer::GetDeviceAddress( const TL_VkContext &gfx ) {
     if ( deviceAddress == 0 ) {
         const VkBufferDeviceAddressInfo address_info = {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
@@ -77,9 +77,11 @@ VkDeviceAddress GpuBuffer::GetDeviceAddress( const GfxDevice &gfx ) {
     return deviceAddress;
 }
 
-VulkanEngine &VulkanEngine::Get( ) { return *g_TL; }
+TL_Engine &TL_Engine::Get( ) { return *g_TL; }
 
-void VulkanEngine::Init( ) {
+TL_VkContext &TL_Engine::VkContext( ) { return *g_TL->gfx; }
+
+void TL_Engine::Init( ) {
     assert( g_TL == nullptr );
     g_TL = this;
 
@@ -104,7 +106,7 @@ void VulkanEngine::Init( ) {
     m_isInitialized = true;
 }
 
-void VulkanEngine::InitSdl( ) {
+void TL_Engine::InitSdl( ) {
     SDL_Init( SDL_INIT_VIDEO );
 
     constexpr auto window_flags = static_cast<SDL_WindowFlags>( SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE );
@@ -113,8 +115,8 @@ void VulkanEngine::InitSdl( ) {
                                  m_windowExtent.width, m_windowExtent.height, window_flags );
 }
 
-void VulkanEngine::InitVulkan( ) {
-    gfx = std::make_unique<GfxDevice>( );
+void TL_Engine::InitVulkan( ) {
+    gfx = std::make_unique<TL_VkContext>( );
 
     if ( m_rendererOptions.vsync ) {
         gfx->swapchain.presentMode = VK_PRESENT_MODE_FIFO_KHR;
@@ -128,7 +130,7 @@ void VulkanEngine::InitVulkan( ) {
     m_mainDeletionQueue.Flush( );
 }
 
-void VulkanEngine::InitImGui( ) {
+void TL_Engine::InitImGui( ) {
     const VkDescriptorPoolSize pool_sizes[] = {
             { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
             { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
@@ -277,7 +279,7 @@ auto RandomRange( const float min, const float max ) -> float {
 
 float Lerp( const float a, const float b, const float f ) { return a + f * ( b - a ); }
 
-void VulkanEngine::ResizeSwapchain( uint32_t width, uint32_t height ) {
+void TL_Engine::ResizeSwapchain( uint32_t width, uint32_t height ) {
     vkDeviceWaitIdle( gfx->device );
 
     m_windowExtent.width = width;
@@ -286,7 +288,7 @@ void VulkanEngine::ResizeSwapchain( uint32_t width, uint32_t height ) {
     gfx->swapchain.Recreate( width, height );
 }
 
-void VulkanEngine::Cleanup( ) {
+void TL_Engine::Cleanup( ) {
     if ( m_isInitialized ) {
         // wait for gpu work to finish
         vkDeviceWaitIdle( gfx->device );
@@ -314,14 +316,14 @@ void VulkanEngine::Cleanup( ) {
     g_TL = nullptr;
 }
 
-void VulkanEngine::Draw( ) {
+void TL_Engine::Draw( ) {
     ZoneScopedN( "draw" );
 
     m_stats.drawcallCount = 0;
     m_stats.triangleCount = 0;
 
     auto frame = gfx->swapchain.GetCurrentFrame( );
-    
+
     frame.deletionQueue.Flush( );
     u32 swapchain_image_index = TL::StartFrame( frame );
     auto cmd = frame.commandBuffer;
@@ -380,14 +382,14 @@ void VulkanEngine::Draw( ) {
     }
 
     // send commands
-    TL::EndFrame( frame, swapchain_image_index );
+    TL::EndFrame( frame );
     TL::Present( frame, swapchain_image_index );
 
     // increase frame number for next loop
     gfx->swapchain.frameNumber++;
 }
 
-void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) {
+void TL_Engine::GBufferPass( VkCommandBuffer cmd ) {
     ZoneScopedN( "GBuffer Pass" );
     START_LABEL( cmd, "GBuffer Pass", Vec4( 1.0f, 1.0f, 0.0f, 1.0 ) );
     auto start = utils::GetTime( );
@@ -437,7 +439,7 @@ void VulkanEngine::GBufferPass( VkCommandBuffer cmd ) {
     END_LABEL( cmd );
 }
 
-void VulkanEngine::PbrPass( VkCommandBuffer cmd ) const {
+void TL_Engine::PbrPass( VkCommandBuffer cmd ) const {
     ZoneScopedN( "PBR Pass" );
     START_LABEL( cmd, "PBR Pass", Vec4( 1.0f, 0.0f, 1.0f, 1.0f ) );
 
@@ -469,7 +471,7 @@ void VulkanEngine::PbrPass( VkCommandBuffer cmd ) const {
     END_LABEL( cmd );
 }
 
-void VulkanEngine::SkyboxPass( VkCommandBuffer cmd ) const {
+void TL_Engine::SkyboxPass( VkCommandBuffer cmd ) const {
     ZoneScopedN( "Skybox Pass" );
     START_LABEL( cmd, "Skybox Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
 
@@ -512,7 +514,7 @@ void VulkanEngine::SkyboxPass( VkCommandBuffer cmd ) const {
     END_LABEL( cmd );
 }
 
-void VulkanEngine::PostProcessPass( VkCommandBuffer cmd ) const {
+void TL_Engine::PostProcessPass( VkCommandBuffer cmd ) const {
     auto bindless = gfx->GetBindlessSet( );
     auto &output = gfx->imageCodex.GetImage( gfx->swapchain.GetCurrentFrame( ).postProcessImage );
 
@@ -530,7 +532,7 @@ void VulkanEngine::PostProcessPass( VkCommandBuffer cmd ) const {
     // output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 }
 
-void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
+void TL_Engine::ShadowMapPass( VkCommandBuffer cmd ) const {
     ZoneScopedN( "ShadowMap Pass" );
     START_LABEL( cmd, "ShadowMap Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
 
@@ -541,7 +543,7 @@ void VulkanEngine::ShadowMapPass( VkCommandBuffer cmd ) const {
     END_LABEL( cmd );
 }
 
-void VulkanEngine::InitDefaultData( ) {
+void TL_Engine::InitDefaultData( ) {
     InitImages( );
 
     m_gpuSceneData = gfx->Allocate( sizeof( GpuSceneData ),
@@ -592,7 +594,7 @@ void VulkanEngine::InitDefaultData( ) {
     }
 }
 
-void VulkanEngine::InitImages( ) {
+void TL_Engine::InitImages( ) {
     // 3 default textures, white, grey, black. 1 pixel each
     uint32_t white = glm::packUnorm4x8( glm::vec4( 1, 1, 1, 1 ) );
     m_whiteImage = gfx->imageCodex.LoadImageFromData( "debug_white_img", ( void * )&white, VkExtent3D{ 1, 1, 1 },
@@ -619,7 +621,7 @@ void VulkanEngine::InitImages( ) {
                                                VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 }
 
-void VulkanEngine::InitScene( ) {
+void TL_Engine::InitScene( ) {
     m_ibl.Init( *gfx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
     m_scene = GltfLoader::Load( *gfx, "../../assets/untitled.glb" );
@@ -669,7 +671,7 @@ void VulkanEngine::InitScene( ) {
     m_cameraController = m_fpsController.get( );
 }
 
-void VulkanEngine::DrawNodeHierarchy( const std::shared_ptr<Node> &node ) {
+void TL_Engine::DrawNodeHierarchy( const std::shared_ptr<Node> &node ) {
     if ( !node )
         return;
 
@@ -714,7 +716,7 @@ static void drawSceneHierarchy( Node &node ) {
     }
 }
 
-void VulkanEngine::Run( ) {
+void TL_Engine::Run( ) {
     bool b_quit = false;
 
     static ImageId selected_set = gfx->swapchain.GetCurrentFrame( ).postProcessImage;
@@ -1093,7 +1095,7 @@ void VulkanEngine::Run( ) {
     }
 }
 
-void VulkanEngine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targetImageView ) {
+void TL_Engine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targetImageView ) {
     {
         using namespace vk_init;
 
@@ -1119,8 +1121,8 @@ void VulkanEngine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targe
 
 inline float dot( const Vec3 &v, const Vec4 &p ) { return v.x * p.x + v.y * p.y + v.z * p.z + p.w; }
 
-VisibilityLODResult VulkanEngine::VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
-                                                          const Frustum &frustum ) {
+VisibilityLODResult TL_Engine::VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
+                                                       const Frustum &frustum ) {
 
     // If neither frustum or lod is enable, then everything is visible and finest lod
     if ( !m_rendererOptions.frustumCulling && !m_rendererOptions.lodSystem ) {
@@ -1210,7 +1212,7 @@ VisibilityLODResult VulkanEngine::VisibilityCheckWithLOD( const Mat4 &transform,
     return { true, 0 };
 }
 
-void VulkanEngine::CreateDrawCommands( GfxDevice &gfx, const Scene &scene, Node &node ) {
+void TL_Engine::CreateDrawCommands( TL_VkContext &gfx, const Scene &scene, Node &node ) {
     if ( !node.meshIds.empty( ) ) {
 
         int i = 0;
@@ -1258,7 +1260,7 @@ void VulkanEngine::CreateDrawCommands( GfxDevice &gfx, const Scene &scene, Node 
     }
 }
 
-void VulkanEngine::UpdateScene( ) {
+void TL_Engine::UpdateScene( ) {
     ZoneScopedN( "update_scene" );
 
     m_drawCommands.clear( );

@@ -15,15 +15,15 @@
 
 #include <vk_types.h>
 
-class GfxDevice;
+class TL_VkContext;
 
 class BindlessRegistry {
 public:
-	void Init( GfxDevice& gfx );
-	void Cleanup( const GfxDevice & gfx );
+	void Init( TL_VkContext& gfx );
+	void Cleanup( const TL_VkContext & gfx );
 
-	void AddImage( const GfxDevice & gfx, ImageId id, const VkImageView view);
-	void AddSampler( GfxDevice& gfx, uint32_t id, const VkSampler sampler );
+	void AddImage( const TL_VkContext & gfx, ImageId id, const VkImageView view);
+	void AddSampler( TL_VkContext& gfx, uint32_t id, const VkSampler sampler );
 
 	static constexpr size_t MaxBindlessImages = 16000;
 	static constexpr size_t MaxSamplers = 3;
@@ -39,5 +39,5 @@ public:
 	VkSampler shadowMapSampler;
 
 private:
-	void InitSamplers( GfxDevice& gfx );
+	void InitSamplers( TL_VkContext& gfx );
 };

@@ -29,12 +29,12 @@
 #include <vk_types.h>
 #include <vulkan/vulkan_core.h>
 #include "camera/camera.h"
-#include "graphics/gfx_device.h"
+#include "graphics/tl_vkcontext.h"
 #include "utils/profiler.h"
 
-class VulkanEngine;
+class TL_Engine;
 
-extern VulkanEngine* g_TL;
+extern TL_Engine* g_TL;
 extern utils::VisualProfiler g_visualProfiler;
 
 struct RendererOptions {
@@ -56,9 +56,10 @@ struct RendererOptions {
                                             // and use those instead.
 };
 
-class VulkanEngine {
+class TL_Engine {
 public:
-    static VulkanEngine &Get( );
+    static TL_Engine &Get( );
+    static TL_VkContext &VkContext( );
 
     void Init( );
     void Cleanup( );
@@ -68,7 +69,7 @@ public:
     void ResizeSwapchain( uint32_t width, uint32_t height );
 
     ImGuiConsole console;
-    std::unique_ptr<GfxDevice> gfx;
+    std::unique_ptr<TL_VkContext> gfx;
 
 private:
     void InitSdl( );
@@ -77,7 +78,7 @@ private:
     void InitImGui( );
     void DrawImGui( VkCommandBuffer cmd, VkImageView targetImageView );
 
-    void CreateDrawCommands( GfxDevice &gfx, const Scene &scene, Node &node );
+    void CreateDrawCommands( TL_VkContext &gfx, const Scene &scene, Node &node );
     VisibilityLODResult VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
                                                 const Frustum &frustum );
 

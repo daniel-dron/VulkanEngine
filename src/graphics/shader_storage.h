@@ -80,7 +80,7 @@ enum ShaderType {
 
 class ShaderStorage {
 public:
-    explicit ShaderStorage( GfxDevice *gfx );
+    explicit ShaderStorage( TL_VkContext *gfx );
     void Cleanup( );
 
     void Add( const std::string &name );
@@ -89,7 +89,7 @@ public:
 
 private:
     std::unordered_map<std::string, Shader> m_shaders;
-    GfxDevice *m_gfx;
+    TL_VkContext *m_gfx;
 };
 
 namespace shaders {

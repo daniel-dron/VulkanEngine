@@ -15,9 +15,9 @@
 
 #include "material_codex.h"
 
-#include <graphics/gfx_device.h>
+#include <graphics/tl_vkcontext.h>
 
-void MaterialCodex::Init( GfxDevice &gfx ) {
+void MaterialCodex::Init( TL_VkContext &gfx ) {
     m_materialGpu = gfx.Allocate( MaxMaterials * sizeof( GpuMaterial ),
                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                   VMA_MEMORY_USAGE_AUTO, "Material Data Bindless" );
@@ -27,9 +27,9 @@ void MaterialCodex::Init( GfxDevice &gfx ) {
     m_gpuAddress = vkGetBufferDeviceAddress( gfx.device, &address_info );
 }
 
-void MaterialCodex::Cleanup( GfxDevice &gfx ) const { gfx.Free( m_materialGpu ); }
+void MaterialCodex::Cleanup( TL_VkContext &gfx ) const { gfx.Free( m_materialGpu ); }
 
-MaterialId MaterialCodex::AddMaterial( const GfxDevice &gfx, const Material &material ) {
+MaterialId MaterialCodex::AddMaterial( const TL_VkContext &gfx, const Material &material ) {
     const auto id = ( MaterialId )m_materials.size( );
     m_materials.push_back( material );
 

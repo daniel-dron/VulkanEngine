@@ -17,14 +17,14 @@
 
 #include <vk_initializers.h>
 #include "VkBootstrap.h"
-#include "gfx_device.h"
 #include "imgui_impl_vulkan.h"
+#include "tl_vkcontext.h"
 #include "vk_engine.h"
 #include "vk_types.h"
 
 TL_FrameData &TL_Swapchain::GetCurrentFrame( ) { return frames[frameNumber % FrameOverlap]; }
 
-TL_Swapchain::Result<> TL_Swapchain::Init( GfxDevice *gfx, const uint32_t width, const uint32_t height ) {
+TL_Swapchain::Result<> TL_Swapchain::Init( TL_VkContext *gfx, const uint32_t width, const uint32_t height ) {
     this->m_gfx = gfx;
     extent = VkExtent2D{ width, height };
 

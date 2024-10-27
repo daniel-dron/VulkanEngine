@@ -13,7 +13,7 @@
 
 #include <pch.h>
 
-#include "gfx_device.h"
+#include "tl_vkcontext.h"
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
@@ -27,7 +27,7 @@ using namespace vkb;
 
 constexpr bool B_USE_VALIDATION_LAYERS = true;
 
-ImmediateExecutor::Result<> ImmediateExecutor::Init( GfxDevice *gfx ) {
+ImmediateExecutor::Result<> ImmediateExecutor::Init( TL_VkContext *gfx ) {
     this->m_gfx = gfx;
 
     // Fence creation
@@ -102,7 +102,7 @@ void ImmediateExecutor::Cleanup( ) const {
     vkDestroyCommandPool( m_gfx->device, pool, nullptr );
 }
 
-GfxDevice::Result<> GfxDevice::Init( SDL_Window *window ) {
+TL_VkContext::Result<> TL_VkContext::Init( SDL_Window *window ) {
     RETURN_IF_ERROR( InitDevice( window ) );
     RETURN_IF_ERROR( InitAllocator( ) );
 
@@ -123,9 +123,9 @@ GfxDevice::Result<> GfxDevice::Init( SDL_Window *window ) {
     return { };
 }
 
-void GfxDevice::Execute( std::function<void( VkCommandBuffer )> &&func ) { executor.Execute( std::move( func ) ); }
+void TL_VkContext::Execute( std::function<void( VkCommandBuffer )> &&func ) { executor.Execute( std::move( func ) ); }
 
-GpuBuffer GfxDevice::Allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage,
+GpuBuffer TL_VkContext::Allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage,
                                const std::string &name ) {
     const VkBufferCreateInfo info = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, .pNext = nullptr, .size = size, .usage = usage };
@@ -151,7 +151,7 @@ GpuBuffer GfxDevice::Allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryU
     return buffer;
 }
 
-void GfxDevice::Free( const GpuBuffer &buffer ) {
+void TL_VkContext::Free( const GpuBuffer &buffer ) {
 
 #ifdef ENABLE_DEBUG_UTILS
     allocationCounter[buffer.name]--;
@@ -160,7 +160,7 @@ void GfxDevice::Free( const GpuBuffer &buffer ) {
     vmaDestroyBuffer( allocator, buffer.buffer, buffer.allocation );
 }
 
-void GfxDevice::Cleanup( ) {
+void TL_VkContext::Cleanup( ) {
     swapchain.Cleanup( );
     materialCodex.Cleanup( *this );
     imageCodex.Cleanup( );
@@ -178,9 +178,9 @@ void GfxDevice::Cleanup( ) {
     vkDestroyInstance( instance, nullptr );
 }
 
-VkDescriptorSet GfxDevice::AllocateSet( VkDescriptorSetLayout layout ) { return setPool.Allocate( device, layout ); }
+VkDescriptorSet TL_VkContext::AllocateSet( VkDescriptorSetLayout layout ) { return setPool.Allocate( device, layout ); }
 
-MultiDescriptorSet GfxDevice::AllocateMultiSet( VkDescriptorSetLayout layout ) {
+MultiDescriptorSet TL_VkContext::AllocateMultiSet( VkDescriptorSetLayout layout ) {
     std::vector<VkDescriptorSet> sets;
     for ( auto i = 0; i < swapchain.FrameOverlap; i++ ) {
         sets.push_back( AllocateSet( layout ) );
@@ -192,16 +192,16 @@ MultiDescriptorSet GfxDevice::AllocateMultiSet( VkDescriptorSetLayout layout ) {
     return md_set;
 }
 
-VkDescriptorSetLayout GfxDevice::GetBindlessLayout( ) const { return imageCodex.GetBindlessLayout( ); }
+VkDescriptorSetLayout TL_VkContext::GetBindlessLayout( ) const { return imageCodex.GetBindlessLayout( ); }
 
-VkDescriptorSet GfxDevice::GetBindlessSet( ) const { return imageCodex.GetBindlessSet( ); }
+VkDescriptorSet TL_VkContext::GetBindlessSet( ) const { return imageCodex.GetBindlessSet( ); }
 
-float GfxDevice::GetTimestampInMs( uint64_t start, uint64_t end ) const {
+float TL_VkContext::GetTimestampInMs( uint64_t start, uint64_t end ) const {
     const auto period = deviceProperties.properties.limits.timestampPeriod;
     return ( end - start ) * period / 1000000.0f;
 }
 
-void GfxDevice::DrawDebug( ) const {
+void TL_VkContext::DrawDebug( ) const {
     auto props = deviceProperties.properties;
     const auto limits = props.limits;
 
@@ -246,13 +246,13 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback( VkDebugUtilsMessageSeverityFlagBit
                                               const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
                                               void *pUserData ) {
 
-    auto &engine = VulkanEngine::Get( );
+    auto &engine = TL_Engine::Get( );
     engine.console.AddLog( "{}", pCallbackData->pMessage );
 
     return VK_FALSE;
 }
 
-GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
+TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window *window ) {
     // Instance
     InstanceBuilder builder;
     auto instance_prototype = builder.set_app_name( "Vulkan Engine" )
@@ -317,7 +317,7 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
     chosenGpu = physical_device;
 
     for ( const auto &ext : physical_device.get_available_extensions( ) ) {
-        VulkanEngine::Get( ).console.AddLog( "{}", ext.c_str( ) );
+        TL_Engine::Get( ).console.AddLog( "{}", ext.c_str( ) );
     }
 
     deviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
@@ -343,7 +343,7 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
 
     // Access maxDescriptorSetCount
     uint32_t max_descriptor_set_count = properties.limits.maxDescriptorSetSampledImages;
-    VulkanEngine::Get( ).console.AddLog( "Max sampled images: {}", max_descriptor_set_count );
+    TL_Engine::Get( ).console.AddLog( "Max sampled images: {}", max_descriptor_set_count );
 
     // Queue
     graphicsQueue = bs_device.get_queue( QueueType::graphics ).value( );
@@ -371,7 +371,7 @@ GfxDevice::Result<> GfxDevice::InitDevice( SDL_Window *window ) {
     return { };
 }
 
-GfxDevice::Result<> GfxDevice::InitAllocator( ) {
+TL_VkContext::Result<> TL_VkContext::InitAllocator( ) {
     const VmaAllocatorCreateInfo info = {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
             .physicalDevice = chosenGpu,
@@ -386,7 +386,7 @@ GfxDevice::Result<> GfxDevice::InitAllocator( ) {
     return { };
 }
 
-void GfxDevice::InitDebugFunctions( ) const {
+void TL_VkContext::InitDebugFunctions( ) const {
     // ----------
     // debug utils functions
     Debug::vkCmdBeginDebugUtilsLabelEXT_ptr =

@@ -14,7 +14,7 @@
 #include <pch.h>
 
 #include <fstream>
-#include <graphics/gfx_device.h>
+#include <graphics/tl_vkcontext.h>
 #include "shader_storage.h"
 
 #include <Windows.h>
@@ -23,7 +23,7 @@
 
 FILETIME GetTimestamp( const char *path );
 
-ShaderStorage::ShaderStorage( GfxDevice *gfx ) : m_gfx( gfx ) {}
+ShaderStorage::ShaderStorage( TL_VkContext *gfx ) : m_gfx( gfx ) {}
 
 void ShaderStorage::Cleanup( ) {
     if ( m_shaders.empty( ) ) {
@@ -72,7 +72,7 @@ void ShaderStorage::Reconstruct( ) {
             shader.low = timestamp.dwLowDateTime;
             shader.high = timestamp.dwHighDateTime;
 
-            VulkanEngine::Get( ).console.AddLog( "SHADER [{}] has been reloaded", shader.name.c_str( ) );
+            TL_Engine::Get( ).console.AddLog( "SHADER [{}] has been reloaded", shader.name.c_str( ) );
 
             shader.NotifyReload( );
         }
@@ -88,7 +88,7 @@ void ShaderStorage::Add( const std::string &name ) {
     const FILETIME timestamp = GetTimestamp( name.c_str( ) );
     m_shaders[name] = Shader( module, timestamp.dwLowDateTime, timestamp.dwHighDateTime, name );
 
-    VulkanEngine::Get( ).console.AddLog( "[SHADER STORAGE]: Added {} shader", m_shaders[name].name.c_str( ) );
+    TL_Engine::Get( ).console.AddLog( "[SHADER STORAGE]: Added {} shader", m_shaders[name].name.c_str( ) );
 }
 
 VkShaderModule shaders::LoadShaderModule( const VkDevice device, const char *path ) {

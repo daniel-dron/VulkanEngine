@@ -19,7 +19,7 @@
 #include <vk_initializers.h>
 #include <vk_pipelines.h>
 
-#include "graphics/gfx_device.h"
+#include "graphics/tl_vkcontext.h"
 #include "vk_engine.h"
 
 using namespace vk_init;
@@ -27,7 +27,7 @@ using namespace vk_init;
 static constexpr int MAX_IDX_COUNT = 1000000;
 static constexpr int MAX_VTX_COUNT = 1000000;
 
-ImGuiPipeline::Result<> ImGuiPipeline::Init( GfxDevice &gfx ) {
+ImGuiPipeline::Result<> ImGuiPipeline::Init( TL_VkContext &gfx ) {
     // Setup imgui resources in our engine
     auto &io = ImGui::GetIO( );
     io.BackendRendererName = "Vulkan Bindless Backend";
@@ -115,7 +115,7 @@ ImGuiPipeline::Result<> ImGuiPipeline::Init( GfxDevice &gfx ) {
     return { };
 }
 
-void ImGuiPipeline::Cleanup( GfxDevice &gfx ) {
+void ImGuiPipeline::Cleanup( TL_VkContext &gfx ) {
     vkDestroyPipelineLayout( gfx.device, m_layout, nullptr );
     vkDestroyPipeline( gfx.device, m_pipeline, nullptr );
 
@@ -128,7 +128,7 @@ void ImGuiPipeline::Cleanup( GfxDevice &gfx ) {
     }
 }
 
-void ImGuiPipeline::Draw( GfxDevice &gfx, VkCommandBuffer cmd, ImDrawData *drawData ) {
+void ImGuiPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImDrawData *drawData ) {
     assert( drawData );
     if ( drawData->TotalVtxCount == 0 ) {
         return;

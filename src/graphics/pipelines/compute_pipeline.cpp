@@ -31,7 +31,7 @@ void BindlessCompute::AddPushConstantRange( uint32_t size ) {
     m_pushConstantRanges.push_back( range );
 }
 
-void BindlessCompute::Build( const GfxDevice &gfx, VkShaderModule shader, const std::string &name ) {
+void BindlessCompute::Build( const TL_VkContext &gfx, VkShaderModule shader, const std::string &name ) {
     const auto bindless_layout = gfx.GetBindlessLayout( );
 
     m_descriptorLayout = m_layoutBuilder.Build( gfx.device, VK_SHADER_STAGE_COMPUTE_BIT );
@@ -73,7 +73,7 @@ void BindlessCompute::Build( const GfxDevice &gfx, VkShaderModule shader, const 
 #endif
 }
 
-void BindlessCompute::Cleanup( const GfxDevice &gfx ) {
+void BindlessCompute::Cleanup( const TL_VkContext &gfx ) {
     if ( m_pipeline != VK_NULL_HANDLE ) {
         vkDestroyPipeline( gfx.device, m_pipeline, nullptr );
     }

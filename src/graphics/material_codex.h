@@ -15,7 +15,7 @@
 
 #include <vk_types.h>
 
-class GfxDevice;
+class TL_VkContext;
 
 struct GpuMaterial {
     Vec4 baseColor;
@@ -40,10 +40,10 @@ struct Material {
 
 class MaterialCodex {
 public:
-    void Init( GfxDevice &gfx );
-    void Cleanup( GfxDevice &gfx ) const;
+    void Init( TL_VkContext &gfx );
+    void Cleanup( TL_VkContext &gfx ) const;
 
-    MaterialId AddMaterial( const GfxDevice &gfx, const Material &material );
+    MaterialId AddMaterial( const TL_VkContext &gfx, const Material &material );
     const Material &GetMaterial( MaterialId id );
 
     const GpuBuffer &GetGpuBuffer( ) const { return m_materialGpu; }
