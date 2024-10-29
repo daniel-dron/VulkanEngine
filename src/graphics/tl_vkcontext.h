@@ -24,6 +24,7 @@
 #include "mesh_codex.h"
 
 #include "shader_storage.h"
+#include <graphics/resources/tl_pipeline.h>
 
 class TL_VkContext;
 class ShaderStorage;
@@ -116,6 +117,9 @@ public:
     void Free( const GpuBuffer &buffer );
     void Cleanup( );
 
+    // Resources
+    std::shared_ptr<TL::Pipeline> GetOrCreatePipeline( const TL::PipelineConfig &config );
+
     VkDescriptorSet AllocateSet( VkDescriptorSetLayout layout );
     MultiDescriptorSet AllocateMultiSet( VkDescriptorSetLayout layout );
 
@@ -124,7 +128,7 @@ public:
 
     float GetTimestampInMs( uint64_t start, uint64_t end ) const;
 
-    void SetObjectDebugName(VkObjectType type, void* object, const std::string& name );
+    void SetObjectDebugName( VkObjectType type, void *object, const std::string &name );
 
     DescriptorAllocatorGrowable setPool;
 
@@ -182,6 +186,9 @@ private:
     void InitSwapchain( u32 width, u32 height );
     void CleanupSwapchain( );
     void InitDebugFunctions( ) const;
+
+    std::unordered_map<std::string, std::shared_ptr<TL::Pipeline>> m_pipelines;
+    
 
     DeletionQueue m_deletionQueue;
 };

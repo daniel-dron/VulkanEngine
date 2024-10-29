@@ -33,7 +33,8 @@ namespace TL {
 
     class Renderer {
     public:
-        explicit Renderer( struct SDL_Window *window );
+        void Init( struct SDL_Window *window );
+        void Cleanup( );
 
         // This will setup the current frame.
         // Will wait for the frame rendering fence, free its arena/resources, acquire the next image
@@ -58,7 +59,6 @@ namespace TL {
         static constexpr u8 MaxColorRenderTargets = 8;
 
     private:
-        std::unique_ptr<Pipeline> m_gbufferPipeline = nullptr;
         void GBufferPass( );
     };
 } // namespace TL

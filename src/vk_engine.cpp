@@ -117,7 +117,9 @@ void TL_Engine::InitSdl( ) {
 }
 
 void TL_Engine::InitRenderer( ) {
-    renderer = std::make_unique<TL::Renderer>( m_window );
+    renderer = std::make_unique<TL::Renderer>( );
+    renderer->Init( m_window );
+
     m_mainDeletionQueue.Flush( );
 }
 
@@ -285,6 +287,8 @@ void TL_Engine::Cleanup( ) {
         // wait for gpu work to finish
         vkDeviceWaitIdle( vkctx->device );
 
+        renderer->Cleanup( );
+        
         m_pbrPipeline.Cleanup( *vkctx );
         m_wireframePipeline.Cleanup( *vkctx );
         m_gBufferPipeline.Cleanup( *vkctx );

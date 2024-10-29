@@ -199,9 +199,9 @@ namespace TL {
             assert( false && "Failed to create pipeline" );
         }
 
-        vkctx->SetObjectDebugName( VK_OBJECT_TYPE_PIPELINE, pipeline, config.debugName );
+        vkctx->SetObjectDebugName( VK_OBJECT_TYPE_PIPELINE, pipeline, config.name );
         vkctx->SetObjectDebugName( VK_OBJECT_TYPE_PIPELINE_LAYOUT, layout,
-                                fmt::format( "{} Layout", config.debugName.c_str( ) ) );
+                                fmt::format( "{} Layout", config.name.c_str( ) ) );
 
         // We no longer need the shader modules
         vkDestroyShaderModule( vkctx->device, vertex, nullptr );

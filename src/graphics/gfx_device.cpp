@@ -170,6 +170,8 @@ void TL_VkContext::Free( const GpuBuffer &buffer ) {
 void TL_VkContext::Cleanup( ) {
     CleanupSwapchain( );
 
+    m_pipelines.clear( );
+
     materialCodex.Cleanup( *this );
     imageCodex.Cleanup( );
     meshCodex.Cleanup( *this );
@@ -184,6 +186,19 @@ void TL_VkContext::Cleanup( ) {
     vkDestroyDevice( device, nullptr );
     destroy_debug_utils_messenger( instance, debugMessenger );
     vkDestroyInstance( instance, nullptr );
+}
+
+std::shared_ptr<TL::Pipeline> TL_VkContext::GetOrCreatePipeline( const TL::PipelineConfig &config ) {
+    assert( !config.name.empty( ) );
+
+    // Check if pipeline already exists
+    if ( m_pipelines.find( config.name ) != m_pipelines.end( ) ) {
+        return m_pipelines[config.name];
+    }
+
+    m_pipelines[config.name] = std::make_shared<TL::Pipeline>( config );
+
+    return m_pipelines[config.name];
 }
 
 VkDescriptorSet TL_VkContext::AllocateSet( VkDescriptorSetLayout layout ) { return setPool.Allocate( device, layout ); }
@@ -212,11 +227,11 @@ float TL_VkContext::GetTimestampInMs( uint64_t start, uint64_t end ) const {
 void TL_VkContext::SetObjectDebugName( VkObjectType type, void *object, const std::string &name ) {
 #ifdef ENABLE_DEBUG_FEATURES
     const VkDebugUtilsObjectNameInfoEXT obj = {
-        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-        .pNext = nullptr,
-        .objectType = type,
-        .objectHandle = reinterpret_cast<uint64_t>( object ),
-        .pObjectName = name.c_str( ),
+            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+            .pNext = nullptr,
+            .objectType = type,
+            .objectHandle = reinterpret_cast<uint64_t>( object ),
+            .pObjectName = name.c_str( ),
     };
     vkSetDebugUtilsObjectNameEXT( device, &obj );
 #endif

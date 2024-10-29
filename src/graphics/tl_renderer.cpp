@@ -20,7 +20,7 @@
 
 namespace TL {
 
-    Renderer::Renderer( SDL_Window *window ) {
+    void Renderer::Init( SDL_Window *window ) {
         vkctx = std::make_unique<TL_VkContext>( window );
 
         // All frames use the same type of gbuffer, so this is fine
@@ -33,32 +33,32 @@ namespace TL {
             VkDeviceAddress vertexBufferAddress;
             uint32_t materialId;
         };
+        vkctx->GetOrCreatePipeline( PipelineConfig{
+                .name = "gbuffer",
+                .vertex = "../shaders/gbuffer.vert.spv",
+                .pixel = "../shaders/gbuffer.frag.spv",
+                .colorTargets = { { .format = vkctx->imageCodex.GetImage( g_buffer.albedo ).GetFormat( ),
+                                    .blendType = PipelineConfig::BlendType::OFF },
+                                  { .format = vkctx->imageCodex.GetImage( g_buffer.normal ).GetFormat( ),
+                                    .blendType = PipelineConfig::BlendType::OFF },
+                                  { .format = vkctx->imageCodex.GetImage( g_buffer.position ).GetFormat( ),
+                                    .blendType = PipelineConfig::BlendType::OFF },
+                                  { .format = vkctx->imageCodex.GetImage( g_buffer.pbr ).GetFormat( ),
+                                    .blendType = PipelineConfig::BlendType::OFF } },
+                .pushConstantRanges = { { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                          .offset = 0,
+                                          .size = sizeof( PushConstants ) } },
 
-        m_gbufferPipeline = std::make_unique<Pipeline>(
-                PipelineConfig{
-                        .vertex = "../shaders/gbuffer.vert.spv",
-                        .pixel = "../shaders/gbuffer.frag.spv",
-                        .colorTargets = { { .format = vkctx->imageCodex.GetImage( g_buffer.albedo ).GetFormat( ),
-                                            .blendType = PipelineConfig::BlendType::OFF },
-                                          { .format = vkctx->imageCodex.GetImage( g_buffer.normal ).GetFormat( ),
-                                            .blendType = PipelineConfig::BlendType::OFF },
-                                          { .format = vkctx->imageCodex.GetImage( g_buffer.position ).GetFormat( ),
-                                            .blendType = PipelineConfig::BlendType::OFF },
-                                          { .format = vkctx->imageCodex.GetImage( g_buffer.pbr ).GetFormat( ),
-                                            .blendType = PipelineConfig::BlendType::OFF } },
-                        .pushConstantRanges = { { .stageFlags =
-                                                          VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                  .offset = 0,
-                                                  .size = sizeof( PushConstants ) } },
-
-                        .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
-                } );
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
+        } );
     }
+
+    void Renderer::Cleanup( ) {}
 
     void Renderer::StartFrame( ) noexcept {
         const auto &frame = vkctx->GetCurrentFrame( );
 
-        if (vkctx->frameNumber != 0 ) {
+        if ( vkctx->frameNumber != 0 ) {
             VKCALL( vkWaitForFences( vkctx->device, 1, &frame.fence, true, UINT64_MAX ) );
         }
 
@@ -133,7 +133,7 @@ namespace TL {
     }
 
     void Renderer::GBufferPass( ) {
-        const auto &frame = vkctx->GetCurrentFrame(  );
+        const auto &frame = vkctx->GetCurrentFrame( );
         auto &gbuffer = vkctx->GetCurrentFrame( ).gBuffer;
         auto &albedo = vkctx->imageCodex.GetImage( gbuffer.albedo );
         auto &normal = vkctx->imageCodex.GetImage( gbuffer.normal );
@@ -166,6 +166,5 @@ namespace TL {
 
 
         vkCmdEndRendering( frame.commandBuffer );
-
     }
 } // namespace TL

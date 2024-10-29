@@ -60,7 +60,6 @@ struct RendererOptions {
 class TL_Engine {
 public:
     static TL_Engine &Get( );
-    static TL_VkContext &VkContext( );
 
     void Init( );
     void Cleanup( );

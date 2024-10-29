@@ -17,6 +17,7 @@
 
 namespace TL {
     struct PipelineConfig {
+        std::string name;
         std::string vertex;
         std::string pixel;
 
@@ -38,9 +39,6 @@ namespace TL {
         // For now, this will do...
         std::vector<VkPushConstantRange> pushConstantRanges;
         std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
-
-        // This value is only for debugging purposes only, and has no other side effect
-        std::string debugName;
     };
 
     class Pipeline {
