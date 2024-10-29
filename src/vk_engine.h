@@ -71,7 +71,6 @@ public:
     ImGuiConsole console;
     std::unique_ptr<TL::Renderer> renderer = nullptr;
 
-private:
     void InitSdl( );
     void InitRenderer( );
 
@@ -95,7 +94,6 @@ private:
 
     void DrawNodeHierarchy( const std::shared_ptr<Node> &node );
 
-private:
     bool m_isInitialized{ false };
     bool m_stopRendering{ false };
     VkExtent2D m_windowExtent{ WIDTH, HEIGHT };

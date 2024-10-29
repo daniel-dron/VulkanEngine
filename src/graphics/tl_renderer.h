@@ -12,9 +12,10 @@
 ******************************************************************************/
 #pragma once
 
-#include <vk_types.h>
-#include <graphics/tl_vkcontext.h>
+#include <graphics/resources/tl_buffer.h>
 #include <graphics/resources/tl_pipeline.h>
+#include <graphics/tl_vkcontext.h>
+#include <vk_types.h>
 
 namespace TL {
     struct SceneBuffer {
@@ -28,8 +29,34 @@ namespace TL {
 
         Vec3 cameraPosition;
         f32 time;
-
     };
+
+    // TEMP:
+    struct GpuSceneData {
+        Mat4 view;
+        Mat4 proj;
+        Mat4 viewproj;
+        Mat4 lightProj;
+        Mat4 lightView;
+        Vec4 fogColor;
+        Vec3 cameraPosition;
+        float ambientLightFactor;
+        Vec3 ambientLightColor;
+        float fogEnd;
+        float fogStart;
+        VkDeviceAddress materials;
+        int numberOfDirectionalLights;
+        int numberOfPointLights;
+    };
+
+    // TODO: move this
+    struct PushConstants {
+        Mat4 worldFromLocal;
+        VkDeviceAddress sceneDataAddress;
+        VkDeviceAddress vertexBufferAddress;
+        uint32_t materialId;
+    };
+
 
     class Renderer {
     public:
@@ -45,6 +72,8 @@ namespace TL {
         // Returns the index of the swapchain image.
         void StartFrame( ) noexcept;
 
+        void Frame( ) noexcept;
+
         // Will queue up the work agreggated in the frame command buffer. This function is non blocking,
         // as the only thing it does is queue up the work to the right graphics queue.
         // It will also transition the swapchain image to its expected layout to be presented in the future.
@@ -59,6 +88,10 @@ namespace TL {
         static constexpr u8 MaxColorRenderTargets = 8;
 
     private:
+        // This will be called after submitting a frame to the gpu, when its legal to start working on the next one
+        void OnFrameBoundary( ) noexcept;
+
         void GBufferPass( );
+        std::shared_ptr<Buffer> m_sceneBufferGpu;
     };
 } // namespace TL

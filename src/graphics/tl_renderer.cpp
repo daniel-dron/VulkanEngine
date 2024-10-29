@@ -26,13 +26,6 @@ namespace TL {
         // All frames use the same type of gbuffer, so this is fine
         auto &g_buffer = vkctx->GetCurrentFrame( ).gBuffer;
 
-        // TODO: move this
-        struct PushConstants {
-            Mat4 worldFromLocal;
-            VkDeviceAddress sceneDataAddress;
-            VkDeviceAddress vertexBufferAddress;
-            uint32_t materialId;
-        };
         vkctx->GetOrCreatePipeline( PipelineConfig{
                 .name = "gbuffer",
                 .vertex = "../shaders/gbuffer.vert.spv",
@@ -51,15 +44,20 @@ namespace TL {
 
                 .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
         } );
+
+        m_sceneBufferGpu = std::make_shared<Buffer>( BufferType::TConstant, sizeof( GpuSceneData ),
+                                                     TL_VkContext::FrameOverlap, nullptr, "Scene Buffer" );
     }
 
-    void Renderer::Cleanup( ) {}
+    void Renderer::Cleanup( ) { m_sceneBufferGpu.reset( ); }
 
     void Renderer::StartFrame( ) noexcept {
         const auto &frame = vkctx->GetCurrentFrame( );
 
         if ( vkctx->frameNumber != 0 ) {
             VKCALL( vkWaitForFences( vkctx->device, 1, &frame.fence, true, UINT64_MAX ) );
+
+            OnFrameBoundary( );
         }
 
         // Reset fence in case the next KHR image acquire fails or we lose device
@@ -101,6 +99,8 @@ namespace TL {
         g_visualProfiler.AddTimer( "Post Process", time, utils::VisualProfiler::Gpu );
     }
 
+    void Renderer::Frame( ) noexcept { GBufferPass( ); }
+
     void Renderer::EndFrame( ) noexcept {
         const auto &frame = vkctx->GetCurrentFrame( );
 
@@ -130,6 +130,11 @@ namespace TL {
                                                .pImageIndices = &swapchainImageIndex };
 
         VKCALL( vkQueuePresentKHR( vkctx->graphicsQueue, &presentInfo ) );
+    }
+
+    void Renderer::OnFrameBoundary( ) noexcept {
+        // TODO: move this
+        m_sceneBufferGpu->AdvanceFrame( );
     }
 
     void Renderer::GBufferPass( ) {
@@ -162,9 +167,49 @@ namespace TL {
                                         .pStencilAttachment = nullptr };
         vkCmdBeginRendering( frame.commandBuffer, &render_info );
 
-        // WORK HERE
+        auto &engine = TL_Engine::Get( );
+        auto cmd = frame.commandBuffer;
+        auto &draw_commands = TL_Engine::Get( ).m_drawCommands;
+        auto pipeline = vkctx->GetOrCreatePipeline( { .name = "gbuffer" } );
 
+        engine.m_sceneData.materials = vkctx->materialCodex.GetDeviceAddress( );
+        m_sceneBufferGpu->Upload( &engine.m_sceneData, sizeof( GpuSceneData ) );
 
-        vkCmdEndRendering( frame.commandBuffer );
+        vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
+
+        const auto bindless_set = vkctx->GetBindlessSet( );
+        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0,
+                                 nullptr );
+
+        auto &target_image = albedo;
+        VkViewport viewport = { .x = 0,
+                                .y = 0,
+                                .width = static_cast<float>( target_image.GetExtent( ).width ),
+                                .height = static_cast<float>( target_image.GetExtent( ).height ),
+                                .minDepth = 0.0f,
+                                .maxDepth = 1.0f };
+        vkCmdSetViewport( cmd, 0, 1, &viewport );
+
+        const VkRect2D scissor = {
+                .offset = { .x = 0, .y = 0 },
+                .extent = { .width = target_image.GetExtent( ).width, .height = target_image.GetExtent( ).height } };
+        vkCmdSetScissor( cmd, 0, 1, &scissor );
+
+        for ( const auto &draw_command : draw_commands ) {
+            vkCmdBindIndexBuffer( cmd, draw_command.indexBuffer, 0, VK_INDEX_TYPE_UINT32 );
+
+            PushConstants push_constants = {
+                    .worldFromLocal = draw_command.worldFromLocal,
+                    .sceneDataAddress = m_sceneBufferGpu->GetDeviceAddress( ),
+                    .vertexBufferAddress = draw_command.vertexBufferAddress,
+                    .materialId = draw_command.materialId,
+            };
+            vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                0, sizeof( PushConstants ), &push_constants );
+
+            vkCmdDrawIndexed( cmd, draw_command.indexCount, 1, 0, 0, 0 );
+        }
+
+        vkCmdEndRendering( cmd );
     }
 } // namespace TL

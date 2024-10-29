@@ -22,8 +22,12 @@ namespace TL {
         assert( size != 0 && "Invalid buffer size" );
         assert( count != 0 && "Invalid buffer count" );
 
+        assert( data == nullptr && "TODO" );
+
         m_type = type;
-        m_size = size;
+
+        auto alignment = vkctx->deviceProperties.properties.limits.minUniformBufferOffsetAlignment;
+        m_size = ( size + alignment - 1 ) & ~( alignment - 1 );
         m_count = count;
         m_resourceName = name;
 

@@ -46,6 +46,9 @@ namespace TL {
         explicit Pipeline( const PipelineConfig &config );
         ~Pipeline( );
 
+        VkPipeline GetVkResource( ) const { return pipeline; }
+        VkPipelineLayout GetLayout( ) const { return layout; }
+
     private:
         VkPipeline pipeline = VK_NULL_HANDLE;
         VkPipelineLayout layout = VK_NULL_HANDLE;

@@ -336,7 +336,8 @@ void TL_Engine::Draw( ) {
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 1 );
 
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 2 );
-    GBufferPass( cmd );
+    //GBufferPass( cmd );
+    renderer->Frame( );
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 3 );
 
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 4 );
@@ -541,7 +542,7 @@ void TL_Engine::ShadowMapPass( VkCommandBuffer cmd ) const {
 void TL_Engine::InitDefaultData( ) {
     InitImages( );
 
-    m_gpuSceneData = vkctx->Allocate( sizeof( GpuSceneData ),
+    m_gpuSceneData = vkctx->Allocate( sizeof( TL::GpuSceneData ),
                                       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                       VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
 
@@ -1324,7 +1325,7 @@ void TL_Engine::UpdateScene( ) {
         m_gpuPointLights.push_back( gpu_light );
     }
 
-    m_gpuSceneData.Upload( *vkctx, &m_sceneData, sizeof( GpuSceneData ) );
+    m_gpuSceneData.Upload( *vkctx, &m_sceneData, sizeof( ::GpuSceneData ) );
 
     const auto end = utils::GetTime( );
     g_visualProfiler.AddTimer( "Scene", end - start, utils::VisualProfiler::Cpu );

@@ -32,7 +32,7 @@ namespace TL {
         VkDeviceAddress GetDeviceAddress( ) const {
             assert( m_type == BufferType::TConstant ||
                     m_type == BufferType::TVertex && "Device Address only allowed for constant and vertex buffers" );
-            return m_deviceAddress;
+            return m_deviceAddress + m_offset;
         }
 
     private:
