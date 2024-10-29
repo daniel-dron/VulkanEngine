@@ -74,7 +74,7 @@ public:
 
 private:
     void InitSdl( );
-    void InitVulkan( );
+    void InitRenderer( );
 
     void InitImGui( );
     void DrawImGui( VkCommandBuffer cmd, VkImageView targetImageView );

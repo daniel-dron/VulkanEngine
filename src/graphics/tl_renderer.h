@@ -52,14 +52,12 @@ namespace TL {
         // Will present the swapchain image to the screen.
         void Present( ) noexcept;
 
-        TL_VkContext vkctx;
         u32 swapchainImageIndex = -1;
 
         static constexpr VkFormat DepthFormat = VK_FORMAT_D32_SFLOAT;
         static constexpr u8 MaxColorRenderTargets = 8;
 
     private:
-
         std::unique_ptr<Pipeline> m_gbufferPipeline = nullptr;
         void GBufferPass( );
     };

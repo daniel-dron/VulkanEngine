@@ -25,6 +25,10 @@
 
 using namespace vkb;
 
+namespace TL {
+    std::unique_ptr<TL_VkContext> vkctx = nullptr;
+}
+
 constexpr bool B_USE_VALIDATION_LAYERS = true;
 
 ImmediateExecutor::Result<> ImmediateExecutor::Init( TL_VkContext *gfx ) {

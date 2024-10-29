@@ -51,27 +51,27 @@ namespace TL {
                                           .size = m_size * m_count,
                                           .usage = usage };
         const VmaAllocationCreateInfo vma_info = { .flags = vma_flags, .usage = vma_usage };
-        VKCALL( vmaCreateBuffer( TL_Engine::Get( ).renderer->vkctx.allocator, &info, &vma_info, &m_buffer,
+        VKCALL( vmaCreateBuffer( vkctx->allocator, &info, &vma_info, &m_buffer,
                                  &m_allocation, &m_allocationInfo ) );
 
         // If its a constant buffer then we will get the device address and also map it
         if ( m_type == BufferType::TConstant ) {
             const VkBufferDeviceAddressInfo address_info = {
                     .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = m_buffer };
-            m_deviceAddress = vkGetBufferDeviceAddress( TL_Engine::Get( ).renderer->vkctx.device, &address_info );
+            m_deviceAddress = vkGetBufferDeviceAddress(vkctx->device, &address_info );
             assert( m_deviceAddress && "Could not map gpu constant buffer" );
 
-            vmaMapMemory( TL_Engine::Get( ).renderer->vkctx.allocator, m_allocation,
+            vmaMapMemory( vkctx->allocator, m_allocation,
                           reinterpret_cast<void **>( &m_gpuData ) );
         }
     }
 
     Buffer::~Buffer( ) {
         if ( m_gpuData ) {
-            vmaUnmapMemory( TL_Engine::Get( ).renderer->vkctx.allocator, m_allocation );
+            vmaUnmapMemory( vkctx->allocator, m_allocation );
         }
 
-        vmaDestroyBuffer( TL_Engine::Get( ).renderer->vkctx.allocator, m_buffer, m_allocation );
+        vmaDestroyBuffer( vkctx->allocator, m_buffer, m_allocation );
 
         m_buffer = VK_NULL_HANDLE;
         m_type = BufferType::TMax;

@@ -80,17 +80,17 @@ VkDeviceAddress GpuBuffer::GetDeviceAddress( const TL_VkContext &vkctx ) {
 
 TL_Engine &TL_Engine::Get( ) { return *g_TL; }
 
-TL_VkContext &TL_Engine::VkContext( ) { return g_TL->renderer->vkctx; }
+using namespace TL;
 
 void TL_Engine::Init( ) {
     assert( g_TL == nullptr );
     g_TL = this;
 
     InitSdl( );
-    InitVulkan( );
+    InitRenderer( );
     InitDefaultData( );
     InitImGui( );
-    m_imGuiPipeline.Init( renderer->vkctx );
+    m_imGuiPipeline.Init( *vkctx );
     EG_INPUT.Init( );
     InitScene( );
 
@@ -116,7 +116,7 @@ void TL_Engine::InitSdl( ) {
                                  m_windowExtent.width, m_windowExtent.height, window_flags );
 }
 
-void TL_Engine::InitVulkan( ) {
+void TL_Engine::InitRenderer( ) {
     renderer = std::make_unique<TL::Renderer>( m_window );
     m_mainDeletionQueue.Flush( );
 }
@@ -145,17 +145,17 @@ void TL_Engine::InitImGui( ) {
     };
 
     VkDescriptorPool imgui_pool;
-    VKCALL( vkCreateDescriptorPool( renderer->vkctx.device, &pool_info, nullptr, &imgui_pool ) );
+    VKCALL( vkCreateDescriptorPool( vkctx->device, &pool_info, nullptr, &imgui_pool ) );
 
     ImGui::CreateContext( );
 
     ImGui_ImplSDL2_InitForVulkan( m_window );
 
     ImGui_ImplVulkan_InitInfo init_info = {
-            .Instance = renderer->vkctx.instance,
-            .PhysicalDevice = renderer->vkctx.chosenGpu,
-            .Device = renderer->vkctx.device,
-            .Queue = renderer->vkctx.graphicsQueue,
+            .Instance = vkctx->instance,
+            .PhysicalDevice = vkctx->chosenGpu,
+            .Device = vkctx->device,
+            .Queue = vkctx->graphicsQueue,
             .DescriptorPool = imgui_pool,
             .MinImageCount = 3,
             .ImageCount = 3,
@@ -164,7 +164,7 @@ void TL_Engine::InitImGui( ) {
 
     init_info.PipelineRenderingCreateInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
     init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &renderer->vkctx.format;
+    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &vkctx->format;
     init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
     ImGui_ImplVulkan_Init( &init_info );
@@ -255,7 +255,7 @@ void TL_Engine::InitImGui( ) {
 
     m_mainDeletionQueue.PushFunction( [&, imgui_pool]( ) {
         ImGui_ImplVulkan_Shutdown( );
-        vkDestroyDescriptorPool( renderer->vkctx.device, imgui_pool, nullptr );
+        vkDestroyDescriptorPool( vkctx->device, imgui_pool, nullptr );
     } );
 }
 
@@ -271,35 +271,35 @@ auto RandomRange( const float min, const float max ) -> float {
 float Lerp( const float a, const float b, const float f ) { return a + f * ( b - a ); }
 
 void TL_Engine::ResizeSwapchain( uint32_t width, uint32_t height ) {
-    vkDeviceWaitIdle( renderer->vkctx.device );
+    vkDeviceWaitIdle( vkctx->device );
 
     m_windowExtent.width = width;
     m_windowExtent.height = height;
 
     // TODO:
-    // renderer->vkctx.Recreate( width, height );
+    // vkctx->Recreate( width, height );
 }
 
 void TL_Engine::Cleanup( ) {
     if ( m_isInitialized ) {
         // wait for gpu work to finish
-        vkDeviceWaitIdle( renderer->vkctx.device );
+        vkDeviceWaitIdle( vkctx->device );
 
-        m_pbrPipeline.Cleanup( renderer->vkctx );
-        m_wireframePipeline.Cleanup( renderer->vkctx );
-        m_gBufferPipeline.Cleanup( renderer->vkctx );
-        m_imGuiPipeline.Cleanup( renderer->vkctx );
-        m_skyboxPipeline.Cleanup( renderer->vkctx );
-        m_shadowMapPipeline.Cleanup( renderer->vkctx );
-        m_blurPipeline.Cleanup( renderer->vkctx );
+        m_pbrPipeline.Cleanup( *vkctx );
+        m_wireframePipeline.Cleanup( *vkctx );
+        m_gBufferPipeline.Cleanup( *vkctx );
+        m_imGuiPipeline.Cleanup( *vkctx );
+        m_skyboxPipeline.Cleanup( *vkctx );
+        m_shadowMapPipeline.Cleanup( *vkctx );
+        m_blurPipeline.Cleanup( *vkctx );
 
-        m_postProcessPipeline.Cleanup( renderer->vkctx );
+        m_postProcessPipeline.Cleanup( *vkctx );
 
-        m_ibl.Clean( renderer->vkctx );
+        m_ibl.Clean( *vkctx );
 
         m_mainDeletionQueue.Flush( );
 
-        renderer->vkctx.Cleanup( );
+        vkctx->Cleanup( );
 
         SDL_DestroyWindow( m_window );
     }
@@ -314,60 +314,60 @@ void TL_Engine::Draw( ) {
     m_stats.drawcallCount = 0;
     m_stats.triangleCount = 0;
 
-    auto frame = renderer->vkctx.GetCurrentFrame( );
+    auto frame = vkctx->GetCurrentFrame( );
 
     frame.deletionQueue.Flush( );
     renderer->StartFrame( );
     const auto cmd = frame.commandBuffer;
 
-    const auto &depth = renderer->vkctx.imageCodex.GetImage( renderer->vkctx.GetCurrentFrame( ).depth );
+    const auto &depth = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
 
     depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, renderer->vkctx.queryPoolTimestamps, 0 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 0 );
     if ( m_rendererOptions.reRenderShadowMaps ) {
         m_rendererOptions.reRenderShadowMaps = false;
         ShadowMapPass( cmd );
     }
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, renderer->vkctx.queryPoolTimestamps, 1 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 1 );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, renderer->vkctx.queryPoolTimestamps, 2 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 2 );
     GBufferPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, renderer->vkctx.queryPoolTimestamps, 3 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 3 );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, renderer->vkctx.queryPoolTimestamps, 4 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 4 );
     PbrPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, renderer->vkctx.queryPoolTimestamps, 5 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 5 );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, renderer->vkctx.queryPoolTimestamps, 6 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 6 );
     SkyboxPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, renderer->vkctx.queryPoolTimestamps, 7 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 7 );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, renderer->vkctx.queryPoolTimestamps, 8 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 8 );
     PostProcessPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, renderer->vkctx.queryPoolTimestamps, 9 );
+    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 9 );
 
     {
         ZoneScopedN( "Final Image" );
         if ( m_drawEditor ) {
-            DrawImGui( cmd, renderer->vkctx.views[renderer->swapchainImageIndex] );
-            image::TransitionLayout( cmd, renderer->vkctx.images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
+            DrawImGui( cmd, vkctx->views[renderer->swapchainImageIndex] );
+            image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
                                      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
         }
         else {
-            auto &ppi = renderer->vkctx.imageCodex.GetImage( renderer->vkctx.GetCurrentFrame( ).postProcessImage );
+            auto &ppi = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
             ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 
-            image::TransitionLayout( cmd, renderer->vkctx.images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
+            image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
 
             image::Blit( cmd, ppi.GetImage( ), { ppi.GetExtent( ).width, ppi.GetExtent( ).height },
-                         renderer->vkctx.images[renderer->swapchainImageIndex], renderer->vkctx.extent );
+                         vkctx->images[renderer->swapchainImageIndex], vkctx->extent );
             if ( m_drawStats ) {
-                DrawImGui( cmd, renderer->vkctx.views[renderer->swapchainImageIndex] );
+                DrawImGui( cmd, vkctx->views[renderer->swapchainImageIndex] );
             }
 
-            image::TransitionLayout( cmd, renderer->vkctx.images[renderer->swapchainImageIndex],
+            image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex],
                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
         }
     }
@@ -377,7 +377,7 @@ void TL_Engine::Draw( ) {
     renderer->Present( );
 
     // increase frame number for next loop
-    renderer->vkctx.frameNumber++;
+    vkctx->frameNumber++;
 }
 
 void TL_Engine::GBufferPass( VkCommandBuffer cmd ) {
@@ -390,12 +390,12 @@ void TL_Engine::GBufferPass( VkCommandBuffer cmd ) {
     // ----------
     // Attachments
     {
-        auto &gbuffer = renderer->vkctx.GetCurrentFrame( ).gBuffer;
-        auto &albedo = renderer->vkctx.imageCodex.GetImage( gbuffer.albedo );
-        auto &normal = renderer->vkctx.imageCodex.GetImage( gbuffer.normal );
-        auto &position = renderer->vkctx.imageCodex.GetImage( gbuffer.position );
-        auto &pbr = renderer->vkctx.imageCodex.GetImage( gbuffer.pbr );
-        auto &depth = renderer->vkctx.imageCodex.GetImage( renderer->vkctx.GetCurrentFrame( ).depth );
+        auto &gbuffer = vkctx->GetCurrentFrame( ).gBuffer;
+        auto &albedo = vkctx->imageCodex.GetImage( gbuffer.albedo );
+        auto &normal = vkctx->imageCodex.GetImage( gbuffer.normal );
+        auto &position = vkctx->imageCodex.GetImage( gbuffer.position );
+        auto &pbr = vkctx->imageCodex.GetImage( gbuffer.pbr );
+        auto &depth = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
 
         VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
         std::array<VkRenderingAttachmentInfo, 4> color_attachments = {
@@ -409,7 +409,7 @@ void TL_Engine::GBufferPass( VkCommandBuffer cmd ) {
 
         VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
                                         .pNext = nullptr,
-                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, renderer->vkctx.extent },
+                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
                                         .layerCount = 1,
                                         .colorAttachmentCount = ( u32 )color_attachments.size( ),
                                         .pColorAttachments = color_attachments.data( ),
@@ -420,7 +420,7 @@ void TL_Engine::GBufferPass( VkCommandBuffer cmd ) {
 
     // ----------
     // Call pipeline
-    m_stats.triangleCount += m_gBufferPipeline.Draw( renderer->vkctx, cmd, m_drawCommands, m_sceneData ).triangleCount;
+    m_stats.triangleCount += m_gBufferPipeline.Draw( *vkctx, cmd, m_drawCommands, m_sceneData ).triangleCount;
     m_stats.drawcallCount += ( u32 )m_drawCommands.size( );
 
     vkCmdEndRendering( cmd );
@@ -437,14 +437,14 @@ void TL_Engine::PbrPass( VkCommandBuffer cmd ) const {
     using namespace vk_init;
 
     {
-        auto &image = renderer->vkctx.imageCodex.GetImage( renderer->vkctx.GetCurrentFrame( ).hdrColor );
+        auto &image = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).hdrColor );
 
         VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 0.0f };
         VkRenderingAttachmentInfo color_attachment = AttachmentInfo( image.GetBaseView( ), &clear_color );
 
         VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
                                         .pNext = nullptr,
-                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, renderer->vkctx.extent },
+                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
                                         .layerCount = 1,
                                         .colorAttachmentCount = 1,
                                         .pColorAttachments = &color_attachment,
@@ -453,8 +453,8 @@ void TL_Engine::PbrPass( VkCommandBuffer cmd ) const {
         vkCmdBeginRendering( cmd, &render_info );
     }
 
-    m_pbrPipeline.Draw( renderer->vkctx, cmd, m_sceneData, m_gpuDirectionalLights, m_gpuPointLights,
-                        renderer->vkctx.GetCurrentFrame( ).gBuffer, m_ibl.GetIrradiance( ), m_ibl.GetRadiance( ),
+    m_pbrPipeline.Draw( *vkctx, cmd, m_sceneData, m_gpuDirectionalLights, m_gpuPointLights,
+                        vkctx->GetCurrentFrame( ).gBuffer, m_ibl.GetIrradiance( ), m_ibl.GetRadiance( ),
                         m_ibl.GetBrdf( ) );
 
     vkCmdEndRendering( cmd );
@@ -469,8 +469,8 @@ void TL_Engine::SkyboxPass( VkCommandBuffer cmd ) const {
     using namespace vk_init;
 
     {
-        auto &image = renderer->vkctx.imageCodex.GetImage( renderer->vkctx.GetCurrentFrame( ).hdrColor );
-        auto &depth = renderer->vkctx.imageCodex.GetImage( renderer->vkctx.GetCurrentFrame( ).depth );
+        auto &image = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).hdrColor );
+        auto &depth = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
 
         VkRenderingAttachmentInfo color_attachment = AttachmentInfo( image.GetBaseView( ), nullptr );
 
@@ -484,7 +484,7 @@ void TL_Engine::SkyboxPass( VkCommandBuffer cmd ) const {
         };
         VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
                                         .pNext = nullptr,
-                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, renderer->vkctx.extent },
+                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
                                         .layerCount = 1,
                                         .colorAttachmentCount = 1,
                                         .pColorAttachments = &color_attachment,
@@ -494,10 +494,10 @@ void TL_Engine::SkyboxPass( VkCommandBuffer cmd ) const {
     }
 
     if ( m_rendererOptions.renderIrradianceInsteadSkybox ) {
-        m_skyboxPipeline.Draw( renderer->vkctx, cmd, m_ibl.GetIrradiance( ), m_sceneData );
+        m_skyboxPipeline.Draw( *vkctx, cmd, m_ibl.GetIrradiance( ), m_sceneData );
     }
     else {
-        m_skyboxPipeline.Draw( renderer->vkctx, cmd, m_ibl.GetSkybox( ), m_sceneData );
+        m_skyboxPipeline.Draw( *vkctx, cmd, m_ibl.GetSkybox( ), m_sceneData );
     }
 
     vkCmdEndRendering( cmd );
@@ -506,10 +506,10 @@ void TL_Engine::SkyboxPass( VkCommandBuffer cmd ) const {
 }
 
 void TL_Engine::PostProcessPass( VkCommandBuffer cmd ) const {
-    auto bindless = renderer->vkctx.GetBindlessSet( );
-    auto &output = renderer->vkctx.imageCodex.GetImage( renderer->vkctx.GetCurrentFrame( ).postProcessImage );
+    auto bindless = vkctx->GetBindlessSet( );
+    auto &output = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
 
-    m_ppConfig.hdr = renderer->vkctx.GetCurrentFrame( ).hdrColor;
+    m_ppConfig.hdr = vkctx->GetCurrentFrame( ).hdrColor;
 
     output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
 
@@ -529,7 +529,7 @@ void TL_Engine::ShadowMapPass( VkCommandBuffer cmd ) const {
 
     using namespace vk_init;
 
-    m_shadowMapPipeline.Draw( renderer->vkctx, cmd, m_shadowMapCommands, m_gpuDirectionalLights );
+    m_shadowMapPipeline.Draw( *vkctx, cmd, m_shadowMapCommands, m_gpuDirectionalLights );
 
     END_LABEL( cmd );
 }
@@ -537,67 +537,67 @@ void TL_Engine::ShadowMapPass( VkCommandBuffer cmd ) const {
 void TL_Engine::InitDefaultData( ) {
     InitImages( );
 
-    m_gpuSceneData = renderer->vkctx.Allocate( sizeof( GpuSceneData ),
-                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                    VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
+    m_gpuSceneData = vkctx->Allocate( sizeof( GpuSceneData ),
+                                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                      VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
 
-    m_mainDeletionQueue.PushFunction( [=, this]( ) { renderer->vkctx.Free( m_gpuSceneData ); } );
+    m_mainDeletionQueue.PushFunction( [=, this]( ) { vkctx->Free( m_gpuSceneData ); } );
 
-    m_pbrPipeline.Init( renderer->vkctx );
-    m_wireframePipeline.Init( renderer->vkctx );
-    m_gBufferPipeline.Init( renderer->vkctx );
-    m_skyboxPipeline.Init( renderer->vkctx );
-    m_shadowMapPipeline.Init( renderer->vkctx );
+    m_pbrPipeline.Init( *vkctx );
+    m_wireframePipeline.Init( *vkctx );
+    m_gBufferPipeline.Init( *vkctx );
+    m_skyboxPipeline.Init( *vkctx );
+    m_shadowMapPipeline.Init( *vkctx );
 
     // post process pipeline
-    auto &post_process_shader = renderer->vkctx.shaderStorage->Get( "post_process", TCompute );
+    auto &post_process_shader = vkctx->shaderStorage->Get( "post_process", TCompute );
     post_process_shader.RegisterReloadCallback( [&]( VkShaderModule shader ) {
-        VKCALL( vkWaitForFences( renderer->vkctx.device, 1, &renderer->vkctx.GetCurrentFrame( ).fence, true, 1000000000 ) );
-        m_postProcessPipeline.Cleanup( renderer->vkctx );
+        VKCALL( vkWaitForFences( vkctx->device, 1, &vkctx->GetCurrentFrame( ).fence, true, 1000000000 ) );
+        m_postProcessPipeline.Cleanup( *vkctx );
 
         m_postProcessPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
         m_postProcessPipeline.AddPushConstantRange( sizeof( PostProcessConfig ) );
-        m_postProcessPipeline.Build( renderer->vkctx, post_process_shader.handle, "post process compute" );
-        m_postProcessSet = renderer->vkctx.AllocateMultiSet( m_postProcessPipeline.GetLayout( ) );
+        m_postProcessPipeline.Build( *vkctx, post_process_shader.handle, "post process compute" );
+        m_postProcessSet = vkctx->AllocateMultiSet( m_postProcessPipeline.GetLayout( ) );
 
         // TODO: this every frame for more than one inflight frame
         for ( auto i = 0; i < TL_VkContext::FrameOverlap; i++ ) {
             DescriptorWriter writer;
-            auto &out_image = renderer->vkctx.imageCodex.GetImage( renderer->vkctx.GetCurrentFrame( ).postProcessImage );
+            auto &out_image = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
             writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
                                VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-            writer.UpdateSet( renderer->vkctx.device, m_postProcessSet.m_sets[i] );
+            writer.UpdateSet( vkctx->device, m_postProcessSet.m_sets[i] );
         }
     } );
 
     m_postProcessPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
     m_postProcessPipeline.AddPushConstantRange( sizeof( PostProcessConfig ) );
-    m_postProcessPipeline.Build( renderer->vkctx, post_process_shader.handle, "post process compute" );
-    m_postProcessSet = renderer->vkctx.AllocateMultiSet( m_postProcessPipeline.GetLayout( ) );
+    m_postProcessPipeline.Build( *vkctx, post_process_shader.handle, "post process compute" );
+    m_postProcessSet = vkctx->AllocateMultiSet( m_postProcessPipeline.GetLayout( ) );
 
     // TODO: this every frame for more than one inflight frame
     for ( auto i = 0; i < TL_VkContext::FrameOverlap; i++ ) {
         DescriptorWriter writer;
-        auto &out_image = renderer->vkctx.imageCodex.GetImage( renderer->vkctx.GetCurrentFrame( ).postProcessImage );
+        auto &out_image = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
         writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
                            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-        writer.UpdateSet( renderer->vkctx.device, m_postProcessSet.m_sets[i] );
+        writer.UpdateSet( vkctx->device, m_postProcessSet.m_sets[i] );
     }
 }
 
 void TL_Engine::InitImages( ) {
     // 3 default textures, white, grey, black. 1 pixel each
     uint32_t white = glm::packUnorm4x8( glm::vec4( 1, 1, 1, 1 ) );
-    m_whiteImage = renderer->vkctx.imageCodex.LoadImageFromData( "debug_white_img", ( void * )&white, VkExtent3D{ 1, 1, 1 },
-                                                      VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_whiteImage = vkctx->imageCodex.LoadImageFromData( "debug_white_img", ( void * )&white, VkExtent3D{ 1, 1, 1 },
+                                                        VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     uint32_t grey = glm::packUnorm4x8( glm::vec4( 0.66f, 0.66f, 0.66f, 1 ) );
-    m_greyImage = renderer->vkctx.imageCodex.LoadImageFromData( "debug_grey_img", ( void * )&grey, VkExtent3D{ 1, 1, 1 },
-                                                     VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_greyImage = vkctx->imageCodex.LoadImageFromData( "debug_grey_img", ( void * )&grey, VkExtent3D{ 1, 1, 1 },
+                                                       VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     uint32_t black = glm::packUnorm4x8( glm::vec4( 0, 0, 0, 0 ) );
-    m_blackImage = renderer->vkctx.imageCodex.LoadImageFromData( "debug_black_img", ( void * )&white, VkExtent3D{ 1, 1, 1 },
-                                                      VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_blackImage = vkctx->imageCodex.LoadImageFromData( "debug_black_img", ( void * )&white, VkExtent3D{ 1, 1, 1 },
+                                                        VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     // checkerboard image
     uint32_t magenta = glm::packUnorm4x8( glm::vec4( 1, 0, 1, 1 ) );
@@ -608,14 +608,14 @@ void TL_Engine::InitImages( ) {
         }
     }
     m_errorCheckerboardImage =
-            renderer->vkctx.imageCodex.LoadImageFromData( "debug_checkboard_img", ( void * )&white, VkExtent3D{ 16, 16, 1 },
-                                               VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+            vkctx->imageCodex.LoadImageFromData( "debug_checkboard_img", ( void * )&white, VkExtent3D{ 16, 16, 1 },
+                                                 VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 }
 
 void TL_Engine::InitScene( ) {
-    m_ibl.Init( renderer->vkctx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
+    m_ibl.Init( *vkctx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
-    m_scene = GltfLoader::Load( renderer->vkctx, "../../assets/untitled.glb" );
+    m_scene = GltfLoader::Load( *vkctx, "../../assets/untitled.glb" );
 
     // init camera
     if ( m_scene->cameras.empty( ) ) {
@@ -710,7 +710,7 @@ static void drawSceneHierarchy( Node &node ) {
 void TL_Engine::Run( ) {
     bool b_quit = false;
 
-    static ImageId selected_set = renderer->vkctx.GetCurrentFrame( ).postProcessImage;
+    static ImageId selected_set = vkctx->GetCurrentFrame( ).postProcessImage;
     static int selected_set_n = 0;
 
     // main loop
@@ -768,7 +768,7 @@ void TL_Engine::Run( ) {
 
         if ( m_dirtSwapchain ) {
             // TODO:
-            // renderer->vkctx.Recreate( renderer->vkctx.extent.width, renderer->vkctx.extent.height );
+            // vkctx->Recreate( vkctx->extent.width, vkctx->extent.height );
             m_dirtSwapchain = false;
         }
 
@@ -836,18 +836,18 @@ void TL_Engine::Run( ) {
 
                             text_pos.y += 20;
                             ImGui::SetCursorPos( text_pos );
-                            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "Frame: %d", renderer->vkctx.frameNumber );
+                            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "Frame: %d", vkctx->frameNumber );
 
                             text_pos.y += 20;
                             ImGui::SetCursorPos( text_pos );
                             ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "GPU: %s",
-                                                renderer->vkctx.deviceProperties.properties.deviceName );
+                                                vkctx->deviceProperties.properties.deviceName );
 
                             text_pos.y += 20;
                             ImGui::SetCursorPos( text_pos );
                             ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "Image Codex: %d/%d",
-                                                renderer->vkctx.imageCodex.GetImages( ).size( ),
-                                                renderer->vkctx.imageCodex.bindlessRegistry.MaxBindlessImages );
+                                                vkctx->imageCodex.GetImages( ).size( ),
+                                                vkctx->imageCodex.bindlessRegistry.MaxBindlessImages );
 
                             text_pos.y += 20;
                             ImGui::SetCursorPos( text_pos );
@@ -902,28 +902,28 @@ void TL_Engine::Run( ) {
                 if ( ImGui::BeginPopup( "Viewport Context" ) ) {
                     ImGui::SeparatorText( "GBuffer" );
                     if ( ImGui::RadioButton( "PBR Pass", &selected_set_n, 0 ) ) {
-                        selected_set = renderer->vkctx.GetCurrentFrame( ).postProcessImage;
+                        selected_set = vkctx->GetCurrentFrame( ).postProcessImage;
                     }
                     if ( ImGui::RadioButton( "Albedo", &selected_set_n, 1 ) ) {
-                        selected_set = renderer->vkctx.GetCurrentFrame( ).gBuffer.albedo;
+                        selected_set = vkctx->GetCurrentFrame( ).gBuffer.albedo;
                     }
                     if ( ImGui::RadioButton( "Position", &selected_set_n, 2 ) ) {
-                        selected_set = renderer->vkctx.GetCurrentFrame( ).gBuffer.position;
+                        selected_set = vkctx->GetCurrentFrame( ).gBuffer.position;
                     }
                     if ( ImGui::RadioButton( "Normal", &selected_set_n, 3 ) ) {
-                        selected_set = renderer->vkctx.GetCurrentFrame( ).gBuffer.normal;
+                        selected_set = vkctx->GetCurrentFrame( ).gBuffer.normal;
                     }
                     if ( ImGui::RadioButton( "PBR", &selected_set_n, 4 ) ) {
-                        selected_set = renderer->vkctx.GetCurrentFrame( ).gBuffer.pbr;
+                        selected_set = vkctx->GetCurrentFrame( ).gBuffer.pbr;
                     }
                     if ( ImGui::RadioButton( "HDR", &selected_set_n, 5 ) ) {
-                        selected_set = renderer->vkctx.GetCurrentFrame( ).hdrColor;
+                        selected_set = vkctx->GetCurrentFrame( ).hdrColor;
                     }
                     if ( ImGui::RadioButton( "ShadowMap", &selected_set_n, 6 ) ) {
                         selected_set = m_scene->directionalLights.at( 0 ).shadowMap;
                     }
                     if ( ImGui::RadioButton( "Depth", &selected_set_n, 7 ) ) {
-                        selected_set = renderer->vkctx.GetCurrentFrame( ).depth;
+                        selected_set = vkctx->GetCurrentFrame( ).depth;
                     }
                     ImGui::Separator( );
                     ImGui::DragFloat( "Exposure", &m_ppConfig.exposure, 0.001f, 0.00f, 10.0f );
@@ -932,10 +932,10 @@ void TL_Engine::Run( ) {
                     ImGui::Checkbox( "Render Irradiance Map", &m_rendererOptions.renderIrradianceInsteadSkybox );
                     if ( ImGui::Checkbox( "VSync", &m_rendererOptions.vsync ) ) {
                         if ( m_rendererOptions.vsync ) {
-                            renderer->vkctx.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+                            vkctx->presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
                         }
                         else {
-                            renderer->vkctx.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+                            vkctx->presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
                         }
                         m_dirtSwapchain = true;
                     }
@@ -966,7 +966,7 @@ void TL_Engine::Run( ) {
 
                     if ( ImGui::CollapsingHeader( "GPU Info" ) ) {
                         ImGui::Indent( );
-                        renderer->vkctx.DrawDebug( );
+                        vkctx->DrawDebug( );
                         ImGui::Unindent( );
                     }
 
@@ -1007,7 +1007,7 @@ void TL_Engine::Run( ) {
 
                     if ( ImGui::CollapsingHeader( "Image Codex" ) ) {
                         ImGui::Indent( );
-                        renderer->vkctx.imageCodex.DrawDebug( );
+                        vkctx->imageCodex.DrawDebug( );
                         ImGui::Unindent( );
                     }
 
@@ -1054,14 +1054,15 @@ void TL_Engine::Run( ) {
 
                 if ( ImGui::Begin( "Stats" ) ) {
                     ImGui::Text( "frametime %f ms", m_stats.frametime );
-                    ImGui::Text( "GPU: %f ms",
-                                 renderer->vkctx.GetTimestampInMs( renderer->vkctx.gpuTimestamps.at( 0 ), renderer->vkctx.gpuTimestamps.at( 1 ) ) );
+                    ImGui::Text(
+                            "GPU: %f ms",
+                            vkctx->GetTimestampInMs( vkctx->gpuTimestamps.at( 0 ), vkctx->gpuTimestamps.at( 1 ) ) );
                 }
                 ImGui::End( );
             }
 
             if ( m_drawEditor == false && m_drawStats == true ) {
-                auto extent = renderer->vkctx.extent;
+                auto extent = vkctx->extent;
                 g_visualProfiler.Render( { 0, static_cast<float>( extent.height ) - 450 }, ImVec2( 200, 450 ) );
             }
 
@@ -1077,7 +1078,7 @@ void TL_Engine::Run( ) {
         m_stats.frametime = elapsed.count( ) / 1000.f;
 
         if ( m_timer >= 500.0f ) {
-            renderer->vkctx.shaderStorage->Reconstruct( );
+            vkctx->shaderStorage->Reconstruct( );
             m_timer = 0.0f;
         }
 
@@ -1096,7 +1097,7 @@ void TL_Engine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targetIm
         const VkRenderingInfo render_info = {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
                 .pNext = nullptr,
-                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, renderer->vkctx.extent },
+                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
                 .layerCount = 1,
                 .colorAttachmentCount = 1,
                 .pColorAttachments = &color_attachment,
@@ -1106,7 +1107,7 @@ void TL_Engine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targetIm
         vkCmdBeginRendering( cmd, &render_info );
     }
 
-    m_imGuiPipeline.Draw( renderer->vkctx, cmd, ImGui::GetDrawData( ) );
+    m_imGuiPipeline.Draw( *vkctx, cmd, ImGui::GetDrawData( ) );
 
     vkCmdEndRendering( cmd );
 }
@@ -1176,8 +1177,8 @@ VisibilityLODResult TL_Engine::VisibilityCheckWithLOD( const Mat4 &transform, co
             Vec3 ndc = Vec3( clip ) / clip.w;
 
             ndc = glm::clamp( ndc, -1.0f, 1.0f );
-            Vec2 screen = Vec2( ( ndc.x + 1.0f ) * 0.5f * renderer->vkctx.extent.width,
-                                ( 1.0f - ndc.y ) * 0.5f * renderer->vkctx.extent.height );
+            Vec2 screen = Vec2( ( ndc.x + 1.0f ) * 0.5f * vkctx->extent.width,
+                                ( 1.0f - ndc.y ) * 0.5f * vkctx->extent.height );
 
             min_x = std::min( min_x, screen.x );
             max_x = std::max( max_x, screen.x );
@@ -1212,7 +1213,7 @@ void TL_Engine::CreateDrawCommands( TL_VkContext &vkctx, const Scene &scene, Nod
             auto model = node.GetTransformMatrix( );
 
             auto &mesh_asset = scene.meshes[mesh_id];
-            auto &mesh = renderer->vkctx.meshCodex.GetMesh( mesh_asset.mesh );
+            auto &mesh = vkctx.meshCodex.GetMesh( mesh_asset.mesh );
             MeshDrawCommand mdc = {
                     .indexBuffer = mesh.indexBuffer[0].buffer,
                     .indexCount = mesh.indexCount[0],
@@ -1248,7 +1249,7 @@ void TL_Engine::CreateDrawCommands( TL_VkContext &vkctx, const Scene &scene, Nod
     }
 
     for ( auto &n : node.children ) {
-        CreateDrawCommands( renderer->vkctx, scene, *n.get( ) );
+        CreateDrawCommands( vkctx, scene, *n.get( ) );
     }
 }
 
@@ -1260,7 +1261,7 @@ void TL_Engine::UpdateScene( ) {
     {
         auto start_commands = utils::GetTime( );
         for ( auto &node : m_scene->topNodes ) {
-            CreateDrawCommands( renderer->vkctx, *m_scene, *node );
+            CreateDrawCommands( *vkctx, *m_scene, *node );
         }
         auto end_commands = utils::GetTime( );
         g_visualProfiler.AddTimer( "Create Commands", end_commands - start_commands, utils::VisualProfiler::Cpu );
@@ -1319,7 +1320,7 @@ void TL_Engine::UpdateScene( ) {
         m_gpuPointLights.push_back( gpu_light );
     }
 
-    m_gpuSceneData.Upload( renderer->vkctx, &m_sceneData, sizeof( GpuSceneData ) );
+    m_gpuSceneData.Upload( *vkctx, &m_sceneData, sizeof( GpuSceneData ) );
 
     const auto end = utils::GetTime( );
     g_visualProfiler.AddTimer( "Scene", end - start, utils::VisualProfiler::Cpu );

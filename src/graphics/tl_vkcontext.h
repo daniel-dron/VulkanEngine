@@ -185,3 +185,7 @@ private:
 
     DeletionQueue m_deletionQueue;
 };
+
+namespace TL {
+    extern std::unique_ptr<TL_VkContext> vkctx;
+}

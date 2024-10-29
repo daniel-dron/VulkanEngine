@@ -45,14 +45,12 @@ namespace TL {
 
     class Pipeline {
     public:
-        explicit Pipeline( TL_VkContext &ctx, const PipelineConfig &config );
+        explicit Pipeline( const PipelineConfig &config );
         ~Pipeline( );
 
     private:
         VkPipeline pipeline = VK_NULL_HANDLE;
         VkPipelineLayout layout = VK_NULL_HANDLE;
-
-        TL_VkContext &m_ctx;
     };
 
 } // namespace TL

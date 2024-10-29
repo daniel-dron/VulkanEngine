@@ -57,10 +57,10 @@ namespace TL {
         std::unreachable( );
     }
 
-    Pipeline::Pipeline( TL_VkContext &ctx, const PipelineConfig &config ) : m_ctx( ctx ) {
+    Pipeline::Pipeline( const PipelineConfig &config ) {
         // shader stage
-        const auto vertex = shaders::LoadShaderModule( ctx.device, config.vertex.c_str( ) );
-        const auto pixel = shaders::LoadShaderModule( ctx.device, config.pixel.c_str( ) );
+        const auto vertex = shaders::LoadShaderModule( vkctx->device, config.vertex.c_str( ) );
+        const auto pixel = shaders::LoadShaderModule( vkctx->device, config.pixel.c_str( ) );
 
         assert( vertex != VK_NULL_HANDLE && "Could not find vertex shader" );
         assert( pixel != VK_NULL_HANDLE && "Could not find pixel shader" );
@@ -176,7 +176,7 @@ namespace TL {
                 .pPushConstantRanges =
                         config.pushConstantRanges.empty( ) ? nullptr : config.pushConstantRanges.data( ) };
 
-        VKCALL( vkCreatePipelineLayout( ctx.device, &layout_info, nullptr, &layout ) );
+        VKCALL( vkCreatePipelineLayout( vkctx->device, &layout_info, nullptr, &layout ) );
 
         VkGraphicsPipelineCreateInfo pipeline_info = { .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                                                        .pNext = &render_info,
@@ -194,23 +194,22 @@ namespace TL {
                                                        .pDynamicState = &dynamic_info,
                                                        .layout = layout };
 
-        if ( vkCreateGraphicsPipelines( ctx.device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline) !=
+        if ( vkCreateGraphicsPipelines( vkctx->device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline ) !=
              VK_SUCCESS ) {
             assert( false && "Failed to create pipeline" );
         }
 
-        ctx.SetObjectDebugName( VK_OBJECT_TYPE_PIPELINE, pipeline, config.debugName );
-        ctx.SetObjectDebugName( VK_OBJECT_TYPE_PIPELINE_LAYOUT, layout,
+        vkctx->SetObjectDebugName( VK_OBJECT_TYPE_PIPELINE, pipeline, config.debugName );
+        vkctx->SetObjectDebugName( VK_OBJECT_TYPE_PIPELINE_LAYOUT, layout,
                                 fmt::format( "{} Layout", config.debugName.c_str( ) ) );
 
         // We no longer need the shader modules
-        vkDestroyShaderModule( ctx.device, vertex, nullptr );
-        vkDestroyShaderModule( ctx.device, pixel, nullptr );
+        vkDestroyShaderModule( vkctx->device, vertex, nullptr );
+        vkDestroyShaderModule( vkctx->device, pixel, nullptr );
     }
 
     Pipeline::~Pipeline( ) {
-        // Ugly...
-        vkDestroyPipelineLayout( m_ctx.device, layout, nullptr );
-        vkDestroyPipeline( m_ctx.device, pipeline, nullptr );
+        vkDestroyPipelineLayout( vkctx->device, layout, nullptr );
+        vkDestroyPipeline(vkctx->device, pipeline, nullptr );
     }
 } // namespace TL
