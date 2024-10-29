@@ -16,35 +16,36 @@
 #include <deque>
 #include <functional>
 
+#include <glm/gtx/quaternion.hpp>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
-#include <glm/gtx/quaternion.hpp>
 
 #ifdef _DEBUG
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan.h>
 #define ENABLE_DEBUG_UTILS
-#define VKCALL(x)                                                       \
-  do {                                                                    \
-    VkResult err = x;                                                     \
-    if (err) {                                                            \
-      TL_Engine::Get( ).console.AddLog("{} {} Detected Vulkan error: {}", __FILE__, __LINE__, \
-                   string_VkResult(err));                                 \
-      abort();                                                            \
-    }                                                                     \
-  } while (0)
+#define VKCALL( x )                                                                                                    \
+    do {                                                                                                               \
+        VkResult err = x;                                                                                              \
+        if ( err ) {                                                                                                   \
+            TL_Engine::Get( ).console.AddLog( "{} {} Detected Vulkan error: {}", __FILE__, __LINE__,                   \
+                                              string_VkResult( err ) );                                                \
+            abort( );                                                                                                  \
+        }                                                                                                              \
+    }                                                                                                                  \
+    while ( 0 )
 #else
 #undef ENABLE_DEBUG_UTILS
-#define VKCALL(x) x
+#define VKCALL( x ) x
 #endif
 
 #define WIDTH 2560
 #define HEIGHT 1440
 
 // Helper macro for early return
-#define RETURN_IF_ERROR(expression) \
-        if (auto result = (expression); !result) \
-            return std::unexpected(result.error())
+#define RETURN_IF_ERROR( expression )                                                                                  \
+    if ( auto result = ( expression ); !result )                                                                       \
+    return std::unexpected( result.error( ) )
 
 
 constexpr glm::vec3 GLOBAL_UP{ 0.0f, 1.0f, 0.0f };
@@ -75,45 +76,41 @@ T *PtrTo( T &&v ) {
 }
 
 struct DeletionQueue {
-	std::deque<std::function<void( )>> deletors;
+    std::deque<std::function<void( )>> deletors;
 
-	DeletionQueue( ) {
-		deletors.clear( );
-	}
+    DeletionQueue( ) { deletors.clear( ); }
 
-	void PushFunction( std::function<void( )>&& deletor ) {
-		deletors.push_back( std::move( deletor ) );
-	}
+    void PushFunction( std::function<void( )> &&deletor ) { deletors.push_back( std::move( deletor ) ); }
 
-	void Flush( ) {
-		// reverse iterate the deletion queue to execute all the functions
-		for ( auto it = deletors.rbegin( ); it != deletors.rend( ); ++it ) {
-			(*it)();  // call functors
-		}
+    void Flush( ) {
+        // reverse iterate the deletion queue to execute all the functions
+        for ( auto it = deletors.rbegin( ); it != deletors.rend( ); ++it ) {
+            ( *it )( ); // call functors
+        }
 
-		deletors.clear( );
-	}
+        deletors.clear( );
+    }
 };
 
 class TL_VkContext;
 
 struct GpuBuffer {
-	VkBuffer buffer;
-	VmaAllocation allocation;
-	VmaAllocationInfo info;
-	std::string name;
-	VkDeviceAddress deviceAddress = 0;
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VmaAllocation allocation = { };
+    VmaAllocationInfo info = { };
+    std::string name;
+    VkDeviceAddress deviceAddress = 0;
 
-	void Upload(const TL_VkContext& gfx, const void * data, size_t size ) const;
-	VkDeviceAddress GetDeviceAddress( const TL_VkContext & gfx );
+    void Upload( const TL_VkContext &gfx, const void *data, size_t size ) const;
+    VkDeviceAddress GetDeviceAddress( const TL_VkContext &gfx );
 };
 
 struct EngineStats {
-	float frametime;
-	uint64_t triangleCount;
-	int drawcallCount;
-	float sceneUpdateTime;
-	float meshDrawTime;
+    float frametime;
+    uint64_t triangleCount;
+    int drawcallCount;
+    float sceneUpdateTime;
+    float meshDrawTime;
 };
 
 
@@ -124,20 +121,20 @@ using Mat4 = glm::mat4;
 using Quat = glm::quat;
 
 struct GpuPointLightData {
-	Vec3 position;
-	float constant;
-	Vec3 color;
-	float linear;
-	float quadratic;
-	float pad1;
-	float pad2;
-	float pad3;
+    Vec3 position;
+    float constant;
+    Vec3 color;
+    float linear;
+    float quadratic;
+    float pad1;
+    float pad2;
+    float pad3;
 };
 
 struct GpuDirectionalLight {
-	Vec3 direction;
-	int pad1;
-	Vec4 color;
+    Vec3 direction;
+    int pad1;
+    Vec4 color;
     Mat4 proj;
     Mat4 view;
     ImageId shadowMap;
@@ -147,23 +144,23 @@ struct GpuDirectionalLight {
 };
 
 struct GpuSceneData {
-	Mat4 view;
-	Mat4 proj;
-	Mat4 viewproj;
-	Mat4 lightProj;
-	Mat4 lightView;
-	Vec4 fogColor;
-	Vec3 cameraPosition;
-	float ambientLightFactor;
-	Vec3 ambientLightColor;
-	float fogEnd;
-	float fogStart;
-	VkDeviceAddress materials;
-	int numberOfDirectionalLights;
-	int numberOfPointLights;
+    Mat4 view;
+    Mat4 proj;
+    Mat4 viewproj;
+    Mat4 lightProj;
+    Mat4 lightView;
+    Vec4 fogColor;
+    Vec3 cameraPosition;
+    float ambientLightFactor;
+    Vec3 ambientLightColor;
+    float fogEnd;
+    float fogStart;
+    VkDeviceAddress materials;
+    int numberOfDirectionalLights;
+    int numberOfPointLights;
 };
 
 struct DrawStats {
-	int triangleCount;
-	int drawcallCount;
+    int triangleCount;
+    int drawcallCount;
 };

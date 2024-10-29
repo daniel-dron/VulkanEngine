@@ -124,6 +124,8 @@ public:
 
     float GetTimestampInMs( uint64_t start, uint64_t end ) const;
 
+    void SetObjectDebugName(VkObjectType type, void* object, const std::string& name );
+
     DescriptorAllocatorGrowable setPool;
 
     VkInstance instance = VK_NULL_HANDLE;
@@ -149,7 +151,6 @@ public:
     VmaAllocator allocator;
 
     VkSurfaceKHR surface;
-    // ::TL_Swapchain swapchain;
 
     ImageCodex imageCodex;
     MaterialCodex materialCodex;
@@ -161,7 +162,7 @@ public:
     std::array<uint64_t, 10> gpuTimestamps;
 
     // Swapchain
-    static constexpr u32 FrameOverlap = 1;
+    static constexpr u32 FrameOverlap = 2;
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     std::array<TL_FrameData, FrameOverlap> frames;
     std::vector<VkImage> images;

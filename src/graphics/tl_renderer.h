@@ -12,9 +12,25 @@
 ******************************************************************************/
 #pragma once
 
+#include <vk_types.h>
 #include <graphics/tl_vkcontext.h>
+#include <graphics/resources/tl_pipeline.h>
 
 namespace TL {
+    struct SceneBuffer {
+        Mat4 view;
+        Mat4 projection;
+        Mat4 viewProjection;
+        // Inverse
+        Mat4 viewInv;
+        Mat4 projectionInv;
+        Mat4 viewProjectionInv;
+
+        Vec3 cameraPosition;
+        f32 time;
+
+    };
+
     class Renderer {
     public:
         explicit Renderer( struct SDL_Window *window );
@@ -26,17 +42,25 @@ namespace TL {
         // the desired next frame to finish its previous work. In most cases, this wait time is close to 0,
         // since the CPU was doing a lot of work in parallel with the gpu, which is busy rendering the last frame.
         // Returns the index of the swapchain image.
-        u32 StartFrame( const TL_FrameData &frame ) noexcept;
+        void StartFrame( ) noexcept;
 
         // Will queue up the work agreggated in the frame command buffer. This function is non blocking,
         // as the only thing it does is queue up the work to the right graphics queue.
         // It will also transition the swapchain image to its expected layout to be presented in the future.
-        void EndFrame( const TL_FrameData &frame ) const noexcept;
+        void EndFrame( ) noexcept;
 
         // Will present the swapchain image to the screen.
-        void Present( const TL_FrameData &frame, u32 swapchain_image_index ) noexcept;
+        void Present( ) noexcept;
 
         TL_VkContext vkctx;
+        u32 swapchainImageIndex = -1;
+
+        static constexpr VkFormat DepthFormat = VK_FORMAT_D32_SFLOAT;
+        static constexpr u8 MaxColorRenderTargets = 8;
+
     private:
+
+        std::unique_ptr<Pipeline> m_gbufferPipeline = nullptr;
+        void GBufferPass( );
     };
 } // namespace TL

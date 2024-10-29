@@ -20,8 +20,43 @@
 
 namespace TL {
 
-    u32 Renderer::StartFrame( const TL_FrameData &frame ) noexcept {
-        u32 swapchain_image_index = -1;
+    Renderer::Renderer( SDL_Window *window ) : vkctx( window ) {
+
+        // All frames use the same type of gbuffer, so this is fine
+        auto &g_buffer = vkctx.GetCurrentFrame( ).gBuffer;
+
+        // TODO: move this
+        struct PushConstants {
+            Mat4 worldFromLocal;
+            VkDeviceAddress sceneDataAddress;
+            VkDeviceAddress vertexBufferAddress;
+            uint32_t materialId;
+        };
+
+        m_gbufferPipeline = std::make_unique<Pipeline>(
+                vkctx,
+                PipelineConfig{
+                        .vertex = "../shaders/gbuffer.vert.spv",
+                        .pixel = "../shaders/gbuffer.frag.spv",
+                        .colorTargets = { { .format = vkctx.imageCodex.GetImage( g_buffer.albedo ).GetFormat( ),
+                                            .blendType = PipelineConfig::BlendType::OFF },
+                                          { .format = vkctx.imageCodex.GetImage( g_buffer.normal ).GetFormat( ),
+                                            .blendType = PipelineConfig::BlendType::OFF },
+                                          { .format = vkctx.imageCodex.GetImage( g_buffer.position ).GetFormat( ),
+                                            .blendType = PipelineConfig::BlendType::OFF },
+                                          { .format = vkctx.imageCodex.GetImage( g_buffer.pbr ).GetFormat( ),
+                                            .blendType = PipelineConfig::BlendType::OFF } },
+                        .pushConstantRanges = { { .stageFlags =
+                                                          VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                  .offset = 0,
+                                                  .size = sizeof( PushConstants ) } },
+
+                        .descriptorSetLayouts = { vkctx.GetBindlessLayout( ) },
+                } );
+    }
+
+    void Renderer::StartFrame( ) noexcept {
+        const auto &frame = vkctx.GetCurrentFrame( );
 
         if ( this->vkctx.frameNumber != 0 ) {
             VKCALL( vkWaitForFences( vkctx.device, 1, &frame.fence, true, UINT64_MAX ) );
@@ -31,7 +66,7 @@ namespace TL {
         VKCALL( vkResetFences( vkctx.device, 1, &frame.fence ) );
 
         VKCALL( vkAcquireNextImageKHR( vkctx.device, vkctx.swapchain, UINT64_MAX, frame.swapchainSemaphore, nullptr,
-                                       &swapchain_image_index ) );
+                                       &swapchainImageIndex ) );
 
         // Start command recording (for now we use one single command buffer for the entire main passes)
         auto cmd = frame.commandBuffer;
@@ -64,11 +99,11 @@ namespace TL {
 
         time = vkctx.GetTimestampInMs( vkctx.gpuTimestamps.at( 8 ), vkctx.gpuTimestamps.at( 9 ) ) / 1000.0f;
         g_visualProfiler.AddTimer( "Post Process", time, utils::VisualProfiler::Gpu );
-
-        return swapchain_image_index;
     }
 
-    void Renderer::EndFrame( const TL_FrameData &frame ) const noexcept {
+    void Renderer::EndFrame( ) noexcept {
+        const auto &frame = vkctx.GetCurrentFrame( );
+
         VKCALL( vkEndCommandBuffer( frame.commandBuffer ) );
 
         auto cmd_info = vk_init::CommandBufferSubmitInfo( frame.commandBuffer );
@@ -79,7 +114,9 @@ namespace TL {
         VKCALL( vkQueueSubmit2( vkctx.graphicsQueue, 1, &submit, frame.fence ) );
     }
 
-    void Renderer::Present( const TL_FrameData &frame, u32 swapchain_image_index ) noexcept {
+    void Renderer::Present( ) noexcept {
+        const auto &frame = vkctx.GetCurrentFrame( );
+
         const VkPresentInfoKHR presentInfo = { .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
                                                .pNext = nullptr,
                                                // wait on _renderSemaphore, since we need the rendering to have finished
@@ -90,10 +127,45 @@ namespace TL {
                                                .swapchainCount = 1,
                                                .pSwapchains = &vkctx.swapchain,
 
-                                               .pImageIndices = &swapchain_image_index };
+                                               .pImageIndices = &swapchainImageIndex };
 
         VKCALL( vkQueuePresentKHR( vkctx.graphicsQueue, &presentInfo ) );
     }
 
-    Renderer::Renderer( SDL_Window *window ) : vkctx( window ) {}
+    void Renderer::GBufferPass( ) {
+        const auto &frame = vkctx.GetCurrentFrame(  );
+        auto &gbuffer = vkctx.GetCurrentFrame( ).gBuffer;
+        auto &albedo = vkctx.imageCodex.GetImage( gbuffer.albedo );
+        auto &normal = vkctx.imageCodex.GetImage( gbuffer.normal );
+        auto &position = vkctx.imageCodex.GetImage( gbuffer.position );
+        auto &pbr = vkctx.imageCodex.GetImage( gbuffer.pbr );
+        auto &depth = vkctx.imageCodex.GetImage( vkctx.GetCurrentFrame( ).depth );
+
+        using namespace vk_init;
+        VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        std::array color_attachments = {
+                AttachmentInfo( albedo.GetBaseView( ), &clear_color ),
+                AttachmentInfo( normal.GetBaseView( ), &clear_color ),
+                AttachmentInfo( position.GetBaseView( ), &clear_color ),
+                AttachmentInfo( pbr.GetBaseView( ), &clear_color ),
+        };
+        VkRenderingAttachmentInfo depth_attachment =
+                DepthAttachmentInfo( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+
+        VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                        .pNext = nullptr,
+                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx.extent },
+                                        .layerCount = 1,
+                                        .colorAttachmentCount = static_cast<u32>( color_attachments.size( ) ),
+                                        .pColorAttachments = color_attachments.data( ),
+                                        .pDepthAttachment = &depth_attachment,
+                                        .pStencilAttachment = nullptr };
+        vkCmdBeginRendering( frame.commandBuffer, &render_info );
+
+        // WORK HERE
+
+
+        vkCmdEndRendering( frame.commandBuffer );
+
+    }
 } // namespace TL

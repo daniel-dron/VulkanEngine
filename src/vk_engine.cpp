@@ -54,6 +54,7 @@
 TL_Engine *g_TL = nullptr;
 utils::VisualProfiler g_visualProfiler = utils::VisualProfiler( 300 );
 
+
 // TODO: move
 void GpuBuffer::Upload( const TL_VkContext &vkctx, const void *data, const size_t size ) const {
     void *mapped_buffer = { };
@@ -316,11 +317,10 @@ void TL_Engine::Draw( ) {
     auto frame = renderer->vkctx.GetCurrentFrame( );
 
     frame.deletionQueue.Flush( );
-    u32 swapchain_image_index = renderer->StartFrame( frame );
-    auto cmd = frame.commandBuffer;
+    renderer->StartFrame( );
+    const auto cmd = frame.commandBuffer;
 
-    auto &color = renderer->vkctx.imageCodex.GetImage( renderer->vkctx.GetCurrentFrame( ).hdrColor );
-    auto &depth = renderer->vkctx.imageCodex.GetImage( renderer->vkctx.GetCurrentFrame( ).depth );
+    const auto &depth = renderer->vkctx.imageCodex.GetImage( renderer->vkctx.GetCurrentFrame( ).depth );
 
     depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
@@ -350,31 +350,31 @@ void TL_Engine::Draw( ) {
     {
         ZoneScopedN( "Final Image" );
         if ( m_drawEditor ) {
-            DrawImGui( cmd, renderer->vkctx.views[swapchain_image_index] );
-            image::TransitionLayout( cmd, renderer->vkctx.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
+            DrawImGui( cmd, renderer->vkctx.views[renderer->swapchainImageIndex] );
+            image::TransitionLayout( cmd, renderer->vkctx.images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
                                      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
         }
         else {
             auto &ppi = renderer->vkctx.imageCodex.GetImage( renderer->vkctx.GetCurrentFrame( ).postProcessImage );
             ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 
-            image::TransitionLayout( cmd, renderer->vkctx.images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED,
+            image::TransitionLayout( cmd, renderer->vkctx.images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
 
             image::Blit( cmd, ppi.GetImage( ), { ppi.GetExtent( ).width, ppi.GetExtent( ).height },
-                         renderer->vkctx.images[swapchain_image_index], renderer->vkctx.extent );
+                         renderer->vkctx.images[renderer->swapchainImageIndex], renderer->vkctx.extent );
             if ( m_drawStats ) {
-                DrawImGui( cmd, renderer->vkctx.views[swapchain_image_index] );
+                DrawImGui( cmd, renderer->vkctx.views[renderer->swapchainImageIndex] );
             }
 
-            image::TransitionLayout( cmd, renderer->vkctx.images[swapchain_image_index],
+            image::TransitionLayout( cmd, renderer->vkctx.images[renderer->swapchainImageIndex],
                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
         }
     }
 
     // send commands
-    renderer->StartFrame( frame );
-    renderer->Present( frame, swapchain_image_index );
+    renderer->EndFrame( );
+    renderer->Present( );
 
     // increase frame number for next loop
     renderer->vkctx.frameNumber++;

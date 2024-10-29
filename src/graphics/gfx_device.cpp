@@ -205,6 +205,19 @@ float TL_VkContext::GetTimestampInMs( uint64_t start, uint64_t end ) const {
     return ( end - start ) * period / 1000000.0f;
 }
 
+void TL_VkContext::SetObjectDebugName( VkObjectType type, void *object, const std::string &name ) {
+#ifdef ENABLE_DEBUG_FEATURES
+    const VkDebugUtilsObjectNameInfoEXT obj = {
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+        .pNext = nullptr,
+        .objectType = type,
+        .objectHandle = reinterpret_cast<uint64_t>( object ),
+        .pObjectName = name.c_str( ),
+    };
+    vkSetDebugUtilsObjectNameEXT( device, &obj );
+#endif
+}
+
 TL_FrameData &TL_VkContext::GetCurrentFrame( ) { return frames.at( frameNumber % FrameOverlap ); }
 
 void TL_VkContext::DrawDebug( ) const {
