@@ -293,9 +293,6 @@ void TL_Engine::Cleanup( ) {
         m_wireframePipeline.Cleanup( *vkctx );
         m_imGuiPipeline.Cleanup( *vkctx );
         m_skyboxPipeline.Cleanup( *vkctx );
-        m_blurPipeline.Cleanup( *vkctx );
-
-        m_postProcessPipeline.Cleanup( *vkctx );
 
         m_ibl.Clean( *vkctx );
 
@@ -316,21 +313,11 @@ void TL_Engine::Draw( ) {
     m_stats.drawcallCount = 0;
     m_stats.triangleCount = 0;
 
-    auto frame = vkctx->GetCurrentFrame( );
+    auto &frame = vkctx->GetCurrentFrame( );
 
     frame.deletionQueue.Flush( );
     renderer->StartFrame( );
     const auto cmd = frame.commandBuffer;
-
-    const auto &depth = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
-
-    depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
-
-    // if ( m_rendererOptions.reRenderShadowMaps ) {
-    //     m_rendererOptions.reRenderShadowMaps = false;
-    //     ShadowMapPass( cmd );
-    // }
-
     renderer->Frame( );
 
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 4 );
@@ -341,8 +328,6 @@ void TL_Engine::Draw( ) {
     SkyboxPass( cmd );
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 7 );
 
-    //PostProcessPass( cmd );
-
     {
         ZoneScopedN( "Final Image" );
         if ( m_drawEditor ) {
@@ -352,7 +337,7 @@ void TL_Engine::Draw( ) {
         }
         else {
             auto &ppi = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
-            ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
+            ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 
             image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
@@ -371,9 +356,6 @@ void TL_Engine::Draw( ) {
     // send commands
     renderer->EndFrame( );
     renderer->Present( );
-
-    // increase frame number for next loop
-    vkctx->frameNumber++;
 }
 
 void TL_Engine::PbrPass( VkCommandBuffer cmd ) const {
@@ -451,25 +433,6 @@ void TL_Engine::SkyboxPass( VkCommandBuffer cmd ) const {
     END_LABEL( cmd );
 }
 
-void TL_Engine::PostProcessPass( VkCommandBuffer cmd ) const {
-    auto bindless = vkctx->GetBindlessSet( );
-    auto &output = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
-
-    m_ppConfig.hdr = vkctx->GetCurrentFrame( ).hdrColor;
-    m_ppConfig.output = vkctx->GetCurrentFrame( ).postProcessImage;
-
-    output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
-
-    m_postProcessPipeline.Bind( cmd );
-    m_postProcessPipeline.BindDescriptorSet( cmd, bindless, 0 );
-    m_postProcessPipeline.BindDescriptorSet( cmd, m_postProcessSet.GetCurrentFrame( ), 1 );
-    m_postProcessPipeline.PushConstants( cmd, sizeof( PostProcessConfig ), &m_ppConfig );
-    m_postProcessPipeline.Dispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16,
-                                    ( output.GetExtent( ).height + 15 ) / 16, 6 );
-
-    // output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
-}
-
 void TL_Engine::InitDefaultData( ) {
     InitImages( );
 
@@ -482,42 +445,6 @@ void TL_Engine::InitDefaultData( ) {
     m_pbrPipeline.Init( *vkctx );
     m_wireframePipeline.Init( *vkctx );
     m_skyboxPipeline.Init( *vkctx );
-
-    // post process pipeline
-    auto &post_process_shader = vkctx->shaderStorage->Get( "post_process", TCompute );
-    post_process_shader.RegisterReloadCallback( [&]( VkShaderModule shader ) {
-        VKCALL( vkWaitForFences( vkctx->device, 1, &vkctx->GetCurrentFrame( ).fence, true, 1000000000 ) );
-        m_postProcessPipeline.Cleanup( *vkctx );
-
-        m_postProcessPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-        m_postProcessPipeline.AddPushConstantRange( sizeof( PostProcessConfig ) );
-        m_postProcessPipeline.Build( *vkctx, post_process_shader.handle, "post process compute" );
-        m_postProcessSet = vkctx->AllocateMultiSet( m_postProcessPipeline.GetLayout( ) );
-
-        // TODO: this every frame for more than one inflight frame
-        for ( auto i = 0; i < TL_VkContext::FrameOverlap; i++ ) {
-            DescriptorWriter writer;
-            auto &out_image = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
-            writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
-                               VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-            writer.UpdateSet( vkctx->device, m_postProcessSet.m_sets[i] );
-        }
-    } );
-
-    m_postProcessPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-    m_postProcessPipeline.AddPushConstantRange( sizeof( PostProcessConfig ) );
-    m_postProcessPipeline.Build( *vkctx, post_process_shader.handle, "post process compute" );
-    m_postProcessSet = vkctx->AllocateMultiSet( m_postProcessPipeline.GetLayout( ) );
-
-    
-    // TODO: this every frame for more than one inflight frame
-    for ( auto i = 0; i < TL_VkContext::FrameOverlap; i++ ) {
-        DescriptorWriter writer;
-        auto &out_image = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
-        writer.WriteImage( 0, out_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
-                           VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-        writer.UpdateSet( vkctx->device, m_postProcessSet.m_sets[i] );
-    }
 }
 
 void TL_Engine::InitImages( ) {
@@ -643,8 +570,8 @@ void TL_Engine::Run( ) {
                 m_drawEditor = false;
                 m_drawStats = true;
 
-                m_backupGamma = m_ppConfig.gamma;
-                m_ppConfig.gamma = 1.0f;
+                m_backupGamma = renderer->postProcessSettings.gamma;
+                renderer->postProcessSettings.gamma = 1.0f;
             }
             else if ( m_drawStats == true && m_drawEditor == false ) {
                 m_drawStats = false;
@@ -653,7 +580,7 @@ void TL_Engine::Run( ) {
                 m_drawEditor = true;
                 m_drawStats = true;
 
-                m_ppConfig.gamma = m_backupGamma;
+                renderer->postProcessSettings.gamma = m_backupGamma;
             }
         }
 
@@ -831,8 +758,8 @@ void TL_Engine::Run( ) {
                         selected_set = vkctx->GetCurrentFrame( ).depth;
                     }
                     ImGui::Separator( );
-                    ImGui::DragFloat( "Exposure", &m_ppConfig.exposure, 0.001f, 0.00f, 10.0f );
-                    ImGui::DragFloat( "Gamma", &m_ppConfig.gamma, 0.01f, 0.01f, 10.0f );
+                    ImGui::DragFloat( "Exposure", &renderer->postProcessSettings.exposure, 0.001f, 0.00f, 10.0f );
+                    ImGui::DragFloat( "Gamma", &renderer->postProcessSettings.gamma, 0.01f, 0.01f, 10.0f );
                     ImGui::Checkbox( "Wireframe", &m_rendererOptions.wireframe );
                     ImGui::Checkbox( "Render Irradiance Map", &m_rendererOptions.renderIrradianceInsteadSkybox );
                     if ( ImGui::Checkbox( "VSync", &m_rendererOptions.vsync ) ) {

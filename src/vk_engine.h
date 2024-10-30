@@ -81,7 +81,6 @@ public:
 
     void PbrPass( VkCommandBuffer cmd ) const;
     void SkyboxPass( VkCommandBuffer cmd ) const;
-    void PostProcessPass( VkCommandBuffer cmd ) const;
 
     void InitDefaultData( );
     void InitImages( );
@@ -108,27 +107,7 @@ public:
     SkyboxPipeline m_skyboxPipeline = { };
 
     // post process
-    struct PostProcessConfig {
-        ImageId hdr;
-        ImageId output;
-        float gamma = 2.2f;
-        float exposure = 1.0f;
-    };
     float m_backupGamma = 2.2f;
-    mutable PostProcessConfig m_ppConfig = { };
-    BindlessCompute m_postProcessPipeline = { };
-    MultiDescriptorSet m_postProcessSet;
-
-    std::unique_ptr<TL::Pipeline> ppPipeline = nullptr;
-
-    // blur
-    struct BlurSettings {
-        int sourceTex;
-        int size;
-    };
-    mutable BlurSettings m_blurSettings = { };
-    BindlessCompute m_blurPipeline = { };
-    MultiDescriptorSet m_blurSet;
 
     // ----------
     // scene

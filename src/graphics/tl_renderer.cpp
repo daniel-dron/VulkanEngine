@@ -40,8 +40,6 @@ namespace TL {
 
         if ( vkctx->frameNumber != 0 ) {
             VKCALL( vkWaitForFences( vkctx->device, 1, &frame.fence, true, UINT64_MAX ) );
-
-            OnFrameBoundary( );
         }
 
         // Reset fence in case the next KHR image acquire fails or we lose device
@@ -56,31 +54,17 @@ namespace TL {
         auto cmd_begin_info = vk_init::CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
         VKCALL( vkBeginCommandBuffer( cmd, &cmd_begin_info ) );
 
+        if ( vkctx->frameNumber == 0 ) {
+            for ( u32 i = 0; i < vkctx->FrameOverlap; i++ ) {
 
-        // Query GPU timers from last frame
-        if ( vkctx->frameNumber != 0 ) {
-            vkGetQueryPoolResults( vkctx->device, frame.queryPoolTimestamps, 0, ( u32 )frame.gpuTimestamps.size( ),
-                                   frame.gpuTimestamps.size( ) * sizeof( uint64_t ), frame.gpuTimestamps.data( ),
-                                   sizeof( uint64_t ), VK_QUERY_RESULT_64_BIT ); //
+                vkCmdResetQueryPool( cmd, frame.queryPoolTimestamps, 0, ( u32 )vkctx->frames[i].gpuTimestamps.size( ) );
+            }
         }
 
-        // Reset gpu query timers
-        vkCmdResetQueryPool( cmd, frame.queryPoolTimestamps, 0, ( u32 )frame.gpuTimestamps.size( ) );
+        const auto &depth = vkctx->imageCodex.GetImage( frame.depth );
+        depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
-        auto time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 0 ), frame.gpuTimestamps.at( 1 ) ) / 1000.0f;
-        g_visualProfiler.AddTimer( "ShadowMap", time, utils::VisualProfiler::Gpu );
-
-        time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 2 ), frame.gpuTimestamps.at( 3 ) ) / 1000.0f;
-        g_visualProfiler.AddTimer( "GBuffer", time, utils::VisualProfiler::Gpu );
-
-        time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 4 ), frame.gpuTimestamps.at( 5 ) ) / 1000.0f;
-        g_visualProfiler.AddTimer( "Lighting", time, utils::VisualProfiler::Gpu );
-
-        time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 6 ), frame.gpuTimestamps.at( 7 ) ) / 1000.0f;
-        g_visualProfiler.AddTimer( "Skybox", time, utils::VisualProfiler::Gpu );
-
-        time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 8 ), frame.gpuTimestamps.at( 9 ) ) / 1000.0f;
-        g_visualProfiler.AddTimer( "Post Process", time, utils::VisualProfiler::Gpu );
+        OnFrameBoundary( );
     }
 
     void Renderer::Frame( ) noexcept {
@@ -121,11 +105,41 @@ namespace TL {
                                                .pImageIndices = &swapchainImageIndex };
 
         VKCALL( vkQueuePresentKHR( vkctx->graphicsQueue, &presentInfo ) );
+
+        // increase frame number for next loop
+        vkctx->frameNumber++;
     }
 
     void Renderer::OnFrameBoundary( ) noexcept {
+        auto &frame = vkctx->GetCurrentFrame( );
+        auto cmd = frame.commandBuffer;
+
         // TODO: move this
         m_sceneBufferGpu->AdvanceFrame( );
+
+        // We query the timers for the frame that was previously rendered. This means that the graph
+        // and stats are always TL_VkContext::FrameOverlap - 1 behind
+        vkGetQueryPoolResults( vkctx->device, frame.queryPoolTimestamps, 0, ( u32 )frame.gpuTimestamps.size( ),
+                               frame.gpuTimestamps.size( ) * sizeof( uint64_t ), frame.gpuTimestamps.data( ),
+                               sizeof( uint64_t ), VK_QUERY_RESULT_64_BIT );
+
+        // Reset gpu query timers
+        vkCmdResetQueryPool( cmd, frame.queryPoolTimestamps, 0, ( u32 )frame.gpuTimestamps.size( ) );
+
+        auto time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 0 ), frame.gpuTimestamps.at( 1 ) ) / 1000.0f;
+        g_visualProfiler.AddTimer( "ShadowMap", time, utils::VisualProfiler::Gpu );
+
+        time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 2 ), frame.gpuTimestamps.at( 3 ) ) / 1000.0f;
+        g_visualProfiler.AddTimer( "GBuffer", time, utils::VisualProfiler::Gpu );
+
+        time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 4 ), frame.gpuTimestamps.at( 5 ) ) / 1000.0f;
+        g_visualProfiler.AddTimer( "Lighting", time, utils::VisualProfiler::Gpu );
+
+        time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 6 ), frame.gpuTimestamps.at( 7 ) ) / 1000.0f;
+        g_visualProfiler.AddTimer( "Skybox", time, utils::VisualProfiler::Gpu );
+
+        time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 8 ), frame.gpuTimestamps.at( 9 ) ) / 1000.0f;
+        g_visualProfiler.AddTimer( "Post Process", time, utils::VisualProfiler::Gpu );
     }
 
     void Renderer::SetViewportAndScissor( VkCommandBuffer cmd ) noexcept {
@@ -321,8 +335,8 @@ namespace TL {
 
         PostProcessPushConstants push_constants = { .hdr = frame.hdrColor,
                                                     .output = frame.postProcessImage,
-                                                    .gamma = TL_Engine::Get( ).m_ppConfig.gamma,
-                                                    .exposure = TL_Engine::Get( ).m_ppConfig.exposure };
+                                                    .gamma = postProcessSettings.gamma,
+                                                    .exposure = postProcessSettings.exposure };
         vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_COMPUTE_BIT, 0,
                             sizeof( PostProcessPushConstants ), &push_constants );
 

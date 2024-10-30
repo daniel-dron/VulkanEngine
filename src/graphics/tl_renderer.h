@@ -99,6 +99,7 @@ namespace TL {
         std::shared_ptr<Camera> GetCamera( ) { return m_camera; }
 
         u32 swapchainImageIndex = -1;
+        PostProcessPushConstants postProcessSettings = { };
 
         static constexpr VkFormat DepthFormat = VK_FORMAT_D32_SFLOAT;
         static constexpr u8 MaxColorRenderTargets = 8;
