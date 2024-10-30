@@ -1,10 +1,11 @@
 ---
 Language: Cpp
 BasedOnStyle: LLVM
+AlignConsecutiveAssignments: AcrossComments
+AlignConsecutiveDeclarations: AcrossComments
+AlignOperands: AlignAfterOperator
+BreakBeforeBinaryOperators: None
 AccessModifierOffset: -4
-AlignConsecutiveAssignments: false
-AlignConsecutiveDeclarations: false
-AlignOperands: false
 AlignTrailingComments: false
 AlwaysBreakTemplateDeclarations: Yes
 BraceWrapping: 

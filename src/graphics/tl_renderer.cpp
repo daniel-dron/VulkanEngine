@@ -81,26 +81,25 @@ namespace TL {
 
         VKCALL( vkEndCommandBuffer( frame.commandBuffer ) );
 
-        auto cmd_info = vk_init::CommandBufferSubmitInfo( frame.commandBuffer );
-        auto wait_info = vk_init::SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
-                                                       frame.swapchainSemaphore );
+        auto cmd_info    = vk_init::CommandBufferSubmitInfo( frame.commandBuffer );
+        auto wait_info   = vk_init::SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
+                                                         frame.swapchainSemaphore );
         auto signal_info = vk_init::SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, frame.renderSemaphore );
-        auto submit = vk_init::SubmitInfo( &cmd_info, &signal_info, &wait_info );
+        auto submit      = vk_init::SubmitInfo( &cmd_info, &signal_info, &wait_info );
         VKCALL( vkQueueSubmit2( vkctx->graphicsQueue, 1, &submit, frame.fence ) );
     }
 
     void Renderer::Present( ) noexcept {
         const auto &frame = vkctx->GetCurrentFrame( );
 
-        const VkPresentInfoKHR presentInfo = { .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-                                               .pNext = nullptr,
+        const VkPresentInfoKHR presentInfo = { .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+                                               .pNext              = nullptr,
                                                // wait on _renderSemaphore, since we need the rendering to have finished
                                                // to display to the screen
                                                .waitSemaphoreCount = 1,
-                                               .pWaitSemaphores = &frame.renderSemaphore,
-
-                                               .swapchainCount = 1,
-                                               .pSwapchains = &vkctx->swapchain,
+                                               .pWaitSemaphores    = &frame.renderSemaphore,
+                                               .swapchainCount     = 1,
+                                               .pSwapchains        = &vkctx->swapchain,
 
                                                .pImageIndices = &swapchainImageIndex };
 
@@ -112,7 +111,7 @@ namespace TL {
 
     void Renderer::OnFrameBoundary( ) noexcept {
         auto &frame = vkctx->GetCurrentFrame( );
-        auto cmd = frame.commandBuffer;
+        auto  cmd   = frame.commandBuffer;
 
         // TODO: move this
         m_sceneBufferGpu->AdvanceFrame( );
@@ -143,10 +142,10 @@ namespace TL {
     }
 
     void Renderer::SetViewportAndScissor( VkCommandBuffer cmd ) noexcept {
-        VkViewport viewport = { .x = 0,
-                                .y = 0,
-                                .width = static_cast<float>( m_extent.x ),
-                                .height = static_cast<float>( m_extent.y ),
+        VkViewport viewport = { .x        = 0,
+                                .y        = 0,
+                                .width    = static_cast<float>( m_extent.x ),
+                                .height   = static_cast<float>( m_extent.y ),
                                 .minDepth = 0.0f,
                                 .maxDepth = 1.0f };
         vkCmdSetViewport( cmd, 0, 1, &viewport );
@@ -158,32 +157,32 @@ namespace TL {
 
     void Renderer::GBufferPass( ) {
         const auto &frame = vkctx->GetCurrentFrame( );
-        auto cmd = frame.commandBuffer;
+        auto        cmd   = frame.commandBuffer;
 
-        auto &gbuffer = vkctx->GetCurrentFrame( ).gBuffer;
-        auto &albedo = vkctx->imageCodex.GetImage( gbuffer.albedo );
-        auto &normal = vkctx->imageCodex.GetImage( gbuffer.normal );
+        auto &gbuffer  = vkctx->GetCurrentFrame( ).gBuffer;
+        auto &albedo   = vkctx->imageCodex.GetImage( gbuffer.albedo );
+        auto &normal   = vkctx->imageCodex.GetImage( gbuffer.normal );
         auto &position = vkctx->imageCodex.GetImage( gbuffer.position );
-        auto &pbr = vkctx->imageCodex.GetImage( gbuffer.pbr );
-        auto &depth = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
+        auto &pbr      = vkctx->imageCodex.GetImage( gbuffer.pbr );
+        auto &depth    = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
 
         auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
-                .name = "gbuffer",
-                .vertex = "../shaders/gbuffer.vert.spv",
-                .pixel = "../shaders/gbuffer.frag.spv",
-                .colorTargets = { { .format = albedo.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
-                                  { .format = normal.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
-                                  { .format = position.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
-                                  { .format = pbr.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF } },
+                .name               = "gbuffer",
+                .vertex             = "../shaders/gbuffer.vert.spv",
+                .pixel              = "../shaders/gbuffer.frag.spv",
+                .colorTargets       = { { .format = albedo.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
+                                        { .format = normal.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
+                                        { .format = position.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
+                                        { .format = pbr.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF } },
                 .pushConstantRanges = { { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                                          .offset = 0,
-                                          .size = sizeof( MeshPushConstants ) } },
+                                          .offset     = 0,
+                                          .size       = sizeof( MeshPushConstants ) } },
 
                 .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
         } );
 
-        VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
-        std::array color_attachments = {
+        VkClearValue clear_color       = { 0.0f, 0.0f, 0.0f, 1.0f };
+        std::array   color_attachments = {
                 AttachmentInfo( albedo.GetBaseView( ), &clear_color ),
                 AttachmentInfo( normal.GetBaseView( ), &clear_color ),
                 AttachmentInfo( position.GetBaseView( ), &clear_color ),
@@ -192,14 +191,14 @@ namespace TL {
         VkRenderingAttachmentInfo depth_attachment =
                 DepthAttachmentInfo( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
 
-        VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                                        .pNext = nullptr,
-                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
-                                        .layerCount = 1,
+        VkRenderingInfo render_info = { .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                        .pNext                = nullptr,
+                                        .renderArea           = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
+                                        .layerCount           = 1,
                                         .colorAttachmentCount = static_cast<u32>( color_attachments.size( ) ),
-                                        .pColorAttachments = color_attachments.data( ),
-                                        .pDepthAttachment = &depth_attachment,
-                                        .pStencilAttachment = nullptr };
+                                        .pColorAttachments    = color_attachments.data( ),
+                                        .pDepthAttachment     = &depth_attachment,
+                                        .pStencilAttachment   = nullptr };
 
         START_LABEL( cmd, "GBuffer Pass", Vec4( 1.0f, 1.0f, 0.0f, 1.0 ) );
         vkCmdBeginRendering( cmd, &render_info );
@@ -219,10 +218,10 @@ namespace TL {
             vkCmdBindIndexBuffer( cmd, draw_command.indexBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
             MeshPushConstants push_constants = {
-                    .worldFromLocal = draw_command.worldFromLocal,
-                    .sceneDataAddress = m_sceneBufferGpu->GetDeviceAddress( ),
+                    .worldFromLocal      = draw_command.worldFromLocal,
+                    .sceneDataAddress    = m_sceneBufferGpu->GetDeviceAddress( ),
                     .vertexBufferAddress = draw_command.vertexBufferAddress,
-                    .materialId = draw_command.materialId,
+                    .materialId          = draw_command.materialId,
             };
             vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                                 0, sizeof( MeshPushConstants ), &push_constants );
@@ -237,18 +236,18 @@ namespace TL {
 
     void Renderer::ShadowMapPass( ) {
         const auto &frame = vkctx->GetCurrentFrame( );
-        auto cmd = frame.commandBuffer;
+        auto        cmd   = frame.commandBuffer;
         START_LABEL( cmd, "ShadowMap Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 0 );
 
         auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
-                .name = "shadowmap",
-                .vertex = "../shaders/shadowmap.vert.spv",
-                .pixel = "../shaders/shadowmap.frag.spv",
-                .cullMode = VK_CULL_MODE_FRONT_BIT,
+                .name               = "shadowmap",
+                .vertex             = "../shaders/shadowmap.vert.spv",
+                .pixel              = "../shaders/shadowmap.frag.spv",
+                .cullMode           = VK_CULL_MODE_FRONT_BIT,
                 .pushConstantRanges = { { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                                          .offset = 0,
-                                          .size = sizeof( ShadowMapPushConstants ) } },
+                                          .offset     = 0,
+                                          .size       = sizeof( ShadowMapPushConstants ) } },
 
                 .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
         } );
@@ -260,14 +259,14 @@ namespace TL {
 
             VkRenderingAttachmentInfo depth_attachment =
                     DepthAttachmentInfo( target_image.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
-            VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                                            .pNext = nullptr,
+            VkRenderingInfo render_info = { .sType      = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                            .pNext      = nullptr,
                                             .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, VkExtent2D{ 2048, 2048 } },
                                             .layerCount = 1,
                                             .colorAttachmentCount = 0,
-                                            .pColorAttachments = nullptr,
-                                            .pDepthAttachment = &depth_attachment,
-                                            .pStencilAttachment = nullptr };
+                                            .pColorAttachments    = nullptr,
+                                            .pDepthAttachment     = &depth_attachment,
+                                            .pStencilAttachment   = nullptr };
             vkCmdBeginRendering( cmd, &render_info );
 
             vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
@@ -275,15 +274,15 @@ namespace TL {
             vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set,
                                      0, nullptr );
 
-            const VkViewport viewport = { .x = 0,
-                                          .y = 0,
-                                          .width = static_cast<float>( target_image.GetExtent( ).width ),
-                                          .height = static_cast<float>( target_image.GetExtent( ).height ),
+            const VkViewport viewport = { .x        = 0,
+                                          .y        = 0,
+                                          .width    = static_cast<float>( target_image.GetExtent( ).width ),
+                                          .height   = static_cast<float>( target_image.GetExtent( ).height ),
                                           .minDepth = 0.0f,
                                           .maxDepth = 1.0f };
             vkCmdSetViewport( cmd, 0, 1, &viewport );
             const VkRect2D scissor = { .offset = { .x = 0, .y = 0 },
-                                       .extent = { .width = target_image.GetExtent( ).width,
+                                       .extent = { .width  = target_image.GetExtent( ).width,
                                                    .height = target_image.GetExtent( ).height } };
             vkCmdSetScissor( cmd, 0, 1, &scissor );
 
@@ -291,9 +290,9 @@ namespace TL {
                 vkCmdBindIndexBuffer( cmd, draw_command.indexBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
                 ShadowMapPushConstants push_constants = {
-                        .projection = light.proj,
-                        .view = light.view,
-                        .model = draw_command.worldFromLocal,
+                        .projection          = light.proj,
+                        .view                = light.view,
+                        .model               = draw_command.worldFromLocal,
                         .vertexBufferAddress = draw_command.vertexBufferAddress,
                 };
                 vkCmdPushConstants( cmd, pipeline->GetLayout( ),
@@ -312,14 +311,14 @@ namespace TL {
 
     void Renderer::PostProcessPass( ) {
         auto &frame = vkctx->GetCurrentFrame( );
-        auto cmd = frame.commandBuffer;
+        auto  cmd   = frame.commandBuffer;
 
         auto pipeline = vkctx->GetOrCreatePipeline( TL::PipelineConfig{
-                .name = "posprocess",
-                .compute = "../shaders/post_process.comp.spv",
-                .pushConstantRanges = { { .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-                                          .offset = 0,
-                                          .size = sizeof( PostProcessPushConstants ) } },
+                .name                 = "posprocess",
+                .compute              = "../shaders/post_process.comp.spv",
+                .pushConstantRanges   = { { .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+                                            .offset     = 0,
+                                            .size       = sizeof( PostProcessPushConstants ) } },
                 .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
         } );
 
@@ -333,9 +332,9 @@ namespace TL {
         vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->GetLayout( ), 0, 1, &bindless_set, 0,
                                  nullptr );
 
-        PostProcessPushConstants push_constants = { .hdr = frame.hdrColor,
-                                                    .output = frame.postProcessImage,
-                                                    .gamma = postProcessSettings.gamma,
+        PostProcessPushConstants push_constants = { .hdr      = frame.hdrColor,
+                                                    .output   = frame.postProcessImage,
+                                                    .gamma    = postProcessSettings.gamma,
                                                     .exposure = postProcessSettings.exposure };
         vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_COMPUTE_BIT, 0,
                             sizeof( PostProcessPushConstants ), &push_constants );

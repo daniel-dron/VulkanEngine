@@ -60,7 +60,7 @@ DrawStats PbrPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const GpuSc
 
     GpuSceneData *gpu_scene_addr = nullptr;
     vmaMapMemory( gfx.allocator, m_gpuSceneData.allocation, reinterpret_cast<void **>( &gpu_scene_addr ) );
-    *gpu_scene_addr = sceneData;
+    *gpu_scene_addr           = sceneData;
     gpu_scene_addr->materials = gfx.materialCodex.GetDeviceAddress( );
     vmaUnmapMemory( gfx.allocator, m_gpuSceneData.allocation );
 
@@ -87,10 +87,10 @@ DrawStats PbrPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const GpuSc
     auto &target_image = gfx.imageCodex.GetImage( gfx.GetCurrentFrame( ).hdrColor );
 
     const VkViewport viewport = {
-            .x = 0,
-            .y = 0,
-            .width = static_cast<float>( target_image.GetExtent( ).width ),
-            .height = static_cast<float>( target_image.GetExtent( ).height ),
+            .x        = 0,
+            .y        = 0,
+            .width    = static_cast<float>( target_image.GetExtent( ).width ),
+            .height   = static_cast<float>( target_image.GetExtent( ).height ),
             .minDepth = 0.0f,
             .maxDepth = 1.0f,
     };
@@ -111,13 +111,13 @@ DrawStats PbrPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const GpuSc
     auto gpu_scene_address = vkGetBufferDeviceAddress( gfx.device, &address_info );
 
     const PushConstants push_constants = { .sceneDataAddress = gpu_scene_address,
-                                           .albedoTex = gBuffer.albedo,
-                                           .normalTex = gBuffer.normal,
-                                           .positionTex = gBuffer.position,
-                                           .pbrTex = gBuffer.pbr,
-                                           .irradianceTex = irradianceMap,
-                                           .radianceTex = radianceMap,
-                                           .brdfLut = brdfLut };
+                                           .albedoTex        = gBuffer.albedo,
+                                           .normalTex        = gBuffer.normal,
+                                           .positionTex      = gBuffer.position,
+                                           .pbrTex           = gBuffer.pbr,
+                                           .irradianceTex    = irradianceMap,
+                                           .radianceTex      = radianceMap,
+                                           .brdfLut          = brdfLut };
     vkCmdPushConstants( cmd, m_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                         sizeof( PushConstants ), &push_constants );
 
@@ -144,8 +144,8 @@ void PbrPipeline::Reconstruct( TL_VkContext &gfx ) {
     auto &vert_shader = gfx.shaderStorage->Get( "fullscreen_tri", TVertex );
 
     VkPushConstantRange range = { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                                  .offset = 0,
-                                  .size = sizeof( PushConstants ) };
+                                  .offset     = 0,
+                                  .size       = sizeof( PushConstants ) };
 
     DescriptorLayoutBuilder layout_builder;
     layout_builder.AddBinding( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
@@ -161,10 +161,10 @@ void PbrPipeline::Reconstruct( TL_VkContext &gfx ) {
 
     // pipeline
     VkPipelineLayoutCreateInfo layout_info = PipelineLayoutCreateInfo( );
-    layout_info.pSetLayouts = layouts;
-    layout_info.setLayoutCount = 2;
-    layout_info.pPushConstantRanges = &range;
-    layout_info.pushConstantRangeCount = 1;
+    layout_info.pSetLayouts                = layouts;
+    layout_info.setLayoutCount             = 2;
+    layout_info.pPushConstantRanges        = &range;
+    layout_info.pushConstantRangeCount     = 1;
     VKCALL( vkCreatePipelineLayout( gfx.device, &layout_info, nullptr, &m_layout ) );
 
     PipelineBuilder builder;
@@ -184,11 +184,11 @@ void PbrPipeline::Reconstruct( TL_VkContext &gfx ) {
     m_pipeline = builder.Build( gfx.device );
 
 #ifdef ENABLE_DEBUG_UTILS
-    const VkDebugUtilsObjectNameInfoEXT obj = { .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-                                                .pNext = nullptr,
-                                                .objectType = VK_OBJECT_TYPE_PIPELINE,
+    const VkDebugUtilsObjectNameInfoEXT obj = { .sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+                                                .pNext        = nullptr,
+                                                .objectType   = VK_OBJECT_TYPE_PIPELINE,
                                                 .objectHandle = reinterpret_cast<uint64_t>( m_pipeline ),
-                                                .pObjectName = "PBR Pipeline" };
+                                                .pObjectName  = "PBR Pipeline" };
     vkSetDebugUtilsObjectNameEXT( gfx.device, &obj );
 #endif
 
@@ -200,6 +200,6 @@ void PbrPipeline::Reconstruct( TL_VkContext &gfx ) {
                              "IBL Settings" );
     m_gpuDirectionalLights = gfx.Allocate( sizeof( GpuDirectionalLight ) * 10, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                            VMA_MEMORY_USAGE_CPU_TO_GPU, "Directional Lights" );
-    m_gpuPointLights = gfx.Allocate( sizeof( GpuPointLightData ) * 10, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                     VMA_MEMORY_USAGE_CPU_TO_GPU, "Point Lights" );
+    m_gpuPointLights       = gfx.Allocate( sizeof( GpuPointLightData ) * 10, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                           VMA_MEMORY_USAGE_CPU_TO_GPU, "Point Lights" );
 }

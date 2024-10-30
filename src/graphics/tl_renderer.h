@@ -28,47 +28,47 @@ namespace TL {
         Mat4 viewProjectionInv;
 
         Vec3 cameraPosition;
-        f32 time;
+        f32  time;
     };
 
     // TEMP:
     struct GpuSceneData {
-        Mat4 view;
-        Mat4 proj;
-        Mat4 viewproj;
-        Mat4 lightProj;
-        Mat4 lightView;
-        Vec4 fogColor;
-        Vec3 cameraPosition;
-        float ambientLightFactor;
-        Vec3 ambientLightColor;
-        float fogEnd;
-        float fogStart;
+        Mat4            view;
+        Mat4            proj;
+        Mat4            viewproj;
+        Mat4            lightProj;
+        Mat4            lightView;
+        Vec4            fogColor;
+        Vec3            cameraPosition;
+        float           ambientLightFactor;
+        Vec3            ambientLightColor;
+        float           fogEnd;
+        float           fogStart;
         VkDeviceAddress materials;
-        int numberOfDirectionalLights;
-        int numberOfPointLights;
+        int             numberOfDirectionalLights;
+        int             numberOfPointLights;
     };
 
     // TODO: move this
     struct MeshPushConstants {
-        Mat4 worldFromLocal;
+        Mat4            worldFromLocal;
         VkDeviceAddress sceneDataAddress;
         VkDeviceAddress vertexBufferAddress;
-        uint32_t materialId;
+        uint32_t        materialId;
     };
 
     struct ShadowMapPushConstants {
-        Mat4 projection;
-        Mat4 view;
-        Mat4 model;
+        Mat4            projection;
+        Mat4            view;
+        Mat4            model;
         VkDeviceAddress vertexBufferAddress;
     };
 
     struct PostProcessPushConstants {
         ImageId hdr;
         ImageId output;
-        float gamma = 2.2f;
-        float exposure = 1.0f;
+        float   gamma    = 2.2f;
+        float   exposure = 1.0f;
     };
 
     class Renderer {
@@ -98,11 +98,11 @@ namespace TL {
         // Returns the main camera used to render the scene
         std::shared_ptr<Camera> GetCamera( ) { return m_camera; }
 
-        u32 swapchainImageIndex = -1;
+        u32                      swapchainImageIndex = -1;
         PostProcessPushConstants postProcessSettings = { };
 
-        static constexpr VkFormat DepthFormat = VK_FORMAT_D32_SFLOAT;
-        static constexpr u8 MaxColorRenderTargets = 8;
+        static constexpr VkFormat DepthFormat           = VK_FORMAT_D32_SFLOAT;
+        static constexpr u8       MaxColorRenderTargets = 8;
 
     private:
         // This will be called after submitting a frame to the gpu, when its legal to start working on the next one
