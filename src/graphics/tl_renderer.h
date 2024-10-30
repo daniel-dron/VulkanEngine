@@ -50,17 +50,23 @@ namespace TL {
     };
 
     // TODO: move this
-    struct PushConstants {
+    struct MeshPushConstants {
         Mat4 worldFromLocal;
         VkDeviceAddress sceneDataAddress;
         VkDeviceAddress vertexBufferAddress;
         uint32_t materialId;
     };
 
+    struct ShadowMapPushConstants {
+        Mat4 projection;
+        Mat4 view;
+        Mat4 model;
+        VkDeviceAddress vertexBufferAddress;
+    };
 
     class Renderer {
     public:
-        void Init( struct SDL_Window *window );
+        void Init( struct SDL_Window *window, Vec2 extent );
         void Cleanup( );
 
         // This will setup the current frame.
@@ -82,6 +88,9 @@ namespace TL {
         // Will present the swapchain image to the screen.
         void Present( ) noexcept;
 
+        // Returns the main camera used to render the scene
+        std::shared_ptr<Camera> GetCamera( ) { return m_camera; }
+
         u32 swapchainImageIndex = -1;
 
         static constexpr VkFormat DepthFormat = VK_FORMAT_D32_SFLOAT;
@@ -91,7 +100,15 @@ namespace TL {
         // This will be called after submitting a frame to the gpu, when its legal to start working on the next one
         void OnFrameBoundary( ) noexcept;
 
+        void SetViewportAndScissor( VkCommandBuffer cmd ) noexcept;
+
         void GBufferPass( );
+        void ShadowMapPass( );
+
+        Vec2 m_extent = { };
+
+        // Main camera
+        std::shared_ptr<Camera> m_camera;
         std::shared_ptr<Buffer> m_sceneBufferGpu;
     };
 } // namespace TL

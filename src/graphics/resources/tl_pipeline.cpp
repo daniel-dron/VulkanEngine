@@ -59,8 +59,8 @@ namespace TL {
 
     Pipeline::Pipeline( const PipelineConfig &config ) {
         // shader stage
-        const auto vertex = shaders::LoadShaderModule( vkctx->device, config.vertex.c_str( ) );
-        const auto pixel = shaders::LoadShaderModule( vkctx->device, config.pixel.c_str( ) );
+        const auto vertex = shaders::LoadShaderModule( vkctx->device, config.vertex );
+        const auto pixel = shaders::LoadShaderModule( vkctx->device, config.pixel );
 
         assert( vertex != VK_NULL_HANDLE && "Could not find vertex shader" );
         assert( pixel != VK_NULL_HANDLE && "Could not find pixel shader" );
@@ -113,7 +113,7 @@ namespace TL {
                 .pNext = nullptr,
                 .logicOpEnable = VK_FALSE,
                 .attachmentCount = static_cast<uint32_t>( blend_attachments.size( ) ),
-                .pAttachments = blend_attachments.data( ) };
+                .pAttachments = blend_attachments.size( ) == 0 ? nullptr : blend_attachments.data( ) };
 
         // This project used device address for vertex buffers, so we don't really need to configribe anything for
         // vertex input stage
@@ -138,7 +138,7 @@ namespace TL {
                 .pNext = nullptr,
 
                 .polygonMode = config.polygonMode,
-                .cullMode = VK_CULL_MODE_BACK_BIT,
+                .cullMode = config.cullMode,
                 .frontFace = VK_FRONT_FACE_CLOCKWISE,
                 .lineWidth = config.lineWidth };
 
@@ -200,8 +200,7 @@ namespace TL {
         }
 
         vkctx->SetObjectDebugName( VK_OBJECT_TYPE_PIPELINE, pipeline, config.name );
-        vkctx->SetObjectDebugName( VK_OBJECT_TYPE_PIPELINE_LAYOUT, layout,
-                                fmt::format( "{} Layout", config.name.c_str( ) ) );
+        vkctx->SetObjectDebugName( VK_OBJECT_TYPE_PIPELINE_LAYOUT, layout, fmt::format( "{} Layout", config.name ) );
 
         // We no longer need the shader modules
         vkDestroyShaderModule( vkctx->device, vertex, nullptr );
@@ -210,6 +209,6 @@ namespace TL {
 
     Pipeline::~Pipeline( ) {
         vkDestroyPipelineLayout( vkctx->device, layout, nullptr );
-        vkDestroyPipeline(vkctx->device, pipeline, nullptr );
+        vkDestroyPipeline( vkctx->device, pipeline, nullptr );
     }
 } // namespace TL

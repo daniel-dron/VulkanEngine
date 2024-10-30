@@ -189,7 +189,7 @@ void TL_VkContext::Cleanup( ) {
 }
 
 std::shared_ptr<TL::Pipeline> TL_VkContext::GetOrCreatePipeline( const TL::PipelineConfig &config ) {
-    assert( !config.name.empty( ) );
+    assert( config.name != nullptr );
 
     // Check if pipeline already exists
     if ( m_pipelines.find( config.name ) != m_pipelines.end( ) ) {

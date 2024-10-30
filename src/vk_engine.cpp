@@ -118,7 +118,7 @@ void TL_Engine::InitSdl( ) {
 
 void TL_Engine::InitRenderer( ) {
     renderer = std::make_unique<TL::Renderer>( );
-    renderer->Init( m_window );
+    renderer->Init( m_window, { WIDTH, HEIGHT } );
 
     m_mainDeletionQueue.Flush( );
 }
@@ -288,7 +288,7 @@ void TL_Engine::Cleanup( ) {
         vkDeviceWaitIdle( vkctx->device );
 
         renderer->Cleanup( );
-        
+
         m_pbrPipeline.Cleanup( *vkctx );
         m_wireframePipeline.Cleanup( *vkctx );
         m_gBufferPipeline.Cleanup( *vkctx );
@@ -328,17 +328,12 @@ void TL_Engine::Draw( ) {
 
     depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 0 );
-    if ( m_rendererOptions.reRenderShadowMaps ) {
-        m_rendererOptions.reRenderShadowMaps = false;
-        ShadowMapPass( cmd );
-    }
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 1 );
+    //if ( m_rendererOptions.reRenderShadowMaps ) {
+    //    m_rendererOptions.reRenderShadowMaps = false;
+    //    ShadowMapPass( cmd );
+    //}
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 2 );
-    //GBufferPass( cmd );
     renderer->Frame( );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 3 );
 
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 4 );
     PbrPass( cmd );
@@ -387,7 +382,6 @@ void TL_Engine::Draw( ) {
 
 void TL_Engine::GBufferPass( VkCommandBuffer cmd ) {
     ZoneScopedN( "GBuffer Pass" );
-    START_LABEL( cmd, "GBuffer Pass", Vec4( 1.0f, 1.0f, 0.0f, 1.0 ) );
     auto start = utils::GetTime( );
 
     using namespace vk_init;
@@ -432,7 +426,6 @@ void TL_Engine::GBufferPass( VkCommandBuffer cmd ) {
 
     auto end = utils::GetTime( );
     g_visualProfiler.AddTimer( "GBuffer", end - start, utils::VisualProfiler::Cpu );
-    END_LABEL( cmd );
 }
 
 void TL_Engine::PbrPass( VkCommandBuffer cmd ) const {
@@ -530,13 +523,11 @@ void TL_Engine::PostProcessPass( VkCommandBuffer cmd ) const {
 
 void TL_Engine::ShadowMapPass( VkCommandBuffer cmd ) const {
     ZoneScopedN( "ShadowMap Pass" );
-    START_LABEL( cmd, "ShadowMap Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
 
     using namespace vk_init;
 
     m_shadowMapPipeline.Draw( *vkctx, cmd, m_shadowMapCommands, m_gpuDirectionalLights );
 
-    END_LABEL( cmd );
 }
 
 void TL_Engine::InitDefaultData( ) {
@@ -620,40 +611,13 @@ void TL_Engine::InitImages( ) {
 void TL_Engine::InitScene( ) {
     m_ibl.Init( *vkctx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
-    m_scene = GltfLoader::Load( *vkctx, "../../assets/untitled.glb" );
+    m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza.glb" );
 
-    // init camera
-    if ( m_scene->cameras.empty( ) ) {
-        m_camera = std::make_unique<Camera>( Vec3{ 0.225f, 0.138f, -0.920 }, 6.5f, 32.0f, ( f32 )WIDTH, ( f32 )HEIGHT );
-    }
-    else {
-        auto &c = m_scene->cameras[0];
-        m_camera = std::make_unique<Camera>( c );
-        m_camera->SetAspectRatio( WIDTH, HEIGHT );
-    }
-
-    // auto originalNode = m_scene->FindNodeByName( "Lucy_3M_O10" );
-    // auto originalNode = m_scene->FindNodeByName( "BistroExterior" );
-    // if ( !originalNode ) {
-    //    std::cerr << "Original Lucy node not found!" << std::endl;
-    //    return;
-    //}
-
-    // int N = 10;
-    // auto aabb = originalNode->boundingBoxes[0];
-    // auto min = originalNode->GetTransformMatrix( ) * Vec4( aabb.min * 1.0f, 1.0f );
-    // auto max = originalNode->GetTransformMatrix( ) * Vec4( aabb.max * 1.0f, 1.0f );
-    // for ( int x = 0; x < N; ++x ) {
-    //    for ( int y = 0; y < N; ++y ) {
-    //        for ( int z = 0; z < N; ++z ) {
-    //            auto copy = *originalNode;
-    //            auto size = max - min;
-    //            copy.transform.position += Vec3( x * size.x, y * size.y, z * size.z );
-    //            m_scene->topNodes.push_back( std::make_shared<Node>( copy ) );
-    //        }
-    //    }
-    //}
-
+    // Use camera from renderer
+    m_camera = renderer->GetCamera( );
+    m_fpsController = std::make_unique<FirstPersonFlyingController>( m_camera.get( ), 0.1f, 5.0f );
+    m_cameraController = m_fpsController.get( );
+    
     if ( m_scene->directionalLights.size( ) != 0 ) {
         auto &light = m_scene->directionalLights.at( 0 );
         light.power = 30.0f;
@@ -662,9 +626,6 @@ void TL_Engine::InitScene( ) {
         light.up = 115.0f;
         light.farPlane = 131.0f;
     }
-
-    m_fpsController = std::make_unique<FirstPersonFlyingController>( m_camera.get( ), 0.1f, 5.0f );
-    m_cameraController = m_fpsController.get( );
 }
 
 void TL_Engine::DrawNodeHierarchy( const std::shared_ptr<Node> &node ) {
@@ -1226,7 +1187,9 @@ void TL_Engine::CreateDrawCommands( TL_VkContext &vkctx, const Scene &scene, Nod
                     .worldFromLocal = model,
                     .materialId = scene.materials[mesh_asset.material],
             };
-            m_shadowMapCommands.push_back( mdc );
+            if ( m_rendererOptions.reRenderShadowMaps ) {
+                m_shadowMapCommands.push_back( mdc );
+            }
 
             if ( m_rendererOptions.frustumCulling ) {
                 auto &aabb = node.boundingBoxes[i++];

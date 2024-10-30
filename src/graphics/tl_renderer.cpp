@@ -18,32 +18,16 @@
 #include <vk_engine.h>
 #include <vk_initializers.h>
 
+using namespace vk_init;
+
 namespace TL {
 
-    void Renderer::Init( SDL_Window *window ) {
+    void Renderer::Init( SDL_Window *window, Vec2 extent ) {
+        m_extent = extent;
+
         vkctx = std::make_unique<TL_VkContext>( window );
 
-        // All frames use the same type of gbuffer, so this is fine
-        auto &g_buffer = vkctx->GetCurrentFrame( ).gBuffer;
-
-        vkctx->GetOrCreatePipeline( PipelineConfig{
-                .name = "gbuffer",
-                .vertex = "../shaders/gbuffer.vert.spv",
-                .pixel = "../shaders/gbuffer.frag.spv",
-                .colorTargets = { { .format = vkctx->imageCodex.GetImage( g_buffer.albedo ).GetFormat( ),
-                                    .blendType = PipelineConfig::BlendType::OFF },
-                                  { .format = vkctx->imageCodex.GetImage( g_buffer.normal ).GetFormat( ),
-                                    .blendType = PipelineConfig::BlendType::OFF },
-                                  { .format = vkctx->imageCodex.GetImage( g_buffer.position ).GetFormat( ),
-                                    .blendType = PipelineConfig::BlendType::OFF },
-                                  { .format = vkctx->imageCodex.GetImage( g_buffer.pbr ).GetFormat( ),
-                                    .blendType = PipelineConfig::BlendType::OFF } },
-                .pushConstantRanges = { { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                                          .offset = 0,
-                                          .size = sizeof( PushConstants ) } },
-
-                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
-        } );
+        m_camera = std::make_shared<Camera>( Vec3{ 0.0f, 0.0f, 0.0f }, 0, 0, extent.x, extent.y );
 
         m_sceneBufferGpu = std::make_shared<Buffer>( BufferType::TConstant, sizeof( GpuSceneData ),
                                                      TL_VkContext::FrameOverlap, nullptr, "Scene Buffer" );
@@ -99,7 +83,13 @@ namespace TL {
         g_visualProfiler.AddTimer( "Post Process", time, utils::VisualProfiler::Gpu );
     }
 
-    void Renderer::Frame( ) noexcept { GBufferPass( ); }
+    void Renderer::Frame( ) noexcept {
+        auto &frame = vkctx->GetCurrentFrame( );
+        ShadowMapPass( );
+
+        SetViewportAndScissor( frame.commandBuffer );
+        GBufferPass( );
+    }
 
     void Renderer::EndFrame( ) noexcept {
         const auto &frame = vkctx->GetCurrentFrame( );
@@ -137,8 +127,24 @@ namespace TL {
         m_sceneBufferGpu->AdvanceFrame( );
     }
 
+    void Renderer::SetViewportAndScissor( VkCommandBuffer cmd ) noexcept {
+        VkViewport viewport = { .x = 0,
+                                .y = 0,
+                                .width = static_cast<float>( m_extent.x ),
+                                .height = static_cast<float>( m_extent.y ),
+                                .minDepth = 0.0f,
+                                .maxDepth = 1.0f };
+        vkCmdSetViewport( cmd, 0, 1, &viewport );
+
+        const VkRect2D scissor = { .offset = { .x = 0, .y = 0 },
+                                   .extent = { .width = ( u32 )m_extent.x, .height = ( u32 )m_extent.y } };
+        vkCmdSetScissor( cmd, 0, 1, &scissor );
+    }
+
     void Renderer::GBufferPass( ) {
         const auto &frame = vkctx->GetCurrentFrame( );
+        auto cmd = frame.commandBuffer;
+
         auto &gbuffer = vkctx->GetCurrentFrame( ).gBuffer;
         auto &albedo = vkctx->imageCodex.GetImage( gbuffer.albedo );
         auto &normal = vkctx->imageCodex.GetImage( gbuffer.normal );
@@ -146,7 +152,21 @@ namespace TL {
         auto &pbr = vkctx->imageCodex.GetImage( gbuffer.pbr );
         auto &depth = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
 
-        using namespace vk_init;
+        auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
+                .name = "gbuffer",
+                .vertex = "../shaders/gbuffer.vert.spv",
+                .pixel = "../shaders/gbuffer.frag.spv",
+                .colorTargets = { { .format = albedo.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
+                                  { .format = normal.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
+                                  { .format = position.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
+                                  { .format = pbr.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF } },
+                .pushConstantRanges = { { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                          .offset = 0,
+                                          .size = sizeof( MeshPushConstants ) } },
+
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
+        } );
+
         VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
         std::array color_attachments = {
                 AttachmentInfo( albedo.GetBaseView( ), &clear_color ),
@@ -165,51 +185,110 @@ namespace TL {
                                         .pColorAttachments = color_attachments.data( ),
                                         .pDepthAttachment = &depth_attachment,
                                         .pStencilAttachment = nullptr };
-        vkCmdBeginRendering( frame.commandBuffer, &render_info );
+
+        START_LABEL( cmd, "GBuffer Pass", Vec4( 1.0f, 1.0f, 0.0f, 1.0 ) );
+        vkCmdBeginRendering( cmd, &render_info );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 2 );
 
         auto &engine = TL_Engine::Get( );
-        auto cmd = frame.commandBuffer;
-        auto &draw_commands = TL_Engine::Get( ).m_drawCommands;
-        auto pipeline = vkctx->GetOrCreatePipeline( { .name = "gbuffer" } );
 
         engine.m_sceneData.materials = vkctx->materialCodex.GetDeviceAddress( );
         m_sceneBufferGpu->Upload( &engine.m_sceneData, sizeof( GpuSceneData ) );
 
         vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
-
         const auto bindless_set = vkctx->GetBindlessSet( );
         vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0,
                                  nullptr );
 
-        auto &target_image = albedo;
-        VkViewport viewport = { .x = 0,
-                                .y = 0,
-                                .width = static_cast<float>( target_image.GetExtent( ).width ),
-                                .height = static_cast<float>( target_image.GetExtent( ).height ),
-                                .minDepth = 0.0f,
-                                .maxDepth = 1.0f };
-        vkCmdSetViewport( cmd, 0, 1, &viewport );
-
-        const VkRect2D scissor = {
-                .offset = { .x = 0, .y = 0 },
-                .extent = { .width = target_image.GetExtent( ).width, .height = target_image.GetExtent( ).height } };
-        vkCmdSetScissor( cmd, 0, 1, &scissor );
-
-        for ( const auto &draw_command : draw_commands ) {
+        for ( const auto &draw_command : engine.m_drawCommands ) {
             vkCmdBindIndexBuffer( cmd, draw_command.indexBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
-            PushConstants push_constants = {
+            MeshPushConstants push_constants = {
                     .worldFromLocal = draw_command.worldFromLocal,
                     .sceneDataAddress = m_sceneBufferGpu->GetDeviceAddress( ),
                     .vertexBufferAddress = draw_command.vertexBufferAddress,
                     .materialId = draw_command.materialId,
             };
             vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                                0, sizeof( PushConstants ), &push_constants );
+                                0, sizeof( MeshPushConstants ), &push_constants );
 
             vkCmdDrawIndexed( cmd, draw_command.indexCount, 1, 0, 0, 0 );
         }
 
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 3 );
         vkCmdEndRendering( cmd );
+        END_LABEL( cmd );
+    }
+
+    void Renderer::ShadowMapPass( ) {
+        const auto &frame = vkctx->GetCurrentFrame( );
+        auto cmd = frame.commandBuffer;
+        START_LABEL( cmd, "ShadowMap Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 0 );
+
+        auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
+                .name = "shadowmap",
+                .vertex = "../shaders/shadowmap.vert.spv",
+                .pixel = "../shaders/shadowmap.frag.spv",
+                .cullMode = VK_CULL_MODE_FRONT_BIT,
+                .pushConstantRanges = { { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                          .offset = 0,
+                                          .size = sizeof( ShadowMapPushConstants ) } },
+
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
+        } );
+
+        auto &engine = TL_Engine::Get( );
+
+        for ( const auto &light : engine.m_gpuDirectionalLights ) {
+            auto &target_image = vkctx->imageCodex.GetImage( light.shadowMap );
+
+            VkRenderingAttachmentInfo depth_attachment =
+                    DepthAttachmentInfo( target_image.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+            VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                            .pNext = nullptr,
+                                            .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, VkExtent2D{ 2048, 2048 } },
+                                            .layerCount = 1,
+                                            .colorAttachmentCount = 0,
+                                            .pColorAttachments = nullptr,
+                                            .pDepthAttachment = &depth_attachment,
+                                            .pStencilAttachment = nullptr };
+            vkCmdBeginRendering( cmd, &render_info );
+
+            vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
+
+            const VkViewport viewport = { .x = 0,
+                                          .y = 0,
+                                          .width = static_cast<float>( target_image.GetExtent( ).width ),
+                                          .height = static_cast<float>( target_image.GetExtent( ).height ),
+                                          .minDepth = 0.0f,
+                                          .maxDepth = 1.0f };
+            vkCmdSetViewport( cmd, 0, 1, &viewport );
+            const VkRect2D scissor = { .offset = { .x = 0, .y = 0 },
+                                       .extent = { .width = target_image.GetExtent( ).width,
+                                                   .height = target_image.GetExtent( ).height } };
+            vkCmdSetScissor( cmd, 0, 1, &scissor );
+
+            for ( const auto &draw_command : engine.m_shadowMapCommands ) {
+                vkCmdBindIndexBuffer( cmd, draw_command.indexBuffer, 0, VK_INDEX_TYPE_UINT32 );
+
+                ShadowMapPushConstants push_constants = {
+                        .projection = light.proj,
+                        .view = light.view,
+                        .model = draw_command.worldFromLocal,
+                        .vertexBufferAddress = draw_command.vertexBufferAddress,
+                };
+                vkCmdPushConstants( cmd, pipeline->GetLayout( ),
+                                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                                    sizeof( ShadowMapPushConstants ), &push_constants );
+
+                vkCmdDrawIndexed( cmd, draw_command.indexCount, 1, 0, 0, 0 );
+            }
+
+            vkCmdEndRendering( cmd );
+        }
+
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 1 );
+        END_LABEL( cmd );
     }
 } // namespace TL

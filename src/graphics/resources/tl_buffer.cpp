@@ -26,6 +26,7 @@ namespace TL {
 
         m_type = type;
 
+        // Round up to the next alignment border
         auto alignment = vkctx->deviceProperties.properties.limits.minUniformBufferOffsetAlignment;
         m_size = ( size + alignment - 1 ) & ~( alignment - 1 );
         m_count = count;

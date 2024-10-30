@@ -137,7 +137,7 @@ public:
     // scene
     std::vector<GpuDirectionalLight> m_gpuDirectionalLights;
     std::vector<GpuPointLightData> m_gpuPointLights;
-    GpuSceneData m_sceneData = { };
+    ::GpuSceneData m_sceneData = { };
     GpuBuffer m_gpuSceneData = { };
 
     ImageId m_whiteImage = ImageCodex::InvalidImageId;
@@ -152,7 +152,7 @@ public:
 
     std::shared_ptr<Node> m_selectedNode = nullptr;
     std::unique_ptr<Scene> m_scene;
-    std::unique_ptr<Camera> m_camera;
+    std::shared_ptr<Camera> m_camera;
     std::unique_ptr<FirstPersonFlyingController> m_fpsController;
     CameraController *m_cameraController = nullptr;
 

@@ -187,7 +187,7 @@ private:
     void CleanupSwapchain( );
     void InitDebugFunctions( ) const;
 
-    std::unordered_map<std::string, std::shared_ptr<TL::Pipeline>> m_pipelines;
+    std::unordered_map<std::string_view, std::shared_ptr<TL::Pipeline>> m_pipelines;
     
 
     DeletionQueue m_deletionQueue;

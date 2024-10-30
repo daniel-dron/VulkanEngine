@@ -17,17 +17,21 @@
 
 namespace TL {
     struct PipelineConfig {
-        std::string name;
-        std::string vertex;
-        std::string pixel;
+        const char* const name = nullptr;
+        const char* const vertex;
+        const char* const pixel;
 
         VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL;
         float lineWidth = 1.0f;
+
+        VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
 
         bool depthTest = true;
         bool depthWrite = true;
         VkCompareOp depthCompare = VK_COMPARE_OP_LESS_OR_EQUAL;
 
+        // TODO: there's allocations and moves happening when constructing and passing these
+        // std::vectors
         enum class BlendType { OFF, ADDITIVE, ALPHA_BLEND };
         struct ColorTargetsConfig {
             VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
