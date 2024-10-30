@@ -17,10 +17,8 @@
 #include <graphics/draw_command.h>
 #include <graphics/ibl.h>
 #include <graphics/material_codex.h>
-#include <graphics/pipelines/gbuffer_pipeline.h>
 #include <graphics/pipelines/imgui_pipeline.h>
 #include <graphics/pipelines/pbr_pipeline.h>
-#include <graphics/pipelines/shadowmap.h>
 #include <graphics/pipelines/skybox_pipeline.h>
 #include <graphics/pipelines/wireframe_pipeline.h>
 #include <imgui_impl_sdl2.h>
@@ -81,11 +79,9 @@ public:
     VisibilityLODResult VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
                                                 const Frustum &frustum );
 
-    void GBufferPass( VkCommandBuffer cmd );
     void PbrPass( VkCommandBuffer cmd ) const;
     void SkyboxPass( VkCommandBuffer cmd ) const;
     void PostProcessPass( VkCommandBuffer cmd ) const;
-    void ShadowMapPass( VkCommandBuffer cmd ) const;
 
     void InitDefaultData( );
     void InitImages( );
@@ -108,10 +104,8 @@ public:
     MaterialCodex m_materialCodex = { };
     PbrPipeline m_pbrPipeline = { };
     WireframePipeline m_wireframePipeline = { };
-    GBufferPipeline m_gBufferPipeline = { };
     ImGuiPipeline m_imGuiPipeline = { };
     SkyboxPipeline m_skyboxPipeline = { };
-    ShadowMap m_shadowMapPipeline = { };
 
     // post process
     struct PostProcessConfig {

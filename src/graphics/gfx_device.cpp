@@ -179,7 +179,6 @@ void TL_VkContext::Cleanup( ) {
     setPool.DestroyPools( device );
     shaderStorage->Cleanup( );
     vkFreeCommandBuffers( device, computeCommandPool, 1, &computeCommand );
-    vkDestroyQueryPool( device, queryPoolTimestamps, nullptr );
     vkDestroyCommandPool( device, computeCommandPool, nullptr );
     vmaDestroyAllocator( allocator );
     vkDestroySurfaceKHR( instance, surface, nullptr );
@@ -395,15 +394,6 @@ TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window *window ) {
     VkCommandBufferAllocateInfo cmd_alloc_info = vk_init::CommandBufferAllocateInfo( computeCommandPool, 1 );
     VKCALL( vkAllocateCommandBuffers( device, &cmd_alloc_info, &computeCommand ) );
 
-    // Query Pool
-    VkQueryPoolCreateInfo query_pool_create_info = {
-            .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
-            .pNext = nullptr,
-            .queryType = VK_QUERY_TYPE_TIMESTAMP,
-            .queryCount = static_cast<uint32_t>( gpuTimestamps.size( ) ),
-    };
-    VKCALL( vkCreateQueryPool( device, &query_pool_create_info, nullptr, &queryPoolTimestamps ) );
-
     InitDebugFunctions( );
 
     return { };
@@ -516,6 +506,15 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
                                                           VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
         frame.gBuffer.albedo = imageCodex.LoadImageFromData( "gbuffer.albedo", empty_data.data( ), extent,
                                                              VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+
+        // Query Pool
+        VkQueryPoolCreateInfo query_pool_create_info = {
+                .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+                .pNext = nullptr,
+                .queryType = VK_QUERY_TYPE_TIMESTAMP,
+                .queryCount = static_cast<uint32_t>( frame.gpuTimestamps.size( ) ),
+        };
+        VKCALL( vkCreateQueryPool( device, &query_pool_create_info, nullptr, &frame.queryPoolTimestamps ) );
     }
 }
 void TL_VkContext::CleanupSwapchain( ) {
@@ -528,6 +527,8 @@ void TL_VkContext::CleanupSwapchain( ) {
         vkDestroySemaphore( device, frames[i].swapchainSemaphore, nullptr );
 
         frames[i].deletionQueue.Flush( );
+
+        vkDestroyQueryPool( device, frames[i].queryPoolTimestamps, nullptr );
     }
 
     vkDestroySwapchainKHR( device, swapchain, nullptr );

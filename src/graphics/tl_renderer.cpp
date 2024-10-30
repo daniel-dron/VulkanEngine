@@ -36,7 +36,7 @@ namespace TL {
     void Renderer::Cleanup( ) { m_sceneBufferGpu.reset( ); }
 
     void Renderer::StartFrame( ) noexcept {
-        const auto &frame = vkctx->GetCurrentFrame( );
+        auto &frame = vkctx->GetCurrentFrame( );
 
         if ( vkctx->frameNumber != 0 ) {
             VKCALL( vkWaitForFences( vkctx->device, 1, &frame.fence, true, UINT64_MAX ) );
@@ -59,27 +59,27 @@ namespace TL {
 
         // Query GPU timers from last frame
         if ( vkctx->frameNumber != 0 ) {
-            vkGetQueryPoolResults( vkctx->device, vkctx->queryPoolTimestamps, 0, ( u32 )vkctx->gpuTimestamps.size( ),
-                                   vkctx->gpuTimestamps.size( ) * sizeof( uint64_t ), vkctx->gpuTimestamps.data( ),
-                                   sizeof( uint64_t ), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT );
+            vkGetQueryPoolResults( vkctx->device, frame.queryPoolTimestamps, 0, ( u32 )frame.gpuTimestamps.size( ),
+                                   frame.gpuTimestamps.size( ) * sizeof( uint64_t ), frame.gpuTimestamps.data( ),
+                                   sizeof( uint64_t ), VK_QUERY_RESULT_64_BIT ); //
         }
 
         // Reset gpu query timers
-        vkCmdResetQueryPool( cmd, vkctx->queryPoolTimestamps, 0, ( u32 )vkctx->gpuTimestamps.size( ) );
+        vkCmdResetQueryPool( cmd, frame.queryPoolTimestamps, 0, ( u32 )frame.gpuTimestamps.size( ) );
 
-        auto time = vkctx->GetTimestampInMs( vkctx->gpuTimestamps.at( 0 ), vkctx->gpuTimestamps.at( 1 ) ) / 1000.0f;
+        auto time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 0 ), frame.gpuTimestamps.at( 1 ) ) / 1000.0f;
         g_visualProfiler.AddTimer( "ShadowMap", time, utils::VisualProfiler::Gpu );
 
-        time = vkctx->GetTimestampInMs( vkctx->gpuTimestamps.at( 2 ), vkctx->gpuTimestamps.at( 3 ) ) / 1000.0f;
+        time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 2 ), frame.gpuTimestamps.at( 3 ) ) / 1000.0f;
         g_visualProfiler.AddTimer( "GBuffer", time, utils::VisualProfiler::Gpu );
 
-        time = vkctx->GetTimestampInMs( vkctx->gpuTimestamps.at( 4 ), vkctx->gpuTimestamps.at( 5 ) ) / 1000.0f;
+        time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 4 ), frame.gpuTimestamps.at( 5 ) ) / 1000.0f;
         g_visualProfiler.AddTimer( "Lighting", time, utils::VisualProfiler::Gpu );
 
-        time = vkctx->GetTimestampInMs( vkctx->gpuTimestamps.at( 6 ), vkctx->gpuTimestamps.at( 7 ) ) / 1000.0f;
+        time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 6 ), frame.gpuTimestamps.at( 7 ) ) / 1000.0f;
         g_visualProfiler.AddTimer( "Skybox", time, utils::VisualProfiler::Gpu );
 
-        time = vkctx->GetTimestampInMs( vkctx->gpuTimestamps.at( 8 ), vkctx->gpuTimestamps.at( 9 ) ) / 1000.0f;
+        time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 8 ), frame.gpuTimestamps.at( 9 ) ) / 1000.0f;
         g_visualProfiler.AddTimer( "Post Process", time, utils::VisualProfiler::Gpu );
     }
 
@@ -188,7 +188,7 @@ namespace TL {
 
         START_LABEL( cmd, "GBuffer Pass", Vec4( 1.0f, 1.0f, 0.0f, 1.0 ) );
         vkCmdBeginRendering( cmd, &render_info );
-        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 2 );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 2 );
 
         auto &engine = TL_Engine::Get( );
 
@@ -215,7 +215,7 @@ namespace TL {
             vkCmdDrawIndexed( cmd, draw_command.indexCount, 1, 0, 0, 0 );
         }
 
-        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 3 );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 3 );
         vkCmdEndRendering( cmd );
         END_LABEL( cmd );
     }
@@ -224,7 +224,7 @@ namespace TL {
         const auto &frame = vkctx->GetCurrentFrame( );
         auto cmd = frame.commandBuffer;
         START_LABEL( cmd, "ShadowMap Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
-        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 0 );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 0 );
 
         auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
                 .name = "shadowmap",
@@ -288,7 +288,7 @@ namespace TL {
             vkCmdEndRendering( cmd );
         }
 
-        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vkctx->queryPoolTimestamps, 1 );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 1 );
         END_LABEL( cmd );
     }
 } // namespace TL

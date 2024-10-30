@@ -87,6 +87,9 @@ struct TL_FrameData {
     ImageId postProcessImage;
     ImageId depth;
     GBuffer gBuffer;
+
+    VkQueryPool queryPoolTimestamps = nullptr;
+    std::array<uint64_t, 10> gpuTimestamps;
 };
 
 class TL_VkContext {
@@ -161,9 +164,6 @@ public:
     MeshCodex meshCodex;
 
     std::unique_ptr<ShaderStorage> shaderStorage;
-
-    VkQueryPool queryPoolTimestamps = nullptr;
-    std::array<uint64_t, 10> gpuTimestamps;
 
     // Swapchain
     static constexpr u32 FrameOverlap = 2;
