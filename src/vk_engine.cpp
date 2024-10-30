@@ -320,14 +320,6 @@ void TL_Engine::Draw( ) {
     const auto cmd = frame.commandBuffer;
     renderer->Frame( );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 4 );
-    PbrPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 5 );
-
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 6 );
-    SkyboxPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 7 );
-
     {
         ZoneScopedN( "Final Image" );
         if ( m_drawEditor ) {
@@ -477,7 +469,7 @@ void TL_Engine::InitImages( ) {
 void TL_Engine::InitScene( ) {
     m_ibl.Init( *vkctx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
-    m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza.glb" );
+    m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
 
     // Use camera from renderer
     m_camera = renderer->GetCamera( );

@@ -30,7 +30,10 @@
 
 #include "vk_engine.h"
 
-static std::vector<Material> LoadMaterials( const aiScene *scene ) {
+#include <filesystem>
+
+static std::vector<Material> LoadMaterials( const aiScene *scene, const std::string &basePath,
+                                            std::vector<std::string> &externalTexturePaths ) {
     const auto n_materials = scene->mNumMaterials;
 
     std::vector<Material> materials;
@@ -39,7 +42,7 @@ static std::vector<Material> LoadMaterials( const aiScene *scene ) {
     TL_Engine::Get( ).console.AddLog( "Loading {} materials", n_materials );
 
     for ( u32 i = 0; i < n_materials; i++ ) {
-        Material material;
+        Material   material;
         const auto ai_material = scene->mMaterials[i];
 
         material.name = ai_material->GetName( ).C_Str( );
@@ -56,34 +59,44 @@ static std::vector<Material> LoadMaterials( const aiScene *scene ) {
         ai_material->Get( AI_MATKEY_ROUGHNESS_FACTOR, roughness_factor );
         material.roughnessFactor = roughness_factor;
 
-        aiString diffuse_path;
-        if ( aiReturn_SUCCESS == ai_material->GetTexture( aiTextureType_DIFFUSE, 0, &diffuse_path ) ||
-             aiReturn_SUCCESS == ai_material->GetTexture( aiTextureType_BASE_COLOR, 0, &diffuse_path ) ) {
-            const auto [fst, snd] = scene->GetEmbeddedTextureAndIndex( diffuse_path.C_Str( ) );
-            material.colorId = snd;
-        }
-        else {
-            material.colorId = ImageCodex::InvalidImageId;
+        auto loadTexture = [&]( aiTextureType type, ImageId &textureId ) {
+            aiString texturePath;
+            if ( aiReturn_SUCCESS == ai_material->GetTexture( type, 0, &texturePath ) ) {
+                const auto [texture, embeddedIndex] = scene->GetEmbeddedTextureAndIndex( texturePath.C_Str( ) );
+                if ( embeddedIndex >= 0 ) {
+                    // Embedded texture (GLB case)
+                    textureId = embeddedIndex;
+                }
+                else {
+                    // External texture (GLTF case)
+                    auto it = std::find( externalTexturePaths.begin( ), externalTexturePaths.end( ),
+                                         texturePath.C_Str( ) );
+                    if ( it == externalTexturePaths.end( ) ) {
+                        textureId = externalTexturePaths.size( );
+                        externalTexturePaths.push_back( texturePath.C_Str( ) );
+                    }
+                    else {
+                        textureId = std::distance( externalTexturePaths.begin( ), it );
+                    }
+                }
+            }
+            else {
+                textureId = ImageCodex::InvalidImageId;
+            }
+        };
+
+        // Load different texture types
+        loadTexture( aiTextureType_DIFFUSE, material.colorId );
+        if ( material.colorId == ImageCodex::InvalidImageId ) {
+            loadTexture( aiTextureType_BASE_COLOR, material.colorId );
         }
 
-        aiString metal_roughness_path;
-        if ( aiReturn_SUCCESS == ai_material->GetTexture( aiTextureType_METALNESS, 0, &metal_roughness_path ) ||
-             aiReturn_SUCCESS == ai_material->GetTexture( aiTextureType_SPECULAR, 0, &metal_roughness_path ) ) {
-            const auto [fst, snd] = scene->GetEmbeddedTextureAndIndex( metal_roughness_path.C_Str( ) );
-            material.metalRoughnessId = snd;
-        }
-        else {
-            material.metalRoughnessId = ImageCodex::InvalidImageId;
+        loadTexture( aiTextureType_METALNESS, material.metalRoughnessId );
+        if ( material.metalRoughnessId == ImageCodex::InvalidImageId ) {
+            loadTexture( aiTextureType_SPECULAR, material.metalRoughnessId );
         }
 
-        aiString normal_path;
-        if ( aiReturn_SUCCESS == ai_material->GetTexture( aiTextureType_NORMALS, 0, &normal_path ) ) {
-            const auto [fst, snd] = scene->GetEmbeddedTextureAndIndex( normal_path.C_Str( ) );
-            material.normalId = snd;
-        }
-        else {
-            material.normalId = ImageCodex::InvalidImageId;
-        }
+        loadTexture( aiTextureType_NORMALS, material.normalId );
 
         materials.push_back( material );
     }
@@ -91,7 +104,7 @@ static std::vector<Material> LoadMaterials( const aiScene *scene ) {
     return materials;
 }
 
-static std::vector<ImageId> LoadImages( TL_VkContext &gfx, const aiScene *scene ) {
+static std::vector<ImageId> LoadImages( TL_VkContext &gfx, const aiScene *scene, const std::string &basePath ) {
     std::vector<ImageId> images;
     images.resize( scene->mNumTextures );
 
@@ -103,8 +116,8 @@ static std::vector<ImageId> LoadImages( TL_VkContext &gfx, const aiScene *scene 
         WorkerPool pool( 20 );
 
         for ( u32 i = 0; i < scene->mNumTextures; i++ ) {
-            auto texture = scene->mTextures[i];
-            std::string name = texture->mFilename.C_Str( );
+            auto        texture = scene->mTextures[i];
+            std::string name    = texture->mFilename.C_Str( );
 
             pool.Work( [&gfx, &gfxMutex, &images, texture, name, i]( ) {
                 i32 size = ( i32 )texture->mWidth;
@@ -112,19 +125,18 @@ static std::vector<ImageId> LoadImages( TL_VkContext &gfx, const aiScene *scene 
                     size = static_cast<unsigned long long>( texture->mWidth ) * texture->mHeight * sizeof( aiTexel );
                 }
 
-                int width, height, channels;
+                int            width, height, channels;
                 unsigned char *data = stbi_load_from_memory( reinterpret_cast<stbi_uc *>( texture->pcData ), size,
                                                              &width, &height, &channels, 4 );
 
                 if ( data ) {
                     const VkExtent3D extent_3d = {
-                            .width = static_cast<uint32_t>( width ),
+                            .width  = static_cast<uint32_t>( width ),
                             .height = static_cast<uint32_t>( height ),
-                            .depth = 1,
+                            .depth  = 1,
                     };
 
                     {
-                        // TODO: use a staged pool for batched gpu loading
                         std::lock_guard<std::mutex> lock( gfxMutex );
                         images[i] = gfx.imageCodex.LoadImageFromData( name, data, extent_3d, VK_FORMAT_R8G8B8A8_UNORM,
                                                                       VK_IMAGE_USAGE_SAMPLED_BIT, true );
@@ -133,11 +145,57 @@ static std::vector<ImageId> LoadImages( TL_VkContext &gfx, const aiScene *scene 
                     stbi_image_free( data );
                 }
                 else {
-                    TL_Engine::Get( ).console.AddLog( "Failed to load image {}\n\t{}", name,
-                                                         stbi_failure_reason( ) );
+                    TL_Engine::Get( ).console.AddLog( "Failed to load embedded image {}\n\t{}", name,
+                                                      stbi_failure_reason( ) );
                 }
 
-                TL_Engine::Get( ).console.AddLog( "Loaded Texture: {} {}", i, name );
+                TL_Engine::Get( ).console.AddLog( "Loaded Embedded Texture: {} {}", i, name );
+            } );
+        }
+    }
+
+    return images;
+}
+
+static std::vector<ImageId> LoadExternalImages( TL_VkContext &gfx, const std::vector<std::string> &paths,
+                                                const std::string &basePath ) {
+    std::vector<ImageId> images;
+    images.resize( paths.size( ) );
+
+    std::mutex gfxMutex;
+
+    {
+        WorkerPool pool( 20 );
+
+        for ( u32 i = 0; i < paths.size( ); i++ ) {
+            const auto &path     = paths[i];
+            std::string fullPath = ( std::filesystem::path( basePath ) / path ).string( );
+
+            pool.Work( [&gfx, &gfxMutex, &images, fullPath, i]( ) {
+                int            width, height, channels;
+                unsigned char *data = stbi_load( fullPath.c_str( ), &width, &height, &channels, 4 );
+
+                if ( data ) {
+                    const VkExtent3D extent_3d = {
+                            .width  = static_cast<uint32_t>( width ),
+                            .height = static_cast<uint32_t>( height ),
+                            .depth  = 1,
+                    };
+
+                    {
+                        std::lock_guard<std::mutex> lock( gfxMutex );
+                        images[i] = gfx.imageCodex.LoadImageFromData(
+                                fullPath, data, extent_3d, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true );
+                    }
+
+                    stbi_image_free( data );
+                }
+                else {
+                    TL_Engine::Get( ).console.AddLog( "Failed to load external image {}\n\t{}", fullPath,
+                                                      stbi_failure_reason( ) );
+                }
+
+                TL_Engine::Get( ).console.AddLog( "Loaded External Texture: {} {}", i, fullPath );
             } );
         }
     }
@@ -468,38 +526,56 @@ static void LoadLights( TL_VkContext &gfx, const aiScene *aiScene, Scene &scene 
 }
 
 std::unique_ptr<Scene> GltfLoader::Load( TL_VkContext &gfx, const std::string &path ) {
-    auto scene_ptr = std::make_unique<Scene>( );
-    auto &scene = *scene_ptr;
+    auto  scene_ptr = std::make_unique<Scene>( );
+    auto &scene     = *scene_ptr;
 
-    scene.name = path;
+    scene.name           = path;
+    std::string basePath = std::filesystem::path( path ).parent_path( ).string( );
 
     Assimp::Importer importer;
-    const auto ai_scene = importer.ReadFile( path,
-                                             aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_FlipUVs |
-                                                     aiProcess_FlipWindingOrder | aiProcess_GenBoundingBoxes );
+    const auto       ai_scene =
+            importer.ReadFile( path, aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_FlipUVs |
+                                             aiProcess_FlipWindingOrder | aiProcess_GenBoundingBoxes );
 
     TL_Engine::Get( ).console.AddLog( "Loading meshes..." );
     const std::vector<MeshId> meshes = LoadMeshes( gfx, ai_scene );
 
     TL_Engine::Get( ).console.AddLog( "Loading materials..." );
-    std::vector<Material> materials = LoadMaterials( ai_scene );
+    std::vector<std::string> externalTexturePaths;
+    std::vector<Material>    materials = LoadMaterials( ai_scene, basePath, externalTexturePaths );
 
     TL_Engine::Get( ).console.AddLog( "Loading images..." );
-    const std::vector<ImageId> images = LoadImages( gfx, ai_scene );
+    std::vector<ImageId> embeddedImages = LoadImages( gfx, ai_scene, basePath );
+    std::vector<ImageId> externalImages = LoadExternalImages( gfx, externalTexturePaths, basePath );
 
-    TL_Engine::Get( ).console.AddLog( "Matching materials..." );
-    ProcessMaterials( materials, images, gfx, ai_scene );
+    TL_Engine::Get( ).console.AddLog( "Processing materials..." );
+    // Update material IDs based on whether they were embedded or external
+    for ( auto &material : materials ) {
+        if ( material.colorId != ImageCodex::InvalidImageId ) {
+            material.colorId = material.colorId < embeddedImages.size( )
+                                     ? embeddedImages[material.colorId]
+                                     : externalImages[material.colorId - embeddedImages.size( )];
+        }
+        if ( material.metalRoughnessId != ImageCodex::InvalidImageId ) {
+            material.metalRoughnessId = material.metalRoughnessId < embeddedImages.size( )
+                                              ? embeddedImages[material.metalRoughnessId]
+                                              : externalImages[material.metalRoughnessId - embeddedImages.size( )];
+        }
+        if ( material.normalId != ImageCodex::InvalidImageId ) {
+            material.normalId = material.normalId < embeddedImages.size( )
+                                      ? embeddedImages[material.normalId]
+                                      : externalImages[material.normalId - embeddedImages.size( )];
+        }
+    }
 
     const auto gpu_materials = UploadMaterials( gfx, materials );
-    scene.materials = gpu_materials;
+    scene.materials          = gpu_materials;
 
     const auto mesh_assets = MatchMaterialMeshes( ai_scene, meshes, gpu_materials );
-    scene.meshes = mesh_assets;
+    scene.meshes           = mesh_assets;
 
     LoadHierarchy( ai_scene, scene );
-
     LoadCameras( ai_scene, scene );
-
     LoadLights( gfx, ai_scene, scene );
 
     return std::move( scene_ptr );

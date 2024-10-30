@@ -73,6 +73,17 @@ namespace TL {
 
         SetViewportAndScissor( frame.commandBuffer );
         GBufferPass( );
+
+        auto cmd = frame.commandBuffer;
+
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 4 );
+        TL_Engine::Get( ).PbrPass( cmd );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 5 );
+
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 6 );
+        TL_Engine::Get( ).SkyboxPass( cmd );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 7 );
+
         PostProcessPass( );
     }
 
@@ -81,9 +92,9 @@ namespace TL {
 
         VKCALL( vkEndCommandBuffer( frame.commandBuffer ) );
 
-        auto cmd_info    = CommandBufferSubmitInfo( frame.commandBuffer );
-        auto wait_info   = SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
-                                                         frame.swapchainSemaphore );
+        auto cmd_info = CommandBufferSubmitInfo( frame.commandBuffer );
+        auto wait_info =
+                SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, frame.swapchainSemaphore );
         auto signal_info = SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, frame.renderSemaphore );
         auto submit      = SubmitInfo( &cmd_info, &signal_info, &wait_info );
         VKCALL( vkQueueSubmit2( vkctx->graphicsQueue, 1, &submit, frame.fence ) );
@@ -239,6 +250,12 @@ namespace TL {
         auto        cmd   = frame.commandBuffer;
         START_LABEL( cmd, "ShadowMap Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 0 );
+
+        if ( vkctx->frameNumber != 0 ) {
+            vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 1 );
+            END_LABEL( cmd );
+            return;
+        }
 
         auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
                 .name               = "shadowmap",
