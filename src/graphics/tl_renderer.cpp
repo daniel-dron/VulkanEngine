@@ -89,6 +89,7 @@ namespace TL {
 
         SetViewportAndScissor( frame.commandBuffer );
         GBufferPass( );
+        PostProcessPass( );
     }
 
     void Renderer::EndFrame( ) noexcept {
@@ -256,6 +257,9 @@ namespace TL {
             vkCmdBeginRendering( cmd, &render_info );
 
             vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
+            const auto bindless_set = vkctx->GetBindlessSet( );
+            vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set,
+                                     0, nullptr );
 
             const VkViewport viewport = { .x = 0,
                                           .y = 0,
@@ -290,5 +294,40 @@ namespace TL {
 
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 1 );
         END_LABEL( cmd );
+    }
+
+    void Renderer::PostProcessPass( ) {
+        auto &frame = vkctx->GetCurrentFrame( );
+        auto cmd = frame.commandBuffer;
+
+        auto pipeline = vkctx->GetOrCreatePipeline( TL::PipelineConfig{
+                .name = "posprocess",
+                .compute = "../shaders/post_process.comp.spv",
+                .pushConstantRanges = { { .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+                                          .offset = 0,
+                                          .size = sizeof( PostProcessPushConstants ) } },
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
+        } );
+
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 8 );
+
+        auto &output = vkctx->imageCodex.GetImage( frame.postProcessImage );
+        output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
+
+        vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->GetVkResource( ) );
+        const auto bindless_set = vkctx->GetBindlessSet( );
+        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->GetLayout( ), 0, 1, &bindless_set, 0,
+                                 nullptr );
+
+        PostProcessPushConstants push_constants = { .hdr = frame.hdrColor,
+                                                    .output = frame.postProcessImage,
+                                                    .gamma = TL_Engine::Get( ).m_ppConfig.gamma,
+                                                    .exposure = TL_Engine::Get( ).m_ppConfig.exposure };
+        vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                            sizeof( PostProcessPushConstants ), &push_constants );
+
+        vkCmdDispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16, 6 );
+
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 9 );
     }
 } // namespace TL

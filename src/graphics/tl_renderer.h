@@ -64,6 +64,13 @@ namespace TL {
         VkDeviceAddress vertexBufferAddress;
     };
 
+    struct PostProcessPushConstants {
+        ImageId hdr;
+        ImageId output;
+        float gamma = 2.2f;
+        float exposure = 1.0f;
+    };
+
     class Renderer {
     public:
         void Init( struct SDL_Window *window, Vec2 extent );
@@ -104,6 +111,7 @@ namespace TL {
 
         void GBufferPass( );
         void ShadowMapPass( );
+        void PostProcessPass( );
 
         Vec2 m_extent = { };
 

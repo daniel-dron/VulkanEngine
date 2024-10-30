@@ -110,6 +110,7 @@ public:
     // post process
     struct PostProcessConfig {
         ImageId hdr;
+        ImageId output;
         float gamma = 2.2f;
         float exposure = 1.0f;
     };
@@ -117,6 +118,8 @@ public:
     mutable PostProcessConfig m_ppConfig = { };
     BindlessCompute m_postProcessPipeline = { };
     MultiDescriptorSet m_postProcessSet;
+
+    std::unique_ptr<TL::Pipeline> ppPipeline = nullptr;
 
     // blur
     struct BlurSettings {

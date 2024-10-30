@@ -17,9 +17,10 @@
 
 namespace TL {
     struct PipelineConfig {
-        const char* const name = nullptr;
-        const char* const vertex;
-        const char* const pixel;
+        const char *const name = nullptr;
+        const char *const vertex = nullptr;
+        const char *const pixel = nullptr;
+        const char *const compute = nullptr;
 
         VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL;
         float lineWidth = 1.0f;

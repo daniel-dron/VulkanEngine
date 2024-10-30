@@ -9,6 +9,7 @@ layout(set = 1, binding = 0, rgba32f) uniform image2D output_image;
 
 layout( push_constant ) uniform constants {
     uint hdr;
+    uint out_img;
     float gamma;
     float exposure;
 } pc;
@@ -52,7 +53,7 @@ vec2 TexelToUV(vec2 texel, vec2 texelSize) {
 void main()
 {
     ivec2 tex_coords = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 dims = imageSize(output_image);
+    ivec2 dims = GetStorageImageSize(pc.out_img);
     vec2 uvs = TexelToUV(gl_GlobalInvocationID.xy, 1.0f / vec2(dims));
 
     vec3 color = sampleTexture2DNearest(pc.hdr, uvs).rgb;
@@ -66,5 +67,5 @@ void main()
     // gamma correction
     color = pow(color, vec3(1.0f / pc.gamma));
 
-    imageStore(output_image, ivec2(gl_GlobalInvocationID), vec4(color, 1.0f));
+    StoragePixelAt(pc.out_img, ivec2(gl_GlobalInvocationID), vec4(color, 1.0f));
 }

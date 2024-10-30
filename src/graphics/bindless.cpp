@@ -22,13 +22,14 @@ void BindlessRegistry::Init( TL_VkContext &gfx ) {
     // Create descriptor pool
     {
         VkDescriptorPoolSize pool_sizes[] = { { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MaxBindlessImages },
-                                              { VK_DESCRIPTOR_TYPE_SAMPLER, MaxSamplers } };
+                                              { VK_DESCRIPTOR_TYPE_SAMPLER, MaxSamplers },
+                                              { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MaxBindlessImages } };
 
         const VkDescriptorPoolCreateInfo info = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
                                                   .pNext = nullptr,
                                                   .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
                                                   .maxSets = MaxBindlessImages * 2,
-                                                  .poolSizeCount = 2u,
+                                                  .poolSizeCount = std::size( pool_sizes ),
                                                   .pPoolSizes = pool_sizes };
 
         VKCALL( vkCreateDescriptorPool( gfx.device, &info, nullptr, &pool ) );
@@ -36,18 +37,21 @@ void BindlessRegistry::Init( TL_VkContext &gfx ) {
 
     // Descriptor Set Layout
     {
-        std::array bindings = {
-                VkDescriptorSetLayoutBinding{ .binding = TextureBinding,
-                                              .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-                                              .descriptorCount = MaxBindlessImages,
-                                              .stageFlags = VK_SHADER_STAGE_ALL },
-                VkDescriptorSetLayoutBinding{ .binding = SamplersBinding,
-                                              .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
-                                              .descriptorCount = MaxSamplers,
-                                              .stageFlags = VK_SHADER_STAGE_ALL },
-        };
+        std::array bindings = { VkDescriptorSetLayoutBinding{ .binding = TextureBinding,
+                                                              .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                                                              .descriptorCount = MaxBindlessImages,
+                                                              .stageFlags = VK_SHADER_STAGE_ALL },
+                                VkDescriptorSetLayoutBinding{ .binding = SamplersBinding,
+                                                              .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+                                                              .descriptorCount = MaxSamplers,
+                                                              .stageFlags = VK_SHADER_STAGE_ALL },
+                                VkDescriptorSetLayoutBinding{ .binding = StorageBinding,
+                                                              .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                                                              .descriptorCount = MaxBindlessImages,
+                                                              .stageFlags = VK_SHADER_STAGE_ALL } };
 
-        std::array<VkDescriptorBindingFlags, 2> binding_flags = {
+        std::array<VkDescriptorBindingFlags, 3> binding_flags = {
+				VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
                 VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
                 VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT };
 
@@ -128,6 +132,20 @@ void BindlessRegistry::AddSampler( TL_VkContext &gfx, std::uint32_t id, const Vk
             .descriptorCount = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
             .pImageInfo = &info,
+    };
+    vkUpdateDescriptorSets( gfx.device, 1, &write_set, 0, nullptr );
+}
+
+void BindlessRegistry::AddStorageImage( TL_VkContext &gfx, ImageId id, const VkImageView view ) {
+    VkDescriptorImageInfo image_info = { .imageView = view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL };
+    const VkWriteDescriptorSet write_set = {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = set,
+            .dstBinding = StorageBinding,
+            .dstArrayElement = id,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .pImageInfo = &image_info,
     };
     vkUpdateDescriptorSets( gfx.device, 1, &write_set, 0, nullptr );
 }

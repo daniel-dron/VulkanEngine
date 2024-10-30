@@ -326,10 +326,10 @@ void TL_Engine::Draw( ) {
 
     depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
 
-    //if ( m_rendererOptions.reRenderShadowMaps ) {
-    //    m_rendererOptions.reRenderShadowMaps = false;
-    //    ShadowMapPass( cmd );
-    //}
+    // if ( m_rendererOptions.reRenderShadowMaps ) {
+    //     m_rendererOptions.reRenderShadowMaps = false;
+    //     ShadowMapPass( cmd );
+    // }
 
     renderer->Frame( );
 
@@ -341,9 +341,7 @@ void TL_Engine::Draw( ) {
     SkyboxPass( cmd );
     vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 7 );
 
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 8 );
-    PostProcessPass( cmd );
-    vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 9 );
+    //PostProcessPass( cmd );
 
     {
         ZoneScopedN( "Final Image" );
@@ -458,6 +456,7 @@ void TL_Engine::PostProcessPass( VkCommandBuffer cmd ) const {
     auto &output = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
 
     m_ppConfig.hdr = vkctx->GetCurrentFrame( ).hdrColor;
+    m_ppConfig.output = vkctx->GetCurrentFrame( ).postProcessImage;
 
     output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
 
@@ -510,6 +509,7 @@ void TL_Engine::InitDefaultData( ) {
     m_postProcessPipeline.Build( *vkctx, post_process_shader.handle, "post process compute" );
     m_postProcessSet = vkctx->AllocateMultiSet( m_postProcessPipeline.GetLayout( ) );
 
+    
     // TODO: this every frame for more than one inflight frame
     for ( auto i = 0; i < TL_VkContext::FrameOverlap; i++ ) {
         DescriptorWriter writer;
@@ -556,7 +556,7 @@ void TL_Engine::InitScene( ) {
     m_camera = renderer->GetCamera( );
     m_fpsController = std::make_unique<FirstPersonFlyingController>( m_camera.get( ), 0.1f, 5.0f );
     m_cameraController = m_fpsController.get( );
-    
+
     if ( m_scene->directionalLights.size( ) != 0 ) {
         auto &light = m_scene->directionalLights.at( 0 );
         light.power = 30.0f;
@@ -1018,7 +1018,6 @@ inline float dot( const Vec3 &v, const Vec4 &p ) { return v.x * p.x + v.y * p.y 
 
 VisibilityLODResult TL_Engine::VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
                                                        const Frustum &frustum ) {
-
     // If neither frustum or lod is enable, then everything is visible and finest lod
     if ( !m_rendererOptions.frustumCulling && !m_rendererOptions.lodSystem ) {
         return { true, 0 };

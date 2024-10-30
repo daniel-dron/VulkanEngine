@@ -320,6 +320,7 @@ TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window *window ) {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
             .descriptorIndexing = true,
             .descriptorBindingSampledImageUpdateAfterBind = true,
+            .descriptorBindingStorageImageUpdateAfterBind = true,
             .descriptorBindingPartiallyBound = true,
             .runtimeDescriptorArray = true,
             .hostQueryReset = true,
@@ -491,6 +492,8 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
         frame.postProcessImage =
                 imageCodex.CreateEmptyImage( "post process", draw_image_extent, VK_FORMAT_R8G8B8A8_UNORM,
                                              draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
+        auto& ppi = imageCodex.GetImage( frame.postProcessImage );
+        imageCodex.bindlessRegistry.AddStorageImage( *this, frame.postProcessImage, ppi.GetBaseView( ) );
 
         empty_image_data.resize( extent.width * extent.height * 4, 0 );
         frame.depth = imageCodex.LoadImageFromData( "main depth image", empty_image_data.data( ), draw_image_extent,
