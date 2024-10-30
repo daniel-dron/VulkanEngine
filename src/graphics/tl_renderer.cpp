@@ -81,11 +81,11 @@ namespace TL {
 
         VKCALL( vkEndCommandBuffer( frame.commandBuffer ) );
 
-        auto cmd_info    = vk_init::CommandBufferSubmitInfo( frame.commandBuffer );
-        auto wait_info   = vk_init::SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
+        auto cmd_info    = CommandBufferSubmitInfo( frame.commandBuffer );
+        auto wait_info   = SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
                                                          frame.swapchainSemaphore );
-        auto signal_info = vk_init::SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, frame.renderSemaphore );
-        auto submit      = vk_init::SubmitInfo( &cmd_info, &signal_info, &wait_info );
+        auto signal_info = SemaphoreSubmitInfo( VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, frame.renderSemaphore );
+        auto submit      = SubmitInfo( &cmd_info, &signal_info, &wait_info );
         VKCALL( vkQueueSubmit2( vkctx->graphicsQueue, 1, &submit, frame.fence ) );
     }
 
