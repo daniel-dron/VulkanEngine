@@ -203,13 +203,13 @@ static std::vector<ImageId> LoadExternalImages( TL_VkContext &gfx, const std::ve
     return images;
 }
 
-void ProcessMaterials( std::vector<Material> &preprocessedMaterials, const std::vector<ImageId> &images, TL_VkContext &gfx,
-                       const aiScene *aiScene ) {
+void ProcessMaterials( std::vector<Material> &preprocessedMaterials, const std::vector<ImageId> &images,
+                       TL_VkContext &gfx, const aiScene *aiScene ) {
     for ( auto &[base_color, metalness_factor, roughness_factor, color_id, metal_roughness_id, normal_id, name] :
           preprocessedMaterials ) {
         if ( color_id != ImageCodex::InvalidImageId ) {
             const auto texture = aiScene->mTextures[color_id];
-            auto &t = gfx.imageCodex.GetImage( images.at( color_id ) );
+            auto      &t       = gfx.imageCodex.GetImage( images.at( color_id ) );
             assert( strcmp( texture->mFilename.C_Str( ), t.GetName( ).c_str( ) ) == 0 && "missmatched texture" );
 
             color_id = images.at( color_id );
@@ -217,7 +217,7 @@ void ProcessMaterials( std::vector<Material> &preprocessedMaterials, const std::
 
         if ( metal_roughness_id != ImageCodex::InvalidImageId ) {
             const auto texture = aiScene->mTextures[metal_roughness_id];
-            auto &t = gfx.imageCodex.GetImage( images.at( metal_roughness_id ) );
+            auto      &t       = gfx.imageCodex.GetImage( images.at( metal_roughness_id ) );
             assert( strcmp( texture->mFilename.C_Str( ), t.GetName( ).c_str( ) ) == 0 && "missmatched texture" );
 
             metal_roughness_id = images.at( metal_roughness_id );
@@ -225,7 +225,7 @@ void ProcessMaterials( std::vector<Material> &preprocessedMaterials, const std::
 
         if ( normal_id != ImageCodex::InvalidImageId ) {
             const auto texture = aiScene->mTextures[normal_id];
-            auto &t = gfx.imageCodex.GetImage( images.at( normal_id ) );
+            auto      &t       = gfx.imageCodex.GetImage( images.at( normal_id ) );
             assert( strcmp( texture->mFilename.C_Str( ), t.GetName( ).c_str( ) ) == 0 && "missmatched texture" );
 
             normal_id = images.at( normal_id );
@@ -255,7 +255,7 @@ static MeshId LoadMesh( TL_VkContext &gfx, aiMesh *aiMesh ) {
         }
 
         if ( aiMesh->mTangents != nullptr && aiMesh->mBitangents != nullptr ) {
-            vertex.tangent = { aiMesh->mTangents[i].x, -aiMesh->mTangents[i].y, aiMesh->mTangents[i].z };
+            vertex.tangent   = { aiMesh->mTangents[i].x, -aiMesh->mTangents[i].y, aiMesh->mTangents[i].z };
             vertex.biTangent = { aiMesh->mBitangents[i].x, -aiMesh->mBitangents[i].y, aiMesh->mBitangents[i].z };
         }
         mesh.vertices.push_back( vertex );
@@ -275,12 +275,12 @@ static MeshId LoadMesh( TL_VkContext &gfx, aiMesh *aiMesh ) {
     // Generate max 6 LODS. meshop_simplify will return an empty index buffer if it can no longer simplify the mesh.
     // Whenever we query for LODs later, we need to be careful and check how many indexbuffers the vector actually has.
     for ( u32 i = 1; i < 6; i++ ) {
-        float ratio = std::pow( 0.5f, static_cast<float>( i ) );
+        float  ratio              = std::pow( 0.5f, static_cast<float>( i ) );
         size_t target_index_count = size_t( mesh.indices[0].size( ) * ratio );
-        float target_error = 1e-2f;
+        float  target_error       = 1e-2f;
 
         std::vector<uint32_t> lod( mesh.indices[0].size( ) );
-        float lod_error = 0.f;
+        float                 lod_error = 0.f;
         lod.resize( meshopt_simplify( &lod[0], indices.data( ), mesh.indices[0].size( ), &mesh.vertices[0].position.x,
                                       mesh.vertices.size( ), sizeof( Mesh::Vertex ), target_index_count, target_error,
                                       /* options= */ 0, &lod_error ) );
@@ -355,7 +355,7 @@ inline glm::mat4 AssimpToGlm( const aiMatrix4x4 &from ) {
     return to;
 }
 
-static std::shared_ptr<Node> LoadNode( const aiScene *ai_scene, const aiNode *node ) {
+static std::shared_ptr<Node> LoadNode( Scene &scene, const aiScene *ai_scene, const aiNode *node ) {
     auto sceneNode = std::make_shared<Node>( );
 
     sceneNode->name = node->mName.C_Str( );
@@ -373,7 +373,7 @@ static std::shared_ptr<Node> LoadNode( const aiScene *ai_scene, const aiNode *no
     }
     else {
         for ( u32 i = 0; i < node->mNumMeshes; i++ ) {
-            const auto mesh = node->mMeshes[i];
+            const auto  mesh = node->mMeshes[i];
             const auto &aabb = ai_scene->mMeshes[mesh]->mAABB;
 
             AABoundingBox bounding_box = {
@@ -387,9 +387,10 @@ static std::shared_ptr<Node> LoadNode( const aiScene *ai_scene, const aiNode *no
     }
 
     for ( u32 i = 0; i < node->mNumChildren; i++ ) {
-        auto child = LoadNode( ai_scene, node->mChildren[i] );
+        auto child    = LoadNode( scene, ai_scene, node->mChildren[i] );
         child->parent = sceneNode;
         sceneNode->children.push_back( child );
+        scene.allNodes.push_back( child );
     }
 
     return sceneNode;
@@ -398,7 +399,9 @@ static std::shared_ptr<Node> LoadNode( const aiScene *ai_scene, const aiNode *no
 static void LoadHierarchy( const aiScene *ai_scene, Scene &scene ) {
     const auto root_node = ai_scene->mRootNode;
 
-    scene.topNodes.push_back( LoadNode( ai_scene, root_node ) );
+    auto node = LoadNode( scene, ai_scene, root_node );
+    scene.topNodes.push_back( node );
+    scene.allNodes.push_back( node );
 }
 
 static void LoadCameras( const aiScene *aiScene, Scene &scene ) {
@@ -415,16 +418,16 @@ static void LoadCameras( const aiScene *aiScene, Scene &scene ) {
             auto transform = node->GetTransformMatrix( );
 
             auto position = Vec3( ai_camera->mPosition.x, ai_camera->mPosition.y, ai_camera->mPosition.z );
-            position = transform * Vec4( position, 1.0f );
+            position      = transform * Vec4( position, 1.0f );
 
             Vec3 look_at( ai_camera->mLookAt.x, ai_camera->mLookAt.y, ai_camera->mLookAt.z );
-            look_at = transform * Vec4( look_at, 0.0f );
+            look_at        = transform * Vec4( look_at, 0.0f );
             Vec3 direction = glm::normalize( look_at - position );
 
-            float yaw = atan2( direction.z, direction.x );
+            float yaw   = atan2( direction.z, direction.x );
             float pitch = asin( direction.y );
-            yaw = glm::degrees( yaw );
-            pitch = glm::degrees( pitch );
+            yaw         = glm::degrees( yaw );
+            pitch       = glm::degrees( pitch );
 
             Camera camera = { position, yaw, pitch, WIDTH, HEIGHT };
             scene.cameras.push_back( camera );
@@ -486,7 +489,7 @@ static void LoadLights( TL_VkContext &gfx, const aiScene *aiScene, Scene &scene 
 
     for ( unsigned int i = 0; i < aiScene->mNumLights; i++ ) {
         const auto ai_light = aiScene->mLights[i];
-        const auto node = scene.FindNodeByName( ai_light->mName.C_Str( ) );
+        const auto node     = scene.FindNodeByName( ai_light->mName.C_Str( ) );
 
         if ( !node ) {
             continue;
@@ -501,8 +504,8 @@ static void LoadLights( TL_VkContext &gfx, const aiScene *aiScene, Scene &scene 
             ConvertHsvToImGui( light.hsv.hue, light.hsv.saturation, light.hsv.value );
             light.power = ( ai_light->mPower / 683.0f ) * 4.0f * 3.14159265359f;
 
-            light.constant = ai_light->mAttenuationConstant;
-            light.linear = ai_light->mAttenuationLinear;
+            light.constant  = ai_light->mAttenuationConstant;
+            light.linear    = ai_light->mAttenuationLinear;
             light.quadratic = ai_light->mAttenuationQuadratic;
 
             scene.pointLights.emplace_back( light );

@@ -54,6 +54,7 @@ struct Scene {
     std::vector<MaterialId> materials;
     std::vector<MeshAsset> meshes;
     std::vector<std::shared_ptr<Node>> topNodes;
+    std::vector<std::shared_ptr<Node>> allNodes;
     std::vector<Camera> cameras;
     std::vector<PointLight> pointLights;
     std::vector<DirectionalLight> directionalLights;
