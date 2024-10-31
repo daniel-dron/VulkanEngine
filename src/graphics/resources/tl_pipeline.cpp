@@ -20,37 +20,37 @@ namespace TL {
     CreateBlendAttachmentState( const PipelineConfig::BlendType &blendType ) {
         if ( blendType == PipelineConfig::BlendType::ADDITIVE ) {
             return {
-                    .blendEnable = VK_TRUE,
+                    .blendEnable         = VK_TRUE,
                     .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
                     .dstColorBlendFactor = VK_BLEND_FACTOR_ONE,
-                    .colorBlendOp = VK_BLEND_OP_ADD,
+                    .colorBlendOp        = VK_BLEND_OP_ADD,
                     .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
                     .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-                    .alphaBlendOp = VK_BLEND_OP_ADD,
+                    .alphaBlendOp        = VK_BLEND_OP_ADD,
                     .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-                            VK_COLOR_COMPONENT_A_BIT,
+                                      VK_COLOR_COMPONENT_A_BIT,
             };
         }
 
         if ( blendType == PipelineConfig::BlendType::ALPHA_BLEND ) {
             return {
-                    .blendEnable = VK_TRUE,
+                    .blendEnable         = VK_TRUE,
                     .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
                     .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                    .colorBlendOp = VK_BLEND_OP_ADD,
+                    .colorBlendOp        = VK_BLEND_OP_ADD,
                     .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
                     .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-                    .alphaBlendOp = VK_BLEND_OP_ADD,
+                    .alphaBlendOp        = VK_BLEND_OP_ADD,
                     .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-                            VK_COLOR_COMPONENT_A_BIT,
+                                      VK_COLOR_COMPONENT_A_BIT,
             };
         }
 
         if ( blendType == PipelineConfig::BlendType::OFF ) {
             return {
-                    .blendEnable = VK_FALSE,
+                    .blendEnable    = VK_FALSE,
                     .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-                            VK_COLOR_COMPONENT_A_BIT,
+                                      VK_COLOR_COMPONENT_A_BIT,
             };
         }
 
@@ -62,9 +62,9 @@ namespace TL {
             const auto compute = shaders::LoadShaderModule( vkctx->device, config.compute );
 
             VkPipelineLayoutCreateInfo layout_info = {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-                    .pNext = nullptr,
-                    .flags = 0,
+                    .sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+                    .pNext          = nullptr,
+                    .flags          = 0,
                     .setLayoutCount = static_cast<uint32_t>( config.descriptorSetLayouts.size( ) ),
                     .pSetLayouts = config.descriptorSetLayouts.empty( ) ? nullptr : config.descriptorSetLayouts.data( ),
 
@@ -75,20 +75,22 @@ namespace TL {
             VKCALL( vkCreatePipelineLayout( vkctx->device, &layout_info, nullptr, &layout ) );
 
             const VkPipelineShaderStageCreateInfo stage_create_info = {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                    .pNext = nullptr,
-                    .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+                    .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                    .pNext  = nullptr,
+                    .stage  = VK_SHADER_STAGE_COMPUTE_BIT,
                     .module = compute,
-                    .pName = "main",
+                    .pName  = "main",
             };
 
             VkComputePipelineCreateInfo create_info{ };
-            create_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-            create_info.pNext = nullptr;
+            create_info.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+            create_info.pNext  = nullptr;
             create_info.layout = layout;
-            create_info.stage = stage_create_info;
+            create_info.stage  = stage_create_info;
 
             VKCALL( vkCreateComputePipelines( vkctx->device, VK_NULL_HANDLE, 1, &create_info, nullptr, &pipeline ) );
+
+            vkDestroyShaderModule( vkctx->device, compute, nullptr );
 
             return;
         }
@@ -96,29 +98,29 @@ namespace TL {
         if ( config.pixel != nullptr && config.vertex != nullptr ) {
             // shader stage
             const auto vertex = shaders::LoadShaderModule( vkctx->device, config.vertex );
-            const auto pixel = shaders::LoadShaderModule( vkctx->device, config.pixel );
+            const auto pixel  = shaders::LoadShaderModule( vkctx->device, config.pixel );
 
 
             assert( vertex != VK_NULL_HANDLE && "Could not find vertex shader" );
             assert( pixel != VK_NULL_HANDLE && "Could not find pixel shader" );
 
             std::array shader_stages_info = {
-                    VkPipelineShaderStageCreateInfo{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                                                     .pNext = nullptr,
-                                                     .flags = 0,
-                                                     .stage = VK_SHADER_STAGE_VERTEX_BIT,
+                    VkPipelineShaderStageCreateInfo{ .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                                                     .pNext  = nullptr,
+                                                     .flags  = 0,
+                                                     .stage  = VK_SHADER_STAGE_VERTEX_BIT,
                                                      .module = vertex,
-                                                     .pName = "main",
+                                                     .pName  = "main",
                                                      .pSpecializationInfo = nullptr },
-                    VkPipelineShaderStageCreateInfo{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                                                     .pNext = nullptr,
-                                                     .flags = 0,
-                                                     .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+                    VkPipelineShaderStageCreateInfo{ .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                                                     .pNext  = nullptr,
+                                                     .flags  = 0,
+                                                     .stage  = VK_SHADER_STAGE_FRAGMENT_BIT,
                                                      .module = pixel,
-                                                     .pName = "main",
+                                                     .pName  = "main",
                                                      .pSpecializationInfo = nullptr } };
 
-            std::vector<VkFormat> color_formats;
+            std::vector<VkFormat>                            color_formats;
             std::vector<VkPipelineColorBlendAttachmentState> blend_attachments;
             color_formats.reserve( config.colorTargets.size( ) );
             blend_attachments.reserve( config.colorTargets.size( ) );
@@ -139,18 +141,18 @@ namespace TL {
 
             // No need to configribe viewports and scissor state here since we will be using dynamic states
             VkPipelineViewportStateCreateInfo viewport_info = {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-                    .pNext = nullptr,
+                    .sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+                    .pNext         = nullptr,
                     .viewportCount = 1,
-                    .scissorCount = 1 };
+                    .scissorCount  = 1 };
 
 
             VkPipelineColorBlendStateCreateInfo blend_info = {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-                    .pNext = nullptr,
-                    .logicOpEnable = VK_FALSE,
+                    .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+                    .pNext           = nullptr,
+                    .logicOpEnable   = VK_FALSE,
                     .attachmentCount = static_cast<uint32_t>( blend_attachments.size( ) ),
-                    .pAttachments = blend_attachments.size( ) == 0 ? nullptr : blend_attachments.data( ) };
+                    .pAttachments    = blend_attachments.size( ) == 0 ? nullptr : blend_attachments.data( ) };
 
             // This project used device address for vertex buffers, so we don't really need to configribe anything for
             // vertex input stage
@@ -159,16 +161,16 @@ namespace TL {
 
             // We use dynamic state for scissor and viewport. This, together with dynamic rendering, makes it really
             // nice and simple to use modern vulkan
-            std::array<VkDynamicState, 2> state = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+            std::array<VkDynamicState, 2>    state        = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
             VkPipelineDynamicStateCreateInfo dynamic_info = {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-                    .pNext = nullptr,
+                    .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                    .pNext             = nullptr,
                     .dynamicStateCount = static_cast<uint32_t>( state.size( ) ),
-                    .pDynamicStates = state.data( ) };
+                    .pDynamicStates    = state.data( ) };
 
             VkPipelineInputAssemblyStateCreateInfo input_info = {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-                    .pNext = nullptr,
+                    .sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+                    .pNext    = nullptr,
                     .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST };
 
             VkPipelineRasterizationStateCreateInfo raster_info = {
@@ -176,37 +178,37 @@ namespace TL {
                     .pNext = nullptr,
 
                     .polygonMode = config.polygonMode,
-                    .cullMode = config.cullMode,
-                    .frontFace = config.frontFace,
-                    .lineWidth = config.lineWidth };
+                    .cullMode    = config.cullMode,
+                    .frontFace   = config.frontFace,
+                    .lineWidth   = config.lineWidth };
 
             // TODO: expose this through the parameter structure
             VkPipelineMultisampleStateCreateInfo multisample_info = {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-                    .pNext = nullptr,
-                    .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-                    .sampleShadingEnable = VK_FALSE,
-                    .minSampleShading = 1.0f,
-                    .pSampleMask = nullptr,
+                    .sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                    .pNext                 = nullptr,
+                    .rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT,
+                    .sampleShadingEnable   = VK_FALSE,
+                    .minSampleShading      = 1.0f,
+                    .pSampleMask           = nullptr,
                     .alphaToCoverageEnable = VK_FALSE,
-                    .alphaToOneEnable = VK_FALSE };
+                    .alphaToOneEnable      = VK_FALSE };
 
             VkPipelineDepthStencilStateCreateInfo depth_stencil_info = {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-                    .pNext = nullptr,
-                    .depthTestEnable = config.depthTest,
-                    .depthWriteEnable = config.depthWrite,
-                    .depthCompareOp = config.depthCompare,
+                    .sType             = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+                    .pNext             = nullptr,
+                    .depthTestEnable   = config.depthTest,
+                    .depthWriteEnable  = config.depthWrite,
+                    .depthCompareOp    = config.depthCompare,
                     .stencilTestEnable = false,
-                    .front = { },
-                    .back = { },
-                    .minDepthBounds = 1.0f,
-                    .maxDepthBounds = 0.0f };
+                    .front             = { },
+                    .back              = { },
+                    .minDepthBounds    = 1.0f,
+                    .maxDepthBounds    = 0.0f };
 
             VkPipelineLayoutCreateInfo layout_info = {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-                    .pNext = nullptr,
-                    .flags = 0,
+                    .sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+                    .pNext          = nullptr,
+                    .flags          = 0,
                     .setLayoutCount = static_cast<uint32_t>( config.descriptorSetLayouts.size( ) ),
                     .pSetLayouts = config.descriptorSetLayouts.empty( ) ? nullptr : config.descriptorSetLayouts.data( ),
 
@@ -221,16 +223,16 @@ namespace TL {
 
                                                            .stageCount =
                                                                    static_cast<uint32_t>( shader_stages_info.size( ) ),
-                                                           .pStages = shader_stages_info.data( ),
-                                                           .pVertexInputState = &vertex_info,
+                                                           .pStages             = shader_stages_info.data( ),
+                                                           .pVertexInputState   = &vertex_info,
                                                            .pInputAssemblyState = &input_info,
-                                                           .pViewportState = &viewport_info,
+                                                           .pViewportState      = &viewport_info,
                                                            .pRasterizationState = &raster_info,
-                                                           .pMultisampleState = &multisample_info,
-                                                           .pDepthStencilState = &depth_stencil_info,
-                                                           .pColorBlendState = &blend_info,
-                                                           .pDynamicState = &dynamic_info,
-                                                           .layout = layout };
+                                                           .pMultisampleState   = &multisample_info,
+                                                           .pDepthStencilState  = &depth_stencil_info,
+                                                           .pColorBlendState    = &blend_info,
+                                                           .pDynamicState       = &dynamic_info,
+                                                           .layout              = layout };
 
             if ( vkCreateGraphicsPipelines( vkctx->device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline ) !=
                  VK_SUCCESS ) {

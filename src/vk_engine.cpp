@@ -289,10 +289,7 @@ void TL_Engine::Cleanup( ) {
 
         renderer->Cleanup( );
 
-        m_pbrPipeline.Cleanup( *vkctx );
-        m_wireframePipeline.Cleanup( *vkctx );
         m_imGuiPipeline.Cleanup( *vkctx );
-        m_skyboxPipeline.Cleanup( *vkctx );
 
         m_ibl.Clean( *vkctx );
 
@@ -352,81 +349,6 @@ void TL_Engine::Draw( ) {
     renderer->Present( );
 }
 
-void TL_Engine::PbrPass( VkCommandBuffer cmd ) const {
-    ZoneScopedN( "PBR Pass" );
-    START_LABEL( cmd, "PBR Pass", Vec4( 1.0f, 0.0f, 1.0f, 1.0f ) );
-
-    using namespace vk_init;
-
-    {
-        auto &image = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).hdrColor );
-
-        VkClearValue              clear_color      = { 0.0f, 0.0f, 0.0f, 0.0f };
-        VkRenderingAttachmentInfo color_attachment = AttachmentInfo( image.GetBaseView( ), &clear_color );
-
-        VkRenderingInfo render_info = { .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                                        .pNext                = nullptr,
-                                        .renderArea           = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
-                                        .layerCount           = 1,
-                                        .colorAttachmentCount = 1,
-                                        .pColorAttachments    = &color_attachment,
-                                        .pDepthAttachment     = nullptr,
-                                        .pStencilAttachment   = nullptr };
-        vkCmdBeginRendering( cmd, &render_info );
-    }
-
-    m_pbrPipeline.Draw( *vkctx, cmd, m_sceneData, m_gpuDirectionalLights, m_gpuPointLights,
-                        vkctx->GetCurrentFrame( ).gBuffer, m_ibl.GetIrradiance( ), m_ibl.GetRadiance( ),
-                        m_ibl.GetBrdf( ) );
-
-    vkCmdEndRendering( cmd );
-
-    END_LABEL( cmd );
-}
-
-void TL_Engine::SkyboxPass( VkCommandBuffer cmd ) const {
-    ZoneScopedN( "Skybox Pass" );
-    START_LABEL( cmd, "Skybox Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
-
-    using namespace vk_init;
-
-    {
-        auto &image = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).hdrColor );
-        auto &depth = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
-
-        VkRenderingAttachmentInfo color_attachment = AttachmentInfo( image.GetBaseView( ), nullptr );
-
-        VkRenderingAttachmentInfo depth_attachment = {
-                .sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                .pNext       = nullptr,
-                .imageView   = depth.GetBaseView( ),
-                .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                .loadOp      = VK_ATTACHMENT_LOAD_OP_LOAD,
-                .storeOp     = VK_ATTACHMENT_STORE_OP_STORE,
-        };
-        VkRenderingInfo render_info = { .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                                        .pNext                = nullptr,
-                                        .renderArea           = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
-                                        .layerCount           = 1,
-                                        .colorAttachmentCount = 1,
-                                        .pColorAttachments    = &color_attachment,
-                                        .pDepthAttachment     = &depth_attachment,
-                                        .pStencilAttachment   = nullptr };
-        vkCmdBeginRendering( cmd, &render_info );
-    }
-
-    if ( m_rendererOptions.renderIrradianceInsteadSkybox ) {
-        m_skyboxPipeline.Draw( *vkctx, cmd, m_ibl.GetIrradiance( ), m_sceneData );
-    }
-    else {
-        m_skyboxPipeline.Draw( *vkctx, cmd, m_ibl.GetSkybox( ), m_sceneData );
-    }
-
-    vkCmdEndRendering( cmd );
-
-    END_LABEL( cmd );
-}
-
 void TL_Engine::InitDefaultData( ) {
     InitImages( );
 
@@ -435,10 +357,6 @@ void TL_Engine::InitDefaultData( ) {
                                       VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
 
     m_mainDeletionQueue.PushFunction( [=, this]( ) { vkctx->Free( m_gpuSceneData ); } );
-
-    m_pbrPipeline.Init( *vkctx );
-    m_wireframePipeline.Init( *vkctx );
-    m_skyboxPipeline.Init( *vkctx );
 }
 
 void TL_Engine::InitImages( ) {
@@ -806,8 +724,6 @@ void TL_Engine::Run( ) {
 
                     if ( ImGui::CollapsingHeader( "Renderer" ) ) {
                         ImGui::Indent( );
-
-                        m_pbrPipeline.DrawDebug( );
 
                         if ( ImGui::CollapsingHeader( "Frustum Culling" ) ) {
                             ImGui::Indent( );

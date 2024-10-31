@@ -112,6 +112,12 @@ namespace TL {
         int     pad4;
     };
 
+    struct SkyboxPushConstants {
+        VkDeviceAddress sceneDataAddress;
+        VkDeviceAddress vertexBufferAddress;
+        uint32_t textureId;
+    };
+
     class Renderer {
     public:
         void Init( struct SDL_Window *window, Vec2 extent );
@@ -160,10 +166,12 @@ namespace TL {
         void SetViewportAndScissor( VkCommandBuffer cmd ) noexcept;
 
         void PreparePbrPass( );
+        void PrepareSkyboxPass( );
 
         void GBufferPass( );
         void ShadowMapPass( );
         void PbrPass( );
+        void SkyboxPass( );
         void PostProcessPass( );
 
         Vec2 m_extent = { };
@@ -180,5 +188,8 @@ namespace TL {
         std::shared_ptr<Buffer> m_gpuIbl                     = nullptr;
         std::shared_ptr<Buffer> m_gpuDirectionalLightsBuffer = nullptr;
         std::shared_ptr<Buffer> m_gpuPointLightsBuffer       = nullptr;
+
+        // Skybox
+        MeshId m_skyboxMesh = -1;
     };
 } // namespace TL

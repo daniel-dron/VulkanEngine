@@ -18,10 +18,6 @@
 #include <graphics/ibl.h>
 #include <graphics/material_codex.h>
 #include <graphics/pipelines/imgui_pipeline.h>
-#include <graphics/pipelines/pbr_pipeline.h>
-#include <graphics/pipelines/skybox_pipeline.h>
-#include <graphics/pipelines/wireframe_pipeline.h>
-#include <imgui_impl_sdl2.h>
 #include <utils/ImGuiProfilerRenderer.h>
 #include <utils/imgui_console.h>
 #include <vk_types.h>
@@ -101,10 +97,7 @@ public:
     DeletionQueue m_mainDeletionQueue;
 
     MaterialCodex m_materialCodex = { };
-    PbrPipeline m_pbrPipeline = { };
-    WireframePipeline m_wireframePipeline = { };
     ImGuiPipeline m_imGuiPipeline = { };
-    SkyboxPipeline m_skyboxPipeline = { };
 
     // post process
     float m_backupGamma = 2.2f;

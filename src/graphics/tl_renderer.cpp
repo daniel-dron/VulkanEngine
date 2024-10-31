@@ -33,6 +33,7 @@ namespace TL {
                                                      TL_VkContext::FrameOverlap, nullptr, "Scene Buffer" );
 
         PreparePbrPass( );
+        PrepareSkyboxPass( );
     }
 
     void Renderer::Cleanup( ) {
@@ -40,6 +41,8 @@ namespace TL {
         m_gpuIbl.reset( );
         m_gpuPointLightsBuffer.reset( );
         m_gpuDirectionalLightsBuffer.reset( );
+
+        vkDestroyDescriptorSetLayout( vkctx->device, m_pbrSetLayout, nullptr );
     }
 
     void Renderer::StartFrame( ) noexcept {
@@ -58,7 +61,7 @@ namespace TL {
         // Start command recording (for now we use one single command buffer for the entire main passes)
         auto cmd = frame.commandBuffer;
         VKCALL( vkResetCommandBuffer( cmd, 0 ) );
-        auto cmd_begin_info = vk_init::CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
+        auto cmd_begin_info = CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
         VKCALL( vkBeginCommandBuffer( cmd, &cmd_begin_info ) );
 
         if ( vkctx->frameNumber == 0 ) {
@@ -81,16 +84,7 @@ namespace TL {
         SetViewportAndScissor( frame.commandBuffer );
         GBufferPass( );
         PbrPass( );
-
-        auto cmd = frame.commandBuffer;
-
-        // vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 4 );
-        // TL_Engine::Get( ).PbrPass( cmd );
-        // vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 5 );
-
-        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 6 );
-        TL_Engine::Get( ).SkyboxPass( cmd );
-        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 7 );
+        SkyboxPass( );
 
         PostProcessPass( );
     }
@@ -232,6 +226,7 @@ namespace TL {
                 .extent = { .width = static_cast<u32>( m_extent.x ), .height = static_cast<u32>( m_extent.y ) } };
         vkCmdSetScissor( cmd, 0, 1, &scissor );
     }
+
     void Renderer::PreparePbrPass( ) {
         DescriptorLayoutBuilder layout_builder;
         layout_builder.AddBinding( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
@@ -249,6 +244,100 @@ namespace TL {
 
         m_gpuPointLightsBuffer = std::make_shared<Buffer>( BufferType::TConstant, sizeof( GpuPointLight ) * 10,
                                                            TL_VkContext::FrameOverlap, nullptr, "[TL] Point Lights" );
+    }
+
+    void Renderer::PrepareSkyboxPass( ) {
+        const std::vector<Mesh::Vertex> vertices = { // Front face
+                                                     { { -1.0f, 1.0f, 1.0f },
+                                                       0.0f,
+                                                       { 0.0f, 0.0f, 1.0f },
+                                                       0.0f,
+                                                       { 1.0f, 2.0f, 3.0f },
+                                                       0.0f,
+                                                       { 4.0f, 5.0f, 6.0f },
+                                                       0.0f },
+                                                     { { 1.0f, 1.0f, 1.0f },
+                                                       1.0f,
+                                                       { 0.0f, 0.0f, 1.0f },
+                                                       0.0f,
+                                                       { 1.0f, 0.0f, 0.0f },
+                                                       0.0f,
+                                                       { 0.0f, 0.0f, 0.0f },
+                                                       0.0f },
+                                                     { { 1.0f, -1.0f, 1.0f },
+                                                       1.0f,
+                                                       { 0.0f, 0.0f, 1.0f },
+                                                       1.0f,
+                                                       { 1.0f, 0.0f, 0.0f },
+                                                       0.0f,
+                                                       { 0.0f, 0.0f, 0.0f },
+                                                       0.0f },
+                                                     { { -1.0f, -1.0f, 1.0f },
+                                                       0.0f,
+                                                       { 0.0f, 0.0f, 1.0f },
+                                                       1.0f,
+                                                       { 1.0f, 0.0f, 0.0f },
+                                                       0.0f,
+                                                       { 0.0f, 0.0f, 0.0f },
+                                                       0.0f },
+
+                                                     // Back face
+                                                     { { -1.0f, 1.0f, -1.0f },
+                                                       1.0f,
+                                                       { 0.0f, 0.0f, -1.0f },
+                                                       0.0f,
+                                                       { -1.0f, 0.0f, 0.0f },
+                                                       0.0f,
+                                                       { 0.0f, 0.0f, 0.0f },
+                                                       0.0f },
+                                                     { { 1.0f, 1.0f, -1.0f },
+                                                       0.0f,
+                                                       { 0.0f, 0.0f, -1.0f },
+                                                       0.0f,
+                                                       { -1.0f, 0.0f, 0.0f },
+                                                       0.0f,
+                                                       { 0.0f, 0.0f, 0.0f },
+                                                       0.0f },
+                                                     { { 1.0f, -1.0f, -1.0f },
+                                                       0.0f,
+                                                       { 0.0f, 0.0f, -1.0f },
+                                                       1.0f,
+                                                       { -1.0f, 0.0f, 0.0f },
+                                                       0.0f,
+                                                       { 0.0f, 0.0f, 0.0f },
+                                                       0.0f },
+                                                     { { -1.0f, -1.0f, -1.0f },
+                                                       1.0f,
+                                                       { 0.0f, 0.0f, -1.0f },
+                                                       1.0f,
+                                                       { -1.0f, 0.0f, 0.0f },
+                                                       0.0f,
+                                                       { 0.0f, 0.0f, 0.0f },
+                                                       0.0f } };
+
+        const std::vector<uint32_t> indices = { // Front face
+                                                0, 1, 2, 2, 3, 0,
+
+                                                // Right face
+                                                1, 5, 6, 6, 2, 1,
+
+                                                // Back face
+                                                5, 4, 7, 7, 6, 5,
+
+                                                // Left face
+                                                4, 0, 3, 3, 7, 4,
+
+                                                // Top face
+                                                4, 5, 1, 1, 0, 4,
+
+                                                // Bottom face
+                                                3, 2, 6, 6, 7, 3 };
+
+        const Mesh mesh = {
+                .vertices = vertices,
+                .indices  = { indices },
+        };
+        m_skyboxMesh = vkctx->meshCodex.AddMesh( *vkctx, mesh );
     }
 
     void Renderer::GBufferPass( ) {
@@ -476,6 +565,67 @@ namespace TL {
 
         vkCmdEndRendering( cmd );
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 5 );
+        END_LABEL( cmd );
+    }
+
+    void Renderer::SkyboxPass( ) {
+        auto &frame = vkctx->GetCurrentFrame( );
+        auto  cmd   = frame.commandBuffer;
+        auto &hdr   = vkctx->imageCodex.GetImage( frame.hdrColor );
+        auto &depth = vkctx->imageCodex.GetImage( frame.depth );
+
+        auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
+                .name                 = "skybox",
+                .vertex               = "../shaders/skybox.vert.spv",
+                .pixel                = "../shaders/skybox.frag.spv",
+                .cullMode             = VK_CULL_MODE_NONE,
+                .depthWrite           = false,
+                .colorTargets         = { { .format = hdr.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF } },
+                .pushConstantRanges   = { { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                            .offset     = 0,
+                                            .size       = sizeof( SkyboxPushConstants ) } },
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) } } );
+
+        START_LABEL( cmd, "Skybox Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 6 );
+
+
+        VkRenderingAttachmentInfo color_attachment = AttachmentInfo( hdr.GetBaseView( ), nullptr );
+        VkRenderingAttachmentInfo depth_attachment = { .sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                                                       .pNext       = nullptr,
+                                                       .imageView   = depth.GetBaseView( ),
+                                                       .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                                       .loadOp      = VK_ATTACHMENT_LOAD_OP_LOAD,
+                                                       .storeOp     = VK_ATTACHMENT_STORE_OP_STORE };
+        VkRenderingInfo           render_info      = { .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                                       .pNext                = nullptr,
+                                                       .renderArea           = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
+                                                       .layerCount           = 1,
+                                                       .colorAttachmentCount = 1,
+                                                       .pColorAttachments    = &color_attachment,
+                                                       .pDepthAttachment     = &depth_attachment,
+                                                       .pStencilAttachment   = nullptr };
+        vkCmdBeginRendering( cmd, &render_info );
+
+        vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
+
+        auto bindless_set = vkctx->GetBindlessSet( );
+        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0,
+                                 nullptr );
+
+        auto &mesh = vkctx->meshCodex.GetMesh( m_skyboxMesh );
+        vkCmdBindIndexBuffer( cmd, mesh.indexBuffer[0].buffer, 0, VK_INDEX_TYPE_UINT32 );
+
+        const SkyboxPushConstants push_constants = { .sceneDataAddress    = m_sceneBufferGpu->GetDeviceAddress( ),
+                                                     .vertexBufferAddress = mesh.vertexBufferAddress,
+                                                     .textureId           = TL_Engine::Get( ).m_ibl.GetSkybox( ) };
+        vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                            sizeof( SkyboxPushConstants ), &push_constants );
+
+        vkCmdDrawIndexed( cmd, mesh.indexCount[0], 1, 0, 0, 0 );
+
+        vkCmdEndRendering( cmd );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 7 );
         END_LABEL( cmd );
     }
 
