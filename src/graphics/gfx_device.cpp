@@ -43,16 +43,16 @@ ImmediateExecutor::Result<> ImmediateExecutor::Init( TL_VkContext *gfx ) {
     VKCALL( vkCreateFence( gfx->device, &fence_info, nullptr, &fence ) );
 
     // Pool and buffer creation
-    const VkCommandPoolCreateInfo pool_info = { .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-                                                .pNext = nullptr,
-                                                .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+    const VkCommandPoolCreateInfo pool_info = { .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+                                                .pNext            = nullptr,
+                                                .flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
                                                 .queueFamilyIndex = gfx->graphicsQueueFamily };
     VKCALL( vkCreateCommandPool( gfx->device, &pool_info, nullptr, &pool ) );
 
-    const VkCommandBufferAllocateInfo buffer_info = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                                                      .pNext = nullptr,
+    const VkCommandBufferAllocateInfo buffer_info = { .sType       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+                                                      .pNext       = nullptr,
                                                       .commandPool = pool,
-                                                      .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+                                                      .level       = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
                                                       .commandBufferCount = 1 };
     VKCALL( vkAllocateCommandBuffers( gfx->device, &buffer_info, &commandBuffer ) );
 
@@ -65,11 +65,11 @@ void ImmediateExecutor::Execute( std::function<void( VkCommandBuffer cmd )> &&fu
     VKCALL( vkResetFences( m_gfx->device, 1, &fence ) );
     VKCALL( vkResetCommandBuffer( commandBuffer, 0 ) );
 
-    const auto cmd = commandBuffer;
+    const auto                         cmd  = commandBuffer;
     constexpr VkCommandBufferBeginInfo info = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .pNext = nullptr,
-            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .pNext            = nullptr,
+            .flags            = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
             .pInheritanceInfo = nullptr,
     };
     VKCALL( vkBeginCommandBuffer( cmd, &info ) );
@@ -79,20 +79,20 @@ void ImmediateExecutor::Execute( std::function<void( VkCommandBuffer cmd )> &&fu
     VKCALL( vkEndCommandBuffer( cmd ) );
 
     const VkCommandBufferSubmitInfo submit_info = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-            .pNext = nullptr,
+            .sType         = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+            .pNext         = nullptr,
             .commandBuffer = cmd,
-            .deviceMask = 0,
+            .deviceMask    = 0,
     };
     const VkSubmitInfo2 submit = {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-            .pNext = nullptr,
-            .waitSemaphoreInfoCount = 0,
-            .pWaitSemaphoreInfos = nullptr,
-            .commandBufferInfoCount = 1,
-            .pCommandBufferInfos = &submit_info,
+            .sType                    = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+            .pNext                    = nullptr,
+            .waitSemaphoreInfoCount   = 0,
+            .pWaitSemaphoreInfos      = nullptr,
+            .commandBufferInfoCount   = 1,
+            .pCommandBufferInfos      = &submit_info,
             .signalSemaphoreInfoCount = 0,
-            .pSignalSemaphoreInfos = nullptr,
+            .pSignalSemaphoreInfos    = nullptr,
     };
 
     VKCALL( vkQueueSubmit2( m_gfx->graphicsQueue, 1, &submit, fence ) );
@@ -106,11 +106,12 @@ void ImmediateExecutor::Cleanup( ) const {
     vkDestroyCommandPool( m_gfx->device, pool, nullptr );
 }
 
-TL_VkContext::TL_VkContext( SDL_Window *window ) { Init( window ); }
+TL_VkContext::TL_VkContext( SDL_Window *window ) {
+    InitDevice( window );
+    InitAllocator( );
+}
 
-TL_VkContext::Result<> TL_VkContext::Init( SDL_Window *window ) {
-    RETURN_IF_ERROR( InitDevice( window ) );
-    RETURN_IF_ERROR( InitAllocator( ) );
+TL_VkContext::Result<> TL_VkContext::Init( ) {
 
     shaderStorage = std::make_unique<ShaderStorage>( this );
 
@@ -122,7 +123,7 @@ TL_VkContext::Result<> TL_VkContext::Init( SDL_Window *window ) {
     executor.Init( this );
 
     imageCodex.Init( this );
-    materialCodex.Init( *this );
+    materialCodex.Init( );
 
     // .Init( this, WIDTH, HEIGHT );
     InitSwapchain( WIDTH, HEIGHT );
@@ -138,7 +139,7 @@ GpuBuffer TL_VkContext::Allocate( size_t size, VkBufferUsageFlags usage, VmaMemo
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, .pNext = nullptr, .size = size, .usage = usage };
 
     const VmaAllocationCreateInfo vma_info = { .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT |
-                                                       VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                .usage = vmaUsage };
 
     GpuBuffer buffer{ };
@@ -147,11 +148,11 @@ GpuBuffer TL_VkContext::Allocate( size_t size, VkBufferUsageFlags usage, VmaMemo
 
 #ifdef ENABLE_DEBUG_UTILS
     allocationCounter[name]++;
-    const VkDebugUtilsObjectNameInfoEXT obj = { .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-                                                .pNext = nullptr,
-                                                .objectType = VK_OBJECT_TYPE_BUFFER,
+    const VkDebugUtilsObjectNameInfoEXT obj = { .sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+                                                .pNext        = nullptr,
+                                                .objectType   = VK_OBJECT_TYPE_BUFFER,
                                                 .objectHandle = reinterpret_cast<uint64_t>( buffer.buffer ),
-                                                .pObjectName = name.c_str( ) };
+                                                .pObjectName  = name.c_str( ) };
     vkSetDebugUtilsObjectNameEXT( device, &obj );
 #endif
 
@@ -172,7 +173,7 @@ void TL_VkContext::Cleanup( ) {
 
     m_pipelines.clear( );
 
-    materialCodex.Cleanup( *this );
+    materialCodex.Cleanup( );
     imageCodex.Cleanup( );
     meshCodex.Cleanup( *this );
     executor.Cleanup( );
@@ -226,11 +227,11 @@ float TL_VkContext::GetTimestampInMs( uint64_t start, uint64_t end ) const {
 void TL_VkContext::SetObjectDebugName( VkObjectType type, void *object, const std::string &name ) {
 #ifdef ENABLE_DEBUG_FEATURES
     const VkDebugUtilsObjectNameInfoEXT obj = {
-            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-            .pNext = nullptr,
-            .objectType = type,
+            .sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+            .pNext        = nullptr,
+            .objectType   = type,
             .objectHandle = reinterpret_cast<uint64_t>( object ),
-            .pObjectName = name.c_str( ),
+            .pObjectName  = name.c_str( ),
     };
     vkSetDebugUtilsObjectNameEXT( device, &obj );
 #endif
@@ -239,14 +240,14 @@ void TL_VkContext::SetObjectDebugName( VkObjectType type, void *object, const st
 TL_FrameData &TL_VkContext::GetCurrentFrame( ) { return frames.at( frameNumber % FrameOverlap ); }
 
 void TL_VkContext::DrawDebug( ) const {
-    auto props = deviceProperties.properties;
+    auto       props  = deviceProperties.properties;
     const auto limits = props.limits;
 
     ImGui::Text( "Device Name: %s", props.deviceName );
     ImGui::Text( "Driver Version: %d.%d.%d", VK_VERSION_MAJOR( props.driverVersion ),
                  VK_VERSION_MINOR( props.driverVersion ), VK_VERSION_PATCH( props.driverVersion ) );
 
-    VkDeviceSize total_vram = 0;
+    VkDeviceSize total_vram       = 0;
     VkDeviceSize total_system_ram = 0;
     for ( uint32_t i = 0; i < memProperties.memoryHeapCount; i++ ) {
         if ( memProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT ) {
@@ -278,10 +279,10 @@ void TL_VkContext::DrawDebug( ) const {
                  ( props.limits.maxTessellationGenerationLevel > 0 ) ? "Yes" : "No" );
 }
 
-VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback( VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                                              VkDebugUtilsMessageTypeFlagsEXT messageType,
+VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback( VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
+                                              VkDebugUtilsMessageTypeFlagsEXT             messageType,
                                               const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-                                              void *pUserData ) {
+                                              void                                       *pUserData ) {
 
     auto &engine = TL_Engine::Get( );
     engine.console.AddLog( "{}", pCallbackData->pMessage );
@@ -292,7 +293,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback( VkDebugUtilsMessageSeverityFlagBit
 TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window *window ) {
     // Instance
     InstanceBuilder builder;
-    auto instance_prototype = builder.set_app_name( "Vulkan Engine" )
+    auto            instance_prototype = builder.set_app_name( "Vulkan Engine" )
                                       .request_validation_layers( B_USE_VALIDATION_LAYERS )
                                       .enable_extension( "VK_EXT_debug_utils" )
                                       .set_debug_callback( debugCallback )
@@ -312,31 +313,31 @@ TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window *window ) {
 
     // Device
     VkPhysicalDeviceVulkan13Features features_13{
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+            .sType            = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
             .synchronization2 = true,
             .dynamicRendering = true,
     };
     VkPhysicalDeviceVulkan12Features features_12{
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-            .descriptorIndexing = true,
+            .sType                                        = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+            .descriptorIndexing                           = true,
             .descriptorBindingSampledImageUpdateAfterBind = true,
             .descriptorBindingStorageImageUpdateAfterBind = true,
-            .descriptorBindingPartiallyBound = true,
-            .runtimeDescriptorArray = true,
-            .hostQueryReset = true,
-            .bufferDeviceAddress = true,
+            .descriptorBindingPartiallyBound              = true,
+            .runtimeDescriptorArray                       = true,
+            .hostQueryReset                               = true,
+            .bufferDeviceAddress                          = true,
     };
     VkPhysicalDeviceVulkan11Features features_11{
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+            .sType     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
             .multiview = true,
     };
     VkPhysicalDeviceFeatures features{
-            .fillModeNonSolid = true,
+            .fillModeNonSolid  = true,
             .samplerAnisotropy = true,
     };
 
     PhysicalDeviceSelector selector{ bs_instance };
-    auto physical_device_res = selector.set_minimum_version( 1, 3 )
+    auto                   physical_device_res = selector.set_minimum_version( 1, 3 )
                                        .set_required_features_13( features_13 )
                                        .set_required_features_12( features_12 )
                                        .set_required_features_11( features_11 )
@@ -352,7 +353,7 @@ TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window *window ) {
     }
 
     auto &physical_device = physical_device_res.value( );
-    chosenGpu = physical_device;
+    chosenGpu             = physical_device;
 
     for ( const auto &ext : physical_device.get_available_extensions( ) ) {
         TL_Engine::Get( ).console.AddLog( "{}", ext.c_str( ) );
@@ -368,13 +369,13 @@ TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window *window ) {
 
     // Logical Device
     DeviceBuilder device_builder{ physical_device };
-    auto device_res = device_builder.build( );
+    auto          device_res = device_builder.build( );
     if ( !device_res ) {
         return std::unexpected( GfxDeviceError{ Error::LogicalDeviceCreationFailed } );
     }
 
     auto &bs_device = device_res.value( );
-    device = bs_device;
+    device          = bs_device;
 
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties( physical_device.physical_device, &properties );
@@ -384,10 +385,10 @@ TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window *window ) {
     TL_Engine::Get( ).console.AddLog( "Max sampled images: {}", max_descriptor_set_count );
 
     // Queue
-    graphicsQueue = bs_device.get_queue( QueueType::graphics ).value( );
+    graphicsQueue       = bs_device.get_queue( QueueType::graphics ).value( );
     graphicsQueueFamily = bs_device.get_queue_index( QueueType::graphics ).value( );
 
-    computeQueue = bs_device.get_queue( QueueType::compute ).value( );
+    computeQueue       = bs_device.get_queue( QueueType::compute ).value( );
     computeQueueFamily = bs_device.get_queue_index( QueueType::compute ).value( );
     const VkCommandPoolCreateInfo command_pool_info =
             vk_init::CommandPoolCreateInfo( computeQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
@@ -402,10 +403,10 @@ TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window *window ) {
 
 TL_VkContext::Result<> TL_VkContext::InitAllocator( ) {
     const VmaAllocatorCreateInfo info = {
-            .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
+            .flags          = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
             .physicalDevice = chosenGpu,
-            .device = device,
-            .instance = instance,
+            .device         = device,
+            .instance       = instance,
     };
 
     if ( vmaCreateAllocator( &info, &allocator ) != VK_SUCCESS ) {
@@ -422,7 +423,7 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
     format = VK_FORMAT_R8G8B8A8_SRGB;
 
     auto swapchain_res = builder.set_desired_format( VkSurfaceFormatKHR{
-                                                             .format = format,
+                                                             .format     = format,
                                                              .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
                                                      } )
                                  .set_desired_present_mode( presentMode )
@@ -435,8 +436,8 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
     auto &bs_swapchain = swapchain_res.value( );
 
     swapchain = bs_swapchain.swapchain;
-    images = bs_swapchain.get_images( ).value( );
-    views = bs_swapchain.get_image_views( ).value( );
+    images    = bs_swapchain.get_images( ).value( );
+    views     = bs_swapchain.get_image_views( ).value( );
 
     assert( images.size( ) != 0 );
     assert( views.size( ) != 0 );
@@ -450,16 +451,16 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
         VKCALL( vkAllocateCommandBuffers( device, &cmd_alloc_info, &frames[i].commandBuffer ) );
 
         const VkDebugUtilsObjectNameInfoEXT obj = {
-                .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-                .pNext = nullptr,
-                .objectType = VK_OBJECT_TYPE_COMMAND_BUFFER,
+                .sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+                .pNext        = nullptr,
+                .objectType   = VK_OBJECT_TYPE_COMMAND_BUFFER,
                 .objectHandle = reinterpret_cast<uint64_t>( frames[i].commandBuffer ),
-                .pObjectName = "Main CMD",
+                .pObjectName  = "Main CMD",
         };
         vkSetDebugUtilsObjectNameEXT( device, &obj );
     }
 
-    auto fenceCreateInfo = vk_init::FenceCreateInfo( VK_FENCE_CREATE_SIGNALED_BIT );
+    auto fenceCreateInfo     = vk_init::FenceCreateInfo( VK_FENCE_CREATE_SIGNALED_BIT );
     auto semaphoreCreateInfo = vk_init::SemaphoreCreateInfo( );
 
     for ( int i = 0; i < FrameOverlap; i++ ) {
@@ -480,7 +481,7 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
     depth_image_usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
     constexpr VkImageUsageFlags usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    const VkExtent3D extent = { .width = this->extent.width, .height = this->extent.height, .depth = 1 };
+    const VkExtent3D            extent = { .width = this->extent.width, .height = this->extent.height, .depth = 1 };
 
     // TODO: transition to correct layout ( check validation layers )
     for ( auto &frame : frames ) {
@@ -492,7 +493,7 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
         frame.postProcessImage =
                 imageCodex.CreateEmptyImage( "post process", draw_image_extent, VK_FORMAT_R8G8B8A8_UNORM,
                                              draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
-        auto& ppi = imageCodex.GetImage( frame.postProcessImage );
+        auto &ppi = imageCodex.GetImage( frame.postProcessImage );
         imageCodex.bindlessRegistry.AddStorageImage( *this, frame.postProcessImage, ppi.GetBaseView( ) );
 
         empty_image_data.resize( extent.width * extent.height * 4, 0 );
@@ -503,18 +504,18 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
 
         frame.gBuffer.position = imageCodex.LoadImageFromData( "gbuffer.position", empty_data.data( ), extent,
                                                                VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
-        frame.gBuffer.normal = imageCodex.LoadImageFromData( "gbuffer.normal", empty_data.data( ), extent,
-                                                             VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
-        frame.gBuffer.pbr = imageCodex.LoadImageFromData( "gbuffer.pbr", empty_data.data( ), extent,
-                                                          VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
-        frame.gBuffer.albedo = imageCodex.LoadImageFromData( "gbuffer.albedo", empty_data.data( ), extent,
-                                                             VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+        frame.gBuffer.normal   = imageCodex.LoadImageFromData( "gbuffer.normal", empty_data.data( ), extent,
+                                                               VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+        frame.gBuffer.pbr      = imageCodex.LoadImageFromData( "gbuffer.pbr", empty_data.data( ), extent,
+                                                               VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
+        frame.gBuffer.albedo   = imageCodex.LoadImageFromData( "gbuffer.albedo", empty_data.data( ), extent,
+                                                               VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
 
         // Query Pool
         VkQueryPoolCreateInfo query_pool_create_info = {
-                .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
-                .pNext = nullptr,
-                .queryType = VK_QUERY_TYPE_TIMESTAMP,
+                .sType      = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+                .pNext      = nullptr,
+                .queryType  = VK_QUERY_TYPE_TIMESTAMP,
                 .queryCount = static_cast<uint32_t>( frame.gpuTimestamps.size( ) ),
         };
         VKCALL( vkCreateQueryPool( device, &query_pool_create_info, nullptr, &frame.queryPoolTimestamps ) );
@@ -569,24 +570,24 @@ void TL_VkContext::InitDebugFunctions( ) const {
 }
 
 namespace Debug {
-    PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabelEXT_ptr = nullptr;
-    PFN_vkCmdEndDebugUtilsLabelEXT vkCmdEndDebugUtilsLabelEXT_ptr = nullptr;
-    PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabelEXT_ptr = nullptr;
-    PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT_ptr = nullptr;
+    PFN_vkCmdBeginDebugUtilsLabelEXT    vkCmdBeginDebugUtilsLabelEXT_ptr    = nullptr;
+    PFN_vkCmdEndDebugUtilsLabelEXT      vkCmdEndDebugUtilsLabelEXT_ptr      = nullptr;
+    PFN_vkCmdInsertDebugUtilsLabelEXT   vkCmdInsertDebugUtilsLabelEXT_ptr   = nullptr;
+    PFN_vkCreateDebugUtilsMessengerEXT  vkCreateDebugUtilsMessengerEXT_ptr  = nullptr;
     PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT_ptr = nullptr;
-    PFN_vkQueueBeginDebugUtilsLabelEXT vkQueueBeginDebugUtilsLabelEXT_ptr = nullptr;
-    PFN_vkQueueEndDebugUtilsLabelEXT vkQueueEndDebugUtilsLabelEXT_ptr = nullptr;
+    PFN_vkQueueBeginDebugUtilsLabelEXT  vkQueueBeginDebugUtilsLabelEXT_ptr  = nullptr;
+    PFN_vkQueueEndDebugUtilsLabelEXT    vkQueueEndDebugUtilsLabelEXT_ptr    = nullptr;
     PFN_vkQueueInsertDebugUtilsLabelEXT vkQueueInsertDebugUtilsLabelEXT_ptr = nullptr;
-    PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT_ptr = nullptr;
-    PFN_vkSetDebugUtilsObjectTagEXT vkSetDebugUtilsObjectTagEXT_ptr = nullptr;
-    PFN_vkSubmitDebugUtilsMessageEXT vkSubmitDebugUtilsMessageEXT_ptr = nullptr;
+    PFN_vkSetDebugUtilsObjectNameEXT    vkSetDebugUtilsObjectNameEXT_ptr    = nullptr;
+    PFN_vkSetDebugUtilsObjectTagEXT     vkSetDebugUtilsObjectTagEXT_ptr     = nullptr;
+    PFN_vkSubmitDebugUtilsMessageEXT    vkSubmitDebugUtilsMessageEXT_ptr    = nullptr;
 
     void StartLabel( VkCommandBuffer cmd, const std::string &name, Vec4 color ) {
         const VkDebugUtilsLabelEXT label = {
-                .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
-                .pNext = nullptr,
+                .sType      = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+                .pNext      = nullptr,
                 .pLabelName = name.c_str( ),
-                .color = { color[0], color[1], color[2], color[3] },
+                .color      = { color[0], color[1], color[2], color[3] },
         };
         vkCmdBeginDebugUtilsLabelEXT( cmd, &label );
     }
@@ -608,7 +609,7 @@ void vkCmdInsertDebugUtilsLabelEXT( VkCommandBuffer commandBuffer, const VkDebug
 
 VkResult vkCreateDebugUtilsMessengerEXT( VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
                                          const VkAllocationCallbacks *pAllocator,
-                                         VkDebugUtilsMessengerEXT *pMessenger ) {
+                                         VkDebugUtilsMessengerEXT    *pMessenger ) {
     return Debug::vkCreateDebugUtilsMessengerEXT_ptr( instance, pCreateInfo, pAllocator, pMessenger );
 }
 
@@ -636,7 +637,7 @@ VkResult vkSetDebugUtilsObjectTagEXT( VkDevice device, const VkDebugUtilsObjectT
 }
 
 void vkSubmitDebugUtilsMessageEXT( VkInstance instance, VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                                   VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+                                   VkDebugUtilsMessageTypeFlagsEXT             messageTypes,
                                    const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData ) {
     return Debug::vkSubmitDebugUtilsMessageEXT_ptr( instance, messageSeverity, messageTypes, pCallbackData );
 }

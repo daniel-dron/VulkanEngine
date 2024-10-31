@@ -32,6 +32,8 @@
 
 #include <filesystem>
 
+using namespace TL;
+
 static std::vector<Material> LoadMaterials( const aiScene *scene, const std::string &basePath,
                                             std::vector<std::string> &externalTexturePaths ) {
     const auto n_materials = scene->mNumMaterials;
@@ -316,7 +318,7 @@ static std::vector<MaterialId> UploadMaterials( TL_VkContext &gfx, const std::ve
 
     gpu_materials.reserve( materials.size( ) );
     for ( auto &material : materials ) {
-        gpu_materials.push_back( gfx.materialCodex.AddMaterial( gfx, material ) );
+        gpu_materials.push_back( gfx.materialCodex.AddMaterial( material ) );
     }
 
     return gpu_materials;
@@ -385,7 +387,7 @@ static std::shared_ptr<Node> LoadNode( Scene &scene, const aiScene *ai_scene, co
 
             MeshAsset mesh_asset;
             mesh_asset.material = scene.materials[ai_scene->mMeshes[mesh]->mMaterialIndex];
-            mesh_asset.mesh = scene.meshes[mesh].mesh;
+            mesh_asset.mesh     = scene.meshes[mesh].mesh;
 
             sceneNode->meshAssets.push_back( mesh_asset );
         }

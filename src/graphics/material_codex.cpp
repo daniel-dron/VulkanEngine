@@ -15,37 +15,29 @@
 
 #include "material_codex.h"
 
-#include <graphics/tl_vkcontext.h>
+namespace TL {
+    void MaterialCodex::Init( ) {
+        m_materialGpu = std::make_unique<Buffer>( BufferType::TStorage, MaxMaterials * sizeof( GpuMaterial ), 1,
+                                                  nullptr, "[TL] Materials" );
+    }
 
-void MaterialCodex::Init( TL_VkContext &gfx ) {
-    m_materialGpu = gfx.Allocate( MaxMaterials * sizeof( GpuMaterial ),
-                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                  VMA_MEMORY_USAGE_AUTO, "Material Data Bindless" );
+    void MaterialCodex::Cleanup( ) { m_materialGpu.reset( ); }
 
-    const VkBufferDeviceAddressInfo address_info = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = m_materialGpu.buffer };
-    m_gpuAddress = vkGetBufferDeviceAddress( gfx.device, &address_info );
-}
+    MaterialId MaterialCodex::AddMaterial( const Material &material ) {
+        const MaterialId id = m_nextMaterialId;
+        m_nextMaterialId++;
+        m_materials[id] = material;
 
-void MaterialCodex::Cleanup( TL_VkContext &gfx ) const { gfx.Free( m_materialGpu ); }
+        GpuMaterial gpu_material           = { };
+        gpu_material.baseColor             = material.baseColor;
+        gpu_material.metalRoughnessFactors = Vec4( material.metalnessFactor, material.roughnessFactor, 0.0f, 0.0f );
+        gpu_material.colorTex              = material.colorId;
+        gpu_material.metalRoughnessTex     = material.metalRoughnessId;
+        gpu_material.normalTex             = material.normalId;
 
-MaterialId MaterialCodex::AddMaterial( const TL_VkContext &gfx, const Material &material ) {
-    const auto id = ( MaterialId )m_materials.size( );
-    m_materials.push_back( material );
+        m_materialGpu->Upload( &gpu_material, id * sizeof( GpuMaterial ), sizeof( GpuMaterial ) );
+        return id;
+    }
 
-    GpuMaterial gpu_material = { };
-    gpu_material.baseColor = material.baseColor;
-    gpu_material.metalRoughnessFactors = Vec4( material.metalnessFactor, material.roughnessFactor, 0.0f, 0.0f );
-    gpu_material.colorTex = material.colorId;
-    gpu_material.metalRoughnessTex = material.metalRoughnessId;
-    gpu_material.normalTex = material.normalId;
-
-    GpuMaterial *gpu = nullptr;
-    vmaMapMemory( gfx.allocator, m_materialGpu.allocation, reinterpret_cast<void **>( &gpu ) );
-    gpu[id] = gpu_material;
-    vmaUnmapMemory( gfx.allocator, m_materialGpu.allocation );
-
-    return id;
-}
-
-const Material &MaterialCodex::GetMaterial( const MaterialId id ) { return m_materials.at( id ); }
+    const Material &MaterialCodex::GetMaterial( const MaterialId id ) { return m_materials.at( id ); }
+} // namespace TL

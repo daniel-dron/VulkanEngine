@@ -26,6 +26,7 @@ namespace TL {
         m_extent = extent;
 
         vkctx = std::make_unique<TL_VkContext>( window );
+        vkctx->Init( );
 
         m_camera = std::make_shared<Camera>( Vec3{ 0.0f, 0.0f, 0.0f }, 0, 0, extent.x, extent.y );
 

@@ -13,46 +13,46 @@
 
 #pragma once
 
+#include <graphics/resources/tl_buffer.h>
 #include <vk_types.h>
 
-class TL_VkContext;
+namespace TL {
+    struct Material {
+        Vec4  baseColor;
+        float metalnessFactor;
+        float roughnessFactor;
 
-struct GpuMaterial {
-    Vec4 baseColor;
-    Vec4 metalRoughnessFactors;
-    uint32_t colorTex;
-    uint32_t metalRoughnessTex;
-    uint32_t normalTex;
-    uint32_t pad;
-};
+        ImageId colorId;
+        ImageId metalRoughnessId;
+        ImageId normalId;
 
-struct Material {
-    Vec4 baseColor;
-    float metalnessFactor;
-    float roughnessFactor;
+        std::string name;
+    };
+    struct GpuMaterial {
+        Vec4     baseColor;
+        Vec4     metalRoughnessFactors;
+        uint32_t colorTex;
+        uint32_t metalRoughnessTex;
+        uint32_t normalTex;
+        uint32_t pad;
+    };
 
-    ImageId colorId;
-    ImageId metalRoughnessId;
-    ImageId normalId;
+    class MaterialCodex {
+    public:
+        void Init( );
+        void Cleanup( );
 
-    std::string name;
-};
+        MaterialId      AddMaterial( const Material &material );
+        const Material &GetMaterial( MaterialId id );
 
-class MaterialCodex {
-public:
-    void Init( TL_VkContext &gfx );
-    void Cleanup( TL_VkContext &gfx ) const;
+        const Buffer   &GetGpuBuffer( ) const { return *m_materialGpu; }
+        VkDeviceAddress GetDeviceAddress( ) const { return m_materialGpu->GetDeviceAddress( ); }
 
-    MaterialId AddMaterial( const TL_VkContext &gfx, const Material &material );
-    const Material &GetMaterial( MaterialId id );
+    private:
+        std::unique_ptr<Buffer> m_materialGpu = nullptr;
+        static constexpr size_t MaxMaterials  = 1000;
 
-    const GpuBuffer &GetGpuBuffer( ) const { return m_materialGpu; }
-    VkDeviceAddress GetDeviceAddress( ) const { return m_gpuAddress; }
-
-private:
-    GpuBuffer m_materialGpu = { };
-    static constexpr size_t MaxMaterials = 1000;
-    VkDeviceAddress m_gpuAddress = 0;
-
-    std::vector<Material> m_materials;
-};
+        std::array<Material, MaxMaterials> m_materials      = { };
+        u32                                m_nextMaterialId = 0;
+    };
+} // namespace TL
