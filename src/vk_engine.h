@@ -111,8 +111,8 @@ public:
 
     // ----------
     // scene
-    std::vector<GpuDirectionalLight> m_gpuDirectionalLights;
-    std::vector<GpuPointLightData> m_gpuPointLights;
+    std::vector<TL::GpuDirectionalLight> m_gpuDirectionalLights;
+    std::vector<TL::GpuPointLight> m_gpuPointLights;
     ::GpuSceneData m_sceneData = { };
     GpuBuffer m_gpuSceneData = { };
 

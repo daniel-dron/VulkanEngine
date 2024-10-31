@@ -119,12 +119,60 @@ namespace TL {
         // increase frame number for next loop
         vkctx->frameNumber++;
     }
+    void Renderer::UpdateScene( const Scene &scene ) {
+        // 1. Parse renderable entities (meshes)
+
+        // 2. Parse directional lights
+        m_directionalLights.reserve( scene.directionalLights.size( ) );
+        std::ranges::transform(
+                scene.directionalLights, m_directionalLights.begin( ), []( const DirectionalLight &dir_light ) {
+                    GpuDirectionalLight light = { };
+
+                    // Convert HSV to RGB and power
+                    ImGui::ColorConvertHSVtoRGB( dir_light.hsv.hue, dir_light.hsv.saturation, dir_light.hsv.value,
+                                                 light.color.r, light.color.g, light.color.b );
+                    light.color *= dir_light.power;
+
+                    // Transform forward vector with node transform
+                    light.direction = dir_light.node->GetTransformMatrix( ) * glm::vec4( 0.0f, 0.0f, 1.0f, 0.0f );
+
+                    // View
+                    auto shadow_map_eye_pos = normalize( light.direction ) * dir_light.distance;
+                    light.view = lookAt( Vec3( shadow_map_eye_pos ), Vec3( 0.0f, 0.0f, 0.0f ), GLOBAL_UP );
+
+                    // Projection
+                    light.proj = glm::ortho( -dir_light.right, dir_light.right, -dir_light.up, dir_light.up,
+                                             dir_light.nearPlane, dir_light.farPlane );
+
+                    light.shadowMap = dir_light.shadowMap;
+                    return light;
+                } );
+
+
+        // 3. Parse point lights
+        m_pointLights.reserve( scene.pointLights.size( ) );
+        std::ranges::transform( scene.pointLights, m_pointLights.begin( ), []( const PointLight &point_light ) {
+            GpuPointLight light = { };
+
+            // Convert HSV to RGB and power
+            ImGui::ColorConvertHSVtoRGB( point_light.hsv.hue, point_light.hsv.saturation, point_light.hsv.value,
+                                         light.color.r, light.color.g, light.color.b );
+            light.color *= point_light.power;
+
+            light.position = point_light.node->transform.position;
+
+            light.quadratic = point_light.quadratic;
+            light.linear    = point_light.linear;
+            light.constant  = point_light.constant;
+
+            return light;
+        } );
+    }
 
     void Renderer::OnFrameBoundary( ) noexcept {
         auto &frame = vkctx->GetCurrentFrame( );
         auto  cmd   = frame.commandBuffer;
 
-        // TODO: move this
         m_sceneBufferGpu->AdvanceFrame( );
 
         // We query the timers for the frame that was previously rendered. This means that the graph
@@ -165,6 +213,7 @@ namespace TL {
                                    .extent = { .width = ( u32 )m_extent.x, .height = ( u32 )m_extent.y } };
         vkCmdSetScissor( cmd, 0, 1, &scissor );
     }
+    void Renderer::PreparePbrPass( ) {}
 
     void Renderer::GBufferPass( ) {
         const auto &frame = vkctx->GetCurrentFrame( );
@@ -324,6 +373,11 @@ namespace TL {
 
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 1 );
         END_LABEL( cmd );
+    }
+
+    void Renderer::PbrPass( ) {
+        const auto &frame = vkctx->GetCurrentFrame( );
+        auto        cmd   = frame.commandBuffer;
     }
 
     void Renderer::PostProcessPass( ) {

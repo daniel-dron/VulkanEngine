@@ -53,8 +53,8 @@ void PbrPipeline::Cleanup( TL_VkContext &gfx ) {
 }
 
 DrawStats PbrPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, const GpuSceneData &sceneData,
-                             const std::vector<GpuDirectionalLight> &directionalLights,
-                             const std::vector<GpuPointLightData> &pointLights, const GBuffer &gBuffer,
+                             const std::vector<TL::GpuDirectionalLight> &directionalLights,
+                             const std::vector<TL::GpuPointLight> &pointLights, const GBuffer &gBuffer,
                              uint32_t irradianceMap, uint32_t radianceMap, uint32_t brdfLut ) const {
     DrawStats stats = { };
 

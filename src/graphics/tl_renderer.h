@@ -71,6 +71,47 @@ namespace TL {
         float   exposure = 1.0f;
     };
 
+    struct PbrPushConstants {
+        VkDeviceAddress sceneDataAddress;
+        uint32_t        albedoTex;
+        uint32_t        normalTex;
+        uint32_t        positionTex;
+        uint32_t        pbrTex;
+        uint32_t        irradianceTex;
+        uint32_t        radianceTex;
+        uint32_t        brdfLut;
+    };
+
+    struct IblSettings {
+        float irradianceFactor;
+        float radianceFactor;
+        float brdfFactor;
+        int   padding;
+    };
+
+    struct GpuPointLight {
+        Vec3  position;
+        float constant;
+        Vec3  color;
+        float linear;
+        float quadratic;
+        float pad1;
+        float pad2;
+        float pad3;
+    };
+
+    struct GpuDirectionalLight {
+        Vec3    direction;
+        int     pad1;
+        Vec4    color;
+        Mat4    proj;
+        Mat4    view;
+        ImageId shadowMap;
+        int     pad2;
+        int     pad3;
+        int     pad4;
+    };
+
     class Renderer {
     public:
         void Init( struct SDL_Window *window, Vec2 extent );
@@ -95,11 +136,19 @@ namespace TL {
         // Will present the swapchain image to the screen.
         void Present( ) noexcept;
 
+        // Upload scene to the rendere
+        void UpdateScene( const Scene &scene );
+
         // Returns the main camera used to render the scene
         std::shared_ptr<Camera> GetCamera( ) { return m_camera; }
 
         u32                      swapchainImageIndex = -1;
         PostProcessPushConstants postProcessSettings = { };
+        IblSettings              iblSettings         = {
+                                     .irradianceFactor = 0.3f,
+                                     .radianceFactor   = 0.05f,
+                                     .brdfFactor       = 1.0f,
+        };
 
         static constexpr VkFormat DepthFormat           = VK_FORMAT_D32_SFLOAT;
         static constexpr u8       MaxColorRenderTargets = 8;
@@ -110,14 +159,19 @@ namespace TL {
 
         void SetViewportAndScissor( VkCommandBuffer cmd ) noexcept;
 
+        void PreparePbrPass( );
+
         void GBufferPass( );
         void ShadowMapPass( );
+        void PbrPass( );
         void PostProcessPass( );
 
         Vec2 m_extent = { };
 
         // Main camera
-        std::shared_ptr<Camera> m_camera;
-        std::shared_ptr<Buffer> m_sceneBufferGpu;
+        std::shared_ptr<Camera>          m_camera;
+        std::shared_ptr<Buffer>          m_sceneBufferGpu;
+        std::vector<GpuDirectionalLight> m_directionalLights;
+        std::vector<GpuPointLight>       m_pointLights;
     };
 } // namespace TL

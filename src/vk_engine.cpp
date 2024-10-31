@@ -1100,7 +1100,7 @@ void TL_Engine::UpdateScene( ) {
     m_gpuDirectionalLights.clear( );
     m_sceneData.numberOfDirectionalLights = static_cast<int>( m_scene->directionalLights.size( ) );
     for ( auto i = 0; i < m_scene->directionalLights.size( ); i++ ) {
-        GpuDirectionalLight gpu_light;
+        TL::GpuDirectionalLight gpu_light;
         auto &light = m_scene->directionalLights.at( i );
 
         ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x,
@@ -1126,7 +1126,7 @@ void TL_Engine::UpdateScene( ) {
     m_gpuPointLights.clear( );
     m_sceneData.numberOfPointLights = static_cast<int>( m_scene->pointLights.size( ) );
     for ( auto i = 0; i < m_scene->pointLights.size( ); i++ ) {
-        GpuPointLightData gpu_light;
+        TL::GpuPointLight gpu_light;
         auto &light = m_scene->pointLights.at( i );
 
         gpu_light.position = light.node->transform.position;
