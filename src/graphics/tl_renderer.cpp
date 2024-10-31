@@ -31,9 +31,16 @@ namespace TL {
 
         m_sceneBufferGpu = std::make_shared<Buffer>( BufferType::TConstant, sizeof( GpuSceneData ),
                                                      TL_VkContext::FrameOverlap, nullptr, "Scene Buffer" );
+
+        PreparePbrPass( );
     }
 
-    void Renderer::Cleanup( ) { m_sceneBufferGpu.reset( ); }
+    void Renderer::Cleanup( ) {
+        m_sceneBufferGpu.reset( );
+        m_gpuIbl.reset( );
+        m_gpuPointLightsBuffer.reset( );
+        m_gpuDirectionalLightsBuffer.reset( );
+    }
 
     void Renderer::StartFrame( ) noexcept {
         auto &frame = vkctx->GetCurrentFrame( );
@@ -73,12 +80,13 @@ namespace TL {
 
         SetViewportAndScissor( frame.commandBuffer );
         GBufferPass( );
+        PbrPass( );
 
         auto cmd = frame.commandBuffer;
 
-        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 4 );
-        TL_Engine::Get( ).PbrPass( cmd );
-        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 5 );
+        // vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 4 );
+        // TL_Engine::Get( ).PbrPass( cmd );
+        // vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 5 );
 
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 6 );
         TL_Engine::Get( ).SkyboxPass( cmd );
@@ -123,7 +131,7 @@ namespace TL {
         // 1. Parse renderable entities (meshes)
 
         // 2. Parse directional lights
-        m_directionalLights.reserve( scene.directionalLights.size( ) );
+        m_directionalLights.resize( scene.directionalLights.size( ) );
         std::ranges::transform(
                 scene.directionalLights, m_directionalLights.begin( ), []( const DirectionalLight &dir_light ) {
                     GpuDirectionalLight light = { };
@@ -138,7 +146,7 @@ namespace TL {
 
                     // View
                     auto shadow_map_eye_pos = normalize( light.direction ) * dir_light.distance;
-                    light.view = lookAt( Vec3( shadow_map_eye_pos ), Vec3( 0.0f, 0.0f, 0.0f ), GLOBAL_UP );
+                    light.view              = lookAt( Vec3( shadow_map_eye_pos ), Vec3( 0.0f, 0.0f, 0.0f ), GLOBAL_UP );
 
                     // Projection
                     light.proj = glm::ortho( -dir_light.right, dir_light.right, -dir_light.up, dir_light.up,
@@ -150,7 +158,7 @@ namespace TL {
 
 
         // 3. Parse point lights
-        m_pointLights.reserve( scene.pointLights.size( ) );
+        m_pointLights.resize( scene.pointLights.size( ) );
         std::ranges::transform( scene.pointLights, m_pointLights.begin( ), []( const PointLight &point_light ) {
             GpuPointLight light = { };
 
@@ -170,10 +178,24 @@ namespace TL {
     }
 
     void Renderer::OnFrameBoundary( ) noexcept {
-        auto &frame = vkctx->GetCurrentFrame( );
-        auto  cmd   = frame.commandBuffer;
+        auto &frame  = vkctx->GetCurrentFrame( );
+        auto  cmd    = frame.commandBuffer;
+        auto &engine = TL_Engine::Get( );
 
         m_sceneBufferGpu->AdvanceFrame( );
+        m_gpuIbl->AdvanceFrame( );
+        m_gpuDirectionalLightsBuffer->AdvanceFrame( );
+        m_gpuPointLightsBuffer->AdvanceFrame( );
+
+        // Upload scene information
+        m_gpuIbl->Upload( &iblSettings, sizeof( IblSettings ) );
+        m_gpuDirectionalLightsBuffer->Upload( m_directionalLights.data( ),
+                                              sizeof( GpuDirectionalLight ) * m_directionalLights.size( ) );
+        m_gpuPointLightsBuffer->Upload( m_pointLights.data( ), sizeof( GpuPointLight ) * m_pointLights.size( ) );
+
+        engine.m_sceneData.materials = vkctx->materialCodex.GetDeviceAddress( );
+        m_sceneBufferGpu->Upload( &engine.m_sceneData, sizeof( GpuSceneData ) );
+
 
         // We query the timers for the frame that was previously rendered. This means that the graph
         // and stats are always TL_VkContext::FrameOverlap - 1 behind
@@ -201,19 +223,33 @@ namespace TL {
     }
 
     void Renderer::SetViewportAndScissor( VkCommandBuffer cmd ) noexcept {
-        VkViewport viewport = { .x        = 0,
-                                .y        = 0,
-                                .width    = static_cast<float>( m_extent.x ),
-                                .height   = static_cast<float>( m_extent.y ),
-                                .minDepth = 0.0f,
-                                .maxDepth = 1.0f };
+        VkViewport viewport = {
+                .x = 0, .y = 0, .width = m_extent.x, .height = m_extent.y, .minDepth = 0.0f, .maxDepth = 1.0f };
         vkCmdSetViewport( cmd, 0, 1, &viewport );
 
-        const VkRect2D scissor = { .offset = { .x = 0, .y = 0 },
-                                   .extent = { .width = ( u32 )m_extent.x, .height = ( u32 )m_extent.y } };
+        const VkRect2D scissor = {
+                .offset = { .x = 0, .y = 0 },
+                .extent = { .width = static_cast<u32>( m_extent.x ), .height = static_cast<u32>( m_extent.y ) } };
         vkCmdSetScissor( cmd, 0, 1, &scissor );
     }
-    void Renderer::PreparePbrPass( ) {}
+    void Renderer::PreparePbrPass( ) {
+        DescriptorLayoutBuilder layout_builder;
+        layout_builder.AddBinding( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+        layout_builder.AddBinding( 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+        layout_builder.AddBinding( 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+        m_pbrSetLayout = layout_builder.Build( vkctx->device, VK_SHADER_STAGE_FRAGMENT_BIT );
+
+        m_pbrSet = vkctx->AllocateMultiSet( m_pbrSetLayout );
+
+        m_gpuIbl = std::make_shared<Buffer>( BufferType::TConstant, sizeof( IblSettings ), TL_VkContext::FrameOverlap,
+                                             nullptr, "[TL] Ibl Settings" );
+        m_gpuDirectionalLightsBuffer =
+                std::make_shared<Buffer>( BufferType::TConstant, sizeof( GpuDirectionalLight ) * 10,
+                                          TL_VkContext::FrameOverlap, nullptr, "[TL] Directional Lights" );
+
+        m_gpuPointLightsBuffer = std::make_shared<Buffer>( BufferType::TConstant, sizeof( GpuPointLight ) * 10,
+                                                           TL_VkContext::FrameOverlap, nullptr, "[TL] Point Lights" );
+    }
 
     void Renderer::GBufferPass( ) {
         const auto &frame = vkctx->GetCurrentFrame( );
@@ -265,9 +301,6 @@ namespace TL {
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 2 );
 
         auto &engine = TL_Engine::Get( );
-
-        engine.m_sceneData.materials = vkctx->materialCodex.GetDeviceAddress( );
-        m_sceneBufferGpu->Upload( &engine.m_sceneData, sizeof( GpuSceneData ) );
 
         vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
         const auto bindless_set = vkctx->GetBindlessSet( );
@@ -376,8 +409,74 @@ namespace TL {
     }
 
     void Renderer::PbrPass( ) {
-        const auto &frame = vkctx->GetCurrentFrame( );
-        auto        cmd   = frame.commandBuffer;
+        auto       &engine  = TL_Engine::Get( );
+        const auto &frame   = vkctx->GetCurrentFrame( );
+        auto        cmd     = frame.commandBuffer;
+        const auto &gbuffer = frame.gBuffer;
+        auto       &hdr     = vkctx->imageCodex.GetImage( frame.hdrColor );
+
+        auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
+                .name                 = "pbr",
+                .vertex               = "../shaders/fullscreen_tri.vert.spv",
+                .pixel                = "../shaders/pbr.frag.spv",
+                .cullMode             = VK_CULL_MODE_FRONT_BIT,
+                .frontFace            = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                .depthTest            = false,
+                .colorTargets         = { { .format = hdr.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF } },
+                .pushConstantRanges   = { { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                            .offset     = 0,
+                                            .size       = sizeof( PbrPushConstants ) } },
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ), m_pbrSetLayout } } );
+
+        VkClearValue              clear_color      = { 0.0f, 0.0f, 0.0f, 0.0f };
+        VkRenderingAttachmentInfo color_attachment = AttachmentInfo( hdr.GetBaseView( ), &clear_color );
+        VkRenderingInfo           render_info      = { .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                                       .pNext                = nullptr,
+                                                       .renderArea           = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
+                                                       .layerCount           = 1,
+                                                       .colorAttachmentCount = 1,
+                                                       .pColorAttachments    = &color_attachment,
+                                                       .pDepthAttachment     = nullptr,
+                                                       .pStencilAttachment   = nullptr };
+        START_LABEL( cmd, "PBR Pass", Vec4( 1.0f, 0.0f, 1.0f, 1.0f ) );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 4 );
+        vkCmdBeginRendering( cmd, &render_info );
+
+        vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
+
+        auto bindless_set = vkctx->GetBindlessSet( );
+        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0,
+                                 nullptr );
+
+        // Update all lights and ibl descriptor set to the current frame offset
+        DescriptorWriter writer;
+        writer.WriteBuffer( 0, m_gpuIbl->GetVkResource( ), sizeof( IblSettings ), m_gpuIbl->GetCurrentOffset( ),
+                            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+        writer.WriteBuffer( 1, m_gpuDirectionalLightsBuffer->GetVkResource( ), sizeof( GpuDirectionalLight ) * 10,
+                            m_gpuDirectionalLightsBuffer->GetCurrentOffset( ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+        writer.WriteBuffer( 2, m_gpuPointLightsBuffer->GetVkResource( ), sizeof( GpuPointLight ) * 10,
+                            m_gpuPointLightsBuffer->GetCurrentOffset( ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+        writer.UpdateSet( vkctx->device, m_pbrSet.GetCurrentFrame( ) );
+
+        auto set = m_pbrSet.GetCurrentFrame( );
+        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 1, 1, &set, 0, nullptr );
+
+        PbrPushConstants push_constants = { .sceneDataAddress = m_sceneBufferGpu->GetDeviceAddress( ),
+                                            .albedoTex        = gbuffer.albedo,
+                                            .normalTex        = gbuffer.normal,
+                                            .positionTex      = gbuffer.position,
+                                            .pbrTex           = gbuffer.pbr,
+                                            .irradianceTex    = engine.m_ibl.GetIrradiance( ),
+                                            .radianceTex      = engine.m_ibl.GetRadiance( ),
+                                            .brdfLut          = engine.m_ibl.GetBrdf( ) };
+        vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                            sizeof( PbrPushConstants ), &push_constants );
+
+        vkCmdDraw( cmd, 3, 1, 0, 0 );
+
+        vkCmdEndRendering( cmd );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 5 );
+        END_LABEL( cmd );
     }
 
     void Renderer::PostProcessPass( ) {

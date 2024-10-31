@@ -51,7 +51,7 @@
 
 #include <graphics/tl_renderer.h>
 
-TL_Engine *g_TL = nullptr;
+TL_Engine            *g_TL             = nullptr;
 utils::VisualProfiler g_visualProfiler = utils::VisualProfiler( 300 );
 
 
@@ -67,8 +67,8 @@ void GpuBuffer::Upload( const TL_VkContext &vkctx, const void *data, const size_
 VkDeviceAddress GpuBuffer::GetDeviceAddress( const TL_VkContext &vkctx ) {
     if ( deviceAddress == 0 ) {
         const VkBufferDeviceAddressInfo address_info = {
-                .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                .pNext = nullptr,
+                .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+                .pNext  = nullptr,
                 .buffer = buffer,
         };
 
@@ -139,11 +139,11 @@ void TL_Engine::InitImGui( ) {
     };
 
     const VkDescriptorPoolCreateInfo pool_info = {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-            .maxSets = 1000,
+            .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+            .maxSets       = 1000,
             .poolSizeCount = static_cast<uint32_t>( std::size( pool_sizes ) ),
-            .pPoolSizes = pool_sizes,
+            .pPoolSizes    = pool_sizes,
     };
 
     VkDescriptorPool imgui_pool;
@@ -154,20 +154,20 @@ void TL_Engine::InitImGui( ) {
     ImGui_ImplSDL2_InitForVulkan( m_window );
 
     ImGui_ImplVulkan_InitInfo init_info = {
-            .Instance = vkctx->instance,
-            .PhysicalDevice = vkctx->chosenGpu,
-            .Device = vkctx->device,
-            .Queue = vkctx->graphicsQueue,
-            .DescriptorPool = imgui_pool,
-            .MinImageCount = 3,
-            .ImageCount = 3,
+            .Instance            = vkctx->instance,
+            .PhysicalDevice      = vkctx->chosenGpu,
+            .Device              = vkctx->device,
+            .Queue               = vkctx->graphicsQueue,
+            .DescriptorPool      = imgui_pool,
+            .MinImageCount       = 3,
+            .ImageCount          = 3,
             .UseDynamicRendering = true,
     };
 
     init_info.PipelineRenderingCreateInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
-    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    init_info.PipelineRenderingCreateInfo.colorAttachmentCount    = 1;
     init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &vkctx->format;
-    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.MSAASamples                                         = VK_SAMPLE_COUNT_1_BIT;
 
     ImGui_ImplVulkan_Init( &init_info );
     ImGui_ImplVulkan_CreateFontsTexture( );
@@ -177,83 +177,83 @@ void TL_Engine::InitImGui( ) {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     ImGui::StyleColorsDark( );
 
-    ImGuiStyle &style = ImGui::GetStyle( );
-    ImVec4 *colors = style.Colors;
+    ImGuiStyle &style  = ImGui::GetStyle( );
+    ImVec4     *colors = style.Colors;
 
-    colors[ImGuiCol_Text] = ImVec4( 0.80f, 0.80f, 0.80f, 1.00f );
-    colors[ImGuiCol_TextDisabled] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-    colors[ImGuiCol_WindowBg] = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
-    colors[ImGuiCol_ChildBg] = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
-    colors[ImGuiCol_PopupBg] = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
-    colors[ImGuiCol_Border] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-    colors[ImGuiCol_BorderShadow] = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
-    colors[ImGuiCol_FrameBg] = ImVec4( 0.20f, 0.20f, 0.20f, 1.00f );
-    colors[ImGuiCol_FrameBgHovered] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
-    colors[ImGuiCol_FrameBgActive] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-    colors[ImGuiCol_TitleBg] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
-    colors[ImGuiCol_TitleBgActive] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-    colors[ImGuiCol_TitleBgCollapsed] = ImVec4( 0.00f, 0.00f, 0.00f, 0.51f );
-    colors[ImGuiCol_MenuBarBg] = ImVec4( 0.14f, 0.14f, 0.14f, 1.00f );
-    colors[ImGuiCol_ScrollbarBg] = ImVec4( 0.02f, 0.02f, 0.02f, 0.53f );
-    colors[ImGuiCol_ScrollbarGrab] = ImVec4( 0.31f, 0.31f, 0.31f, 1.00f );
-    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4( 0.41f, 0.41f, 0.41f, 1.00f );
-    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4( 0.51f, 0.51f, 0.51f, 1.00f );
-    colors[ImGuiCol_CheckMark] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
-    colors[ImGuiCol_SliderGrab] = ImVec4( 0.88f, 0.24f, 0.24f, 1.00f );
-    colors[ImGuiCol_SliderGrabActive] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
-    colors[ImGuiCol_Button] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
-    colors[ImGuiCol_ButtonHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-    colors[ImGuiCol_ButtonActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-    colors[ImGuiCol_Header] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
-    colors[ImGuiCol_HeaderHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-    colors[ImGuiCol_HeaderActive] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-    colors[ImGuiCol_Separator] = ImVec4( 0.43f, 0.43f, 0.50f, 0.50f );
-    colors[ImGuiCol_SeparatorHovered] = ImVec4( 0.75f, 0.10f, 0.10f, 0.78f );
-    colors[ImGuiCol_SeparatorActive] = ImVec4( 0.75f, 0.10f, 0.10f, 1.00f );
-    colors[ImGuiCol_ResizeGrip] = ImVec4( 0.98f, 0.26f, 0.26f, 0.20f );
-    colors[ImGuiCol_ResizeGripHovered] = ImVec4( 0.98f, 0.26f, 0.26f, 0.67f );
-    colors[ImGuiCol_ResizeGripActive] = ImVec4( 0.98f, 0.26f, 0.26f, 0.95f );
-    colors[ImGuiCol_TabHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
-    colors[ImGuiCol_Tab] = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
-    colors[ImGuiCol_TabSelected] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-    colors[ImGuiCol_TabSelectedOverline] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
-    colors[ImGuiCol_TabDimmed] = ImVec4( 0.07f, 0.10f, 0.15f, 0.97f );
-    colors[ImGuiCol_TabDimmedSelected] = ImVec4( 0.42f, 0.14f, 0.14f, 1.00f );
+    colors[ImGuiCol_Text]                      = ImVec4( 0.80f, 0.80f, 0.80f, 1.00f );
+    colors[ImGuiCol_TextDisabled]              = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+    colors[ImGuiCol_WindowBg]                  = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
+    colors[ImGuiCol_ChildBg]                   = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
+    colors[ImGuiCol_PopupBg]                   = ImVec4( 0.10f, 0.10f, 0.10f, 1.00f );
+    colors[ImGuiCol_Border]                    = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+    colors[ImGuiCol_BorderShadow]              = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
+    colors[ImGuiCol_FrameBg]                   = ImVec4( 0.20f, 0.20f, 0.20f, 1.00f );
+    colors[ImGuiCol_FrameBgHovered]            = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+    colors[ImGuiCol_FrameBgActive]             = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+    colors[ImGuiCol_TitleBg]                   = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+    colors[ImGuiCol_TitleBgActive]             = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+    colors[ImGuiCol_TitleBgCollapsed]          = ImVec4( 0.00f, 0.00f, 0.00f, 0.51f );
+    colors[ImGuiCol_MenuBarBg]                 = ImVec4( 0.14f, 0.14f, 0.14f, 1.00f );
+    colors[ImGuiCol_ScrollbarBg]               = ImVec4( 0.02f, 0.02f, 0.02f, 0.53f );
+    colors[ImGuiCol_ScrollbarGrab]             = ImVec4( 0.31f, 0.31f, 0.31f, 1.00f );
+    colors[ImGuiCol_ScrollbarGrabHovered]      = ImVec4( 0.41f, 0.41f, 0.41f, 1.00f );
+    colors[ImGuiCol_ScrollbarGrabActive]       = ImVec4( 0.51f, 0.51f, 0.51f, 1.00f );
+    colors[ImGuiCol_CheckMark]                 = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+    colors[ImGuiCol_SliderGrab]                = ImVec4( 0.88f, 0.24f, 0.24f, 1.00f );
+    colors[ImGuiCol_SliderGrabActive]          = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+    colors[ImGuiCol_Button]                    = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+    colors[ImGuiCol_ButtonHovered]             = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+    colors[ImGuiCol_ButtonActive]              = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+    colors[ImGuiCol_Header]                    = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+    colors[ImGuiCol_HeaderHovered]             = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+    colors[ImGuiCol_HeaderActive]              = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+    colors[ImGuiCol_Separator]                 = ImVec4( 0.43f, 0.43f, 0.50f, 0.50f );
+    colors[ImGuiCol_SeparatorHovered]          = ImVec4( 0.75f, 0.10f, 0.10f, 0.78f );
+    colors[ImGuiCol_SeparatorActive]           = ImVec4( 0.75f, 0.10f, 0.10f, 1.00f );
+    colors[ImGuiCol_ResizeGrip]                = ImVec4( 0.98f, 0.26f, 0.26f, 0.20f );
+    colors[ImGuiCol_ResizeGripHovered]         = ImVec4( 0.98f, 0.26f, 0.26f, 0.67f );
+    colors[ImGuiCol_ResizeGripActive]          = ImVec4( 0.98f, 0.26f, 0.26f, 0.95f );
+    colors[ImGuiCol_TabHovered]                = ImVec4( 0.40f, 0.40f, 0.40f, 1.00f );
+    colors[ImGuiCol_Tab]                       = ImVec4( 0.30f, 0.30f, 0.30f, 1.00f );
+    colors[ImGuiCol_TabSelected]               = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
+    colors[ImGuiCol_TabSelectedOverline]       = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+    colors[ImGuiCol_TabDimmed]                 = ImVec4( 0.07f, 0.10f, 0.15f, 0.97f );
+    colors[ImGuiCol_TabDimmedSelected]         = ImVec4( 0.42f, 0.14f, 0.14f, 1.00f );
     colors[ImGuiCol_TabDimmedSelectedOverline] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-    colors[ImGuiCol_DockingPreview] = ImVec4( 0.98f, 0.26f, 0.26f, 0.70f );
-    colors[ImGuiCol_DockingEmptyBg] = ImVec4( 0.20f, 0.20f, 0.20f, 1.00f );
-    colors[ImGuiCol_PlotLines] = ImVec4( 0.61f, 0.61f, 0.61f, 1.00f );
-    colors[ImGuiCol_PlotLinesHovered] = ImVec4( 1.00f, 0.43f, 0.35f, 1.00f );
-    colors[ImGuiCol_PlotHistogram] = ImVec4( 0.90f, 0.70f, 0.00f, 1.00f );
-    colors[ImGuiCol_PlotHistogramHovered] = ImVec4( 1.00f, 0.60f, 0.00f, 1.00f );
-    colors[ImGuiCol_TableHeaderBg] = ImVec4( 0.19f, 0.19f, 0.20f, 1.00f );
-    colors[ImGuiCol_TableBorderStrong] = ImVec4( 0.31f, 0.31f, 0.35f, 1.00f );
-    colors[ImGuiCol_TableBorderLight] = ImVec4( 0.23f, 0.23f, 0.25f, 1.00f );
-    colors[ImGuiCol_TableRowBg] = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
-    colors[ImGuiCol_TableRowBgAlt] = ImVec4( 1.00f, 1.00f, 1.00f, 0.06f );
-    colors[ImGuiCol_TextLink] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
-    colors[ImGuiCol_TextSelectedBg] = ImVec4( 0.98f, 0.26f, 0.26f, 0.35f );
-    colors[ImGuiCol_DragDropTarget] = ImVec4( 1.00f, 1.00f, 0.00f, 0.90f );
-    colors[ImGuiCol_NavHighlight] = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
-    colors[ImGuiCol_NavWindowingHighlight] = ImVec4( 1.00f, 1.00f, 1.00f, 0.70f );
-    colors[ImGuiCol_NavWindowingDimBg] = ImVec4( 0.80f, 0.80f, 0.80f, 0.20f );
-    colors[ImGuiCol_ModalWindowDimBg] = ImVec4( 0.80f, 0.80f, 0.80f, 0.35f );
+    colors[ImGuiCol_DockingPreview]            = ImVec4( 0.98f, 0.26f, 0.26f, 0.70f );
+    colors[ImGuiCol_DockingEmptyBg]            = ImVec4( 0.20f, 0.20f, 0.20f, 1.00f );
+    colors[ImGuiCol_PlotLines]                 = ImVec4( 0.61f, 0.61f, 0.61f, 1.00f );
+    colors[ImGuiCol_PlotLinesHovered]          = ImVec4( 1.00f, 0.43f, 0.35f, 1.00f );
+    colors[ImGuiCol_PlotHistogram]             = ImVec4( 0.90f, 0.70f, 0.00f, 1.00f );
+    colors[ImGuiCol_PlotHistogramHovered]      = ImVec4( 1.00f, 0.60f, 0.00f, 1.00f );
+    colors[ImGuiCol_TableHeaderBg]             = ImVec4( 0.19f, 0.19f, 0.20f, 1.00f );
+    colors[ImGuiCol_TableBorderStrong]         = ImVec4( 0.31f, 0.31f, 0.35f, 1.00f );
+    colors[ImGuiCol_TableBorderLight]          = ImVec4( 0.23f, 0.23f, 0.25f, 1.00f );
+    colors[ImGuiCol_TableRowBg]                = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
+    colors[ImGuiCol_TableRowBgAlt]             = ImVec4( 1.00f, 1.00f, 1.00f, 0.06f );
+    colors[ImGuiCol_TextLink]                  = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+    colors[ImGuiCol_TextSelectedBg]            = ImVec4( 0.98f, 0.26f, 0.26f, 0.35f );
+    colors[ImGuiCol_DragDropTarget]            = ImVec4( 1.00f, 1.00f, 0.00f, 0.90f );
+    colors[ImGuiCol_NavHighlight]              = ImVec4( 0.98f, 0.26f, 0.26f, 1.00f );
+    colors[ImGuiCol_NavWindowingHighlight]     = ImVec4( 1.00f, 1.00f, 1.00f, 0.70f );
+    colors[ImGuiCol_NavWindowingDimBg]         = ImVec4( 0.80f, 0.80f, 0.80f, 0.20f );
+    colors[ImGuiCol_ModalWindowDimBg]          = ImVec4( 0.80f, 0.80f, 0.80f, 0.35f );
 
 
-    style.WindowBorderSize = 1.0f;
-    style.ChildBorderSize = 1.0f;
-    style.PopupBorderSize = 1.0f;
-    style.FrameBorderSize = 1.0f;
-    style.WindowRounding = 5.0f;
-    style.ChildRounding = 5.0f;
-    style.FrameRounding = 5.0f;
-    style.PopupRounding = 5.0f;
+    style.WindowBorderSize  = 1.0f;
+    style.ChildBorderSize   = 1.0f;
+    style.PopupBorderSize   = 1.0f;
+    style.FrameBorderSize   = 1.0f;
+    style.WindowRounding    = 5.0f;
+    style.ChildRounding     = 5.0f;
+    style.FrameRounding     = 5.0f;
+    style.PopupRounding     = 5.0f;
     style.ScrollbarRounding = 5.0f;
-    style.GrabRounding = 5.0f;
-    style.TabRounding = 5.0f;
-    style.WindowTitleAlign = ImVec2( 0.0f, 0.5f );
-    style.ItemSpacing = ImVec2( 8, 4 );
-    style.FramePadding = ImVec2( 4, 2 );
+    style.GrabRounding      = 5.0f;
+    style.TabRounding       = 5.0f;
+    style.WindowTitleAlign  = ImVec2( 0.0f, 0.5f );
+    style.ItemSpacing       = ImVec2( 8, 4 );
+    style.FramePadding      = ImVec2( 4, 2 );
 
     m_mainDeletionQueue.PushFunction( [&, imgui_pool]( ) {
         ImGui_ImplVulkan_Shutdown( );
@@ -263,7 +263,7 @@ void TL_Engine::InitImGui( ) {
 
 auto RandomRange( const float min, const float max ) -> float {
     static std::random_device rd;
-    static std::mt19937 gen( rd( ) );
+    static std::mt19937       gen( rd( ) );
 
     std::uniform_real_distribution<float> dis( min, max );
 
@@ -275,7 +275,7 @@ float Lerp( const float a, const float b, const float f ) { return a + f * ( b -
 void TL_Engine::ResizeSwapchain( uint32_t width, uint32_t height ) {
     vkDeviceWaitIdle( vkctx->device );
 
-    m_windowExtent.width = width;
+    m_windowExtent.width  = width;
     m_windowExtent.height = height;
 
     // TODO:
@@ -314,6 +314,8 @@ void TL_Engine::Draw( ) {
     m_stats.triangleCount = 0;
 
     auto &frame = vkctx->GetCurrentFrame( );
+
+    renderer->UpdateScene( *m_scene );
 
     frame.deletionQueue.Flush( );
     renderer->StartFrame( );
@@ -359,17 +361,17 @@ void TL_Engine::PbrPass( VkCommandBuffer cmd ) const {
     {
         auto &image = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).hdrColor );
 
-        VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 0.0f };
+        VkClearValue              clear_color      = { 0.0f, 0.0f, 0.0f, 0.0f };
         VkRenderingAttachmentInfo color_attachment = AttachmentInfo( image.GetBaseView( ), &clear_color );
 
-        VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                                        .pNext = nullptr,
-                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
-                                        .layerCount = 1,
+        VkRenderingInfo render_info = { .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                        .pNext                = nullptr,
+                                        .renderArea           = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
+                                        .layerCount           = 1,
                                         .colorAttachmentCount = 1,
-                                        .pColorAttachments = &color_attachment,
-                                        .pDepthAttachment = nullptr,
-                                        .pStencilAttachment = nullptr };
+                                        .pColorAttachments    = &color_attachment,
+                                        .pDepthAttachment     = nullptr,
+                                        .pStencilAttachment   = nullptr };
         vkCmdBeginRendering( cmd, &render_info );
     }
 
@@ -395,21 +397,21 @@ void TL_Engine::SkyboxPass( VkCommandBuffer cmd ) const {
         VkRenderingAttachmentInfo color_attachment = AttachmentInfo( image.GetBaseView( ), nullptr );
 
         VkRenderingAttachmentInfo depth_attachment = {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                .pNext = nullptr,
-                .imageView = depth.GetBaseView( ),
+                .sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .pNext       = nullptr,
+                .imageView   = depth.GetBaseView( ),
                 .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                .loadOp      = VK_ATTACHMENT_LOAD_OP_LOAD,
+                .storeOp     = VK_ATTACHMENT_STORE_OP_STORE,
         };
-        VkRenderingInfo render_info = { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                                        .pNext = nullptr,
-                                        .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
-                                        .layerCount = 1,
+        VkRenderingInfo render_info = { .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                        .pNext                = nullptr,
+                                        .renderArea           = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
+                                        .layerCount           = 1,
                                         .colorAttachmentCount = 1,
-                                        .pColorAttachments = &color_attachment,
-                                        .pDepthAttachment = &depth_attachment,
-                                        .pStencilAttachment = nullptr };
+                                        .pColorAttachments    = &color_attachment,
+                                        .pDepthAttachment     = &depth_attachment,
+                                        .pStencilAttachment   = nullptr };
         vkCmdBeginRendering( cmd, &render_info );
     }
 
@@ -442,19 +444,19 @@ void TL_Engine::InitDefaultData( ) {
 void TL_Engine::InitImages( ) {
     // 3 default textures, white, grey, black. 1 pixel each
     uint32_t white = glm::packUnorm4x8( glm::vec4( 1, 1, 1, 1 ) );
-    m_whiteImage = vkctx->imageCodex.LoadImageFromData( "debug_white_img", ( void * )&white, VkExtent3D{ 1, 1, 1 },
-                                                        VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_whiteImage   = vkctx->imageCodex.LoadImageFromData( "debug_white_img", ( void   *)&white, VkExtent3D{ 1, 1, 1 },
+                                                          VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     uint32_t grey = glm::packUnorm4x8( glm::vec4( 0.66f, 0.66f, 0.66f, 1 ) );
-    m_greyImage = vkctx->imageCodex.LoadImageFromData( "debug_grey_img", ( void * )&grey, VkExtent3D{ 1, 1, 1 },
-                                                       VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_greyImage   = vkctx->imageCodex.LoadImageFromData( "debug_grey_img", ( void   *)&grey, VkExtent3D{ 1, 1, 1 },
+                                                         VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     uint32_t black = glm::packUnorm4x8( glm::vec4( 0, 0, 0, 0 ) );
-    m_blackImage = vkctx->imageCodex.LoadImageFromData( "debug_black_img", ( void * )&white, VkExtent3D{ 1, 1, 1 },
-                                                        VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+    m_blackImage   = vkctx->imageCodex.LoadImageFromData( "debug_black_img", ( void   *)&white, VkExtent3D{ 1, 1, 1 },
+                                                          VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     // checkerboard image
-    uint32_t magenta = glm::packUnorm4x8( glm::vec4( 1, 0, 1, 1 ) );
+    uint32_t                      magenta = glm::packUnorm4x8( glm::vec4( 1, 0, 1, 1 ) );
     std::array<uint32_t, 16 * 16> pixels; // for 16x16 checkerboard texture
     for ( int x = 0; x < 16; x++ ) {
         for ( int y = 0; y < 16; y++ ) {
@@ -472,16 +474,16 @@ void TL_Engine::InitScene( ) {
     m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
 
     // Use camera from renderer
-    m_camera = renderer->GetCamera( );
-    m_fpsController = std::make_unique<FirstPersonFlyingController>( m_camera.get( ), 0.1f, 5.0f );
+    m_camera           = renderer->GetCamera( );
+    m_fpsController    = std::make_unique<FirstPersonFlyingController>( m_camera.get( ), 0.1f, 5.0f );
     m_cameraController = m_fpsController.get( );
 
     if ( m_scene->directionalLights.size( ) != 0 ) {
-        auto &light = m_scene->directionalLights.at( 0 );
-        light.power = 30.0f;
+        auto &light    = m_scene->directionalLights.at( 0 );
+        light.power    = 30.0f;
         light.distance = 100.0f;
-        light.right = 115.0f;
-        light.up = 115.0f;
+        light.right    = 115.0f;
+        light.up       = 115.0f;
         light.farPlane = 131.0f;
     }
 }
@@ -534,15 +536,15 @@ static void drawSceneHierarchy( Node &node ) {
 void TL_Engine::Run( ) {
     bool b_quit = false;
 
-    static ImageId selected_set = vkctx->GetCurrentFrame( ).postProcessImage;
-    static int selected_set_n = 0;
+    static ImageId selected_set   = vkctx->GetCurrentFrame( ).postProcessImage;
+    static int     selected_set_n = 0;
 
     // main loop
     while ( !b_quit ) {
         FrameMarkNamed( "main" );
         auto start_task = utils::GetTime( );
         // begin clock
-        auto start = std::chrono::system_clock::now( );
+        auto start      = std::chrono::system_clock::now( );
 
         {
             ZoneScopedN( "poll_events" );
@@ -560,9 +562,9 @@ void TL_Engine::Run( ) {
         if ( EG_INPUT.WasKeyPressed( EG_KEY::BACKSPACE ) ) {
             if ( m_drawEditor ) {
                 m_drawEditor = false;
-                m_drawStats = true;
+                m_drawStats  = true;
 
-                m_backupGamma = renderer->postProcessSettings.gamma;
+                m_backupGamma                       = renderer->postProcessSettings.gamma;
                 renderer->postProcessSettings.gamma = 1.0f;
             }
             else if ( m_drawStats == true && m_drawEditor == false ) {
@@ -570,7 +572,7 @@ void TL_Engine::Run( ) {
             }
             else {
                 m_drawEditor = true;
-                m_drawStats = true;
+                m_drawStats  = true;
 
                 renderer->postProcessSettings.gamma = m_backupGamma;
             }
@@ -631,7 +633,7 @@ void TL_Engine::Run( ) {
                         const ImVec2 viewport_size = ImGui::GetContentRegionAvail( );
 
                         constexpr float aspect_ratio = 16.0f / 9.0f;
-                        ImVec2 image_size;
+                        ImVec2          image_size;
 
                         if ( viewport_size.x / viewport_size.y > aspect_ratio ) {
                             image_size.y = viewport_size.y;
@@ -650,8 +652,8 @@ void TL_Engine::Run( ) {
 
                         // Overlay debug
                         {
-                            auto text_pos = image_pos;
-                            constexpr auto padding = 20u;
+                            auto           text_pos = image_pos;
+                            constexpr auto padding  = 20u;
                             text_pos.x += padding;
                             text_pos.y += padding;
 
@@ -681,9 +683,9 @@ void TL_Engine::Run( ) {
                             ImGui::SetCursorPos( text_pos );
                             ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "Draw Calls: %d", m_stats.drawcallCount );
 
-                            auto window_pos = ImGui::GetWindowPos( );
-                            ImVec2 position = { window_pos.x + image_pos.x,
-                                                window_pos.y + image_pos.y + image_size.y - 450 };
+                            auto   window_pos = ImGui::GetWindowPos( );
+                            ImVec2 position   = { window_pos.x + image_pos.x,
+                                                  window_pos.y + image_pos.y + image_size.y - 450 };
                             g_visualProfiler.Render( position, ImVec2( 200, 450 ) );
                         }
 
@@ -703,7 +705,7 @@ void TL_Engine::Run( ) {
                             Mat4 local_transform = tc;
                             if ( const auto parent = m_selectedNode->parent.lock( ) ) {
                                 Mat4 parent_world_inverse = glm::inverse( parent->GetTransformMatrix( ) );
-                                local_transform = parent_world_inverse * tc;
+                                local_transform           = parent_world_inverse * tc;
                             }
 
                             m_selectedNode->SetTransform( local_transform );
@@ -851,7 +853,7 @@ void TL_Engine::Run( ) {
 
                                 if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
                                     m_rendererOptions.reRenderShadowMaps = true;
-                                    light.node->transform.euler = glm::radians( euler );
+                                    light.node->transform.euler          = glm::radians( euler );
                                 }
 
                                 auto shadow_map_pos =
@@ -893,9 +895,9 @@ void TL_Engine::Run( ) {
         Draw( );
 
         // get clock again, compare with start clock
-        auto end = std::chrono::system_clock::now( );
+        auto end          = std::chrono::system_clock::now( );
         // convert to microseconds (integer), and then come back to milliseconds
-        auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>( end - start );
+        auto elapsed      = std::chrono::duration_cast<std::chrono::microseconds>( end - start );
         m_stats.frametime = elapsed.count( ) / 1000.f;
 
         if ( m_timer >= 500.0f ) {
@@ -916,14 +918,14 @@ void TL_Engine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targetIm
         VkRenderingAttachmentInfo color_attachment = AttachmentInfo( targetImageView, nullptr );
 
         const VkRenderingInfo render_info = {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                .pNext = nullptr,
-                .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
-                .layerCount = 1,
+                .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .pNext                = nullptr,
+                .renderArea           = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
+                .layerCount           = 1,
                 .colorAttachmentCount = 1,
-                .pColorAttachments = &color_attachment,
-                .pDepthAttachment = nullptr,
-                .pStencilAttachment = nullptr,
+                .pColorAttachments    = &color_attachment,
+                .pDepthAttachment     = nullptr,
+                .pStencilAttachment   = nullptr,
         };
         vkCmdBeginRendering( cmd, &render_info );
     }
@@ -994,9 +996,9 @@ VisibilityLODResult TL_Engine::VisibilityCheckWithLOD( const Mat4 &transform, co
 
         for ( int i = 0; i < 8; i++ ) {
             Vec4 clip = clips[i];
-            Vec3 ndc = Vec3( clip ) / clip.w;
+            Vec3 ndc  = Vec3( clip ) / clip.w;
 
-            ndc = glm::clamp( ndc, -1.0f, 1.0f );
+            ndc         = glm::clamp( ndc, -1.0f, 1.0f );
             Vec2 screen = Vec2( ( ndc.x + 1.0f ) * 0.5f * vkctx->extent.width,
                                 ( 1.0f - ndc.y ) * 0.5f * vkctx->extent.height );
 
@@ -1006,12 +1008,12 @@ VisibilityLODResult TL_Engine::VisibilityCheckWithLOD( const Mat4 &transform, co
             max_y = std::max( max_y, screen.y );
         }
 
-        float width = max_x - min_x;
-        float height = max_y - min_y;
+        float width       = max_x - min_x;
+        float height      = max_y - min_y;
         float screen_size = std::max( width, height );
 
         constexpr float lodThresholds[5] = { 250.0f, 170.0f, 100.0f, 50.0f, 20.0f };
-        int selected_lod = 5;
+        int             selected_lod     = 5;
         for ( int i = 0; i < 5; i++ ) {
             if ( screen_size > lodThresholds[i] ) {
                 selected_lod = i;
@@ -1032,14 +1034,14 @@ void TL_Engine::CreateDrawCommands( TL_VkContext &vkctx, const Scene &scene, Nod
         for ( const auto mesh_id : node.meshIds ) {
             auto model = node.GetTransformMatrix( );
 
-            auto &mesh_asset = scene.meshes[mesh_id];
-            auto &mesh = vkctx.meshCodex.GetMesh( mesh_asset.mesh );
-            MeshDrawCommand mdc = {
-                    .indexBuffer = mesh.indexBuffer[0].buffer,
-                    .indexCount = mesh.indexCount[0],
-                    .vertexBufferAddress = mesh.vertexBufferAddress,
-                    .worldFromLocal = model,
-                    .materialId = scene.materials[mesh_asset.material],
+            auto           &mesh_asset = scene.meshes[mesh_id];
+            auto           &mesh       = vkctx.meshCodex.GetMesh( mesh_asset.mesh );
+            MeshDrawCommand mdc        = {
+                           .indexBuffer         = mesh.indexBuffer[0].buffer,
+                           .indexCount          = mesh.indexCount[0],
+                           .vertexBufferAddress = mesh.vertexBufferAddress,
+                           .worldFromLocal      = model,
+                           .materialId          = scene.materials[mesh_asset.material],
             };
             if ( m_rendererOptions.reRenderShadowMaps ) {
                 m_shadowMapCommands.push_back( mdc );
@@ -1047,7 +1049,7 @@ void TL_Engine::CreateDrawCommands( TL_VkContext &vkctx, const Scene &scene, Nod
 
             if ( m_rendererOptions.frustumCulling ) {
                 auto &aabb = node.boundingBoxes[i++];
-                auto visibility =
+                auto  visibility =
                         VisibilityCheckWithLOD( model, &aabb,
                                                 m_rendererOptions.useFrozenFrustum ? m_rendererOptions.lastSavedFrustum
                                                                                    : m_camera->GetFrustum( ) );
@@ -1061,7 +1063,7 @@ void TL_Engine::CreateDrawCommands( TL_VkContext &vkctx, const Scene &scene, Nod
                 }
 
                 mdc.indexBuffer = mesh.indexBuffer[node.currentLod].buffer;
-                mdc.indexCount = mesh.indexCount[node.currentLod];
+                mdc.indexCount  = mesh.indexCount[node.currentLod];
                 m_drawCommands.push_back( mdc );
             }
             else {
@@ -1092,29 +1094,29 @@ void TL_Engine::UpdateScene( ) {
     // camera
     auto start = utils::GetTime( );
 
-    m_sceneData.view = m_camera->GetViewMatrix( );
-    m_sceneData.proj = m_camera->GetProjectionMatrix( );
-    m_sceneData.viewproj = m_sceneData.proj * m_sceneData.view;
+    m_sceneData.view           = m_camera->GetViewMatrix( );
+    m_sceneData.proj           = m_camera->GetProjectionMatrix( );
+    m_sceneData.viewproj       = m_sceneData.proj * m_sceneData.view;
     m_sceneData.cameraPosition = Vec4( m_camera->GetPosition( ), 0.0f );
 
     m_gpuDirectionalLights.clear( );
     m_sceneData.numberOfDirectionalLights = static_cast<int>( m_scene->directionalLights.size( ) );
     for ( auto i = 0; i < m_scene->directionalLights.size( ); i++ ) {
         TL::GpuDirectionalLight gpu_light;
-        auto &light = m_scene->directionalLights.at( i );
+        auto                   &light = m_scene->directionalLights.at( i );
 
         ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x,
                                      gpu_light.color.y, gpu_light.color.z );
         gpu_light.color *= light.power;
 
         // get direction
-        auto direction = light.node->GetTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 );
+        auto direction      = light.node->GetTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 );
         gpu_light.direction = direction;
 
         auto proj = glm::ortho( -light.right, light.right, -light.up, light.up, light.nearPlane, light.farPlane );
         auto shadow_map_pos =
                 glm::normalize( light.node->GetTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 ) ) * light.distance;
-        auto view = glm::lookAt( Vec3( shadow_map_pos ), Vec3( 0.0f, 0.0f, 0.0f ), GLOBAL_UP );
+        auto view      = glm::lookAt( Vec3( shadow_map_pos ), Vec3( 0.0f, 0.0f, 0.0f ), GLOBAL_UP );
         gpu_light.proj = proj;
         gpu_light.view = view;
 
@@ -1127,7 +1129,7 @@ void TL_Engine::UpdateScene( ) {
     m_sceneData.numberOfPointLights = static_cast<int>( m_scene->pointLights.size( ) );
     for ( auto i = 0; i < m_scene->pointLights.size( ); i++ ) {
         TL::GpuPointLight gpu_light;
-        auto &light = m_scene->pointLights.at( i );
+        auto             &light = m_scene->pointLights.at( i );
 
         gpu_light.position = light.node->transform.position;
 
@@ -1136,8 +1138,8 @@ void TL_Engine::UpdateScene( ) {
         gpu_light.color *= light.power;
 
         gpu_light.quadratic = light.quadratic;
-        gpu_light.linear = light.linear;
-        gpu_light.constant = light.constant;
+        gpu_light.linear    = light.linear;
+        gpu_light.constant  = light.constant;
 
         m_gpuPointLights.push_back( gpu_light );
     }

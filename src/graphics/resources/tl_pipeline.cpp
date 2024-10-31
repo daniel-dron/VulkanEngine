@@ -177,7 +177,7 @@ namespace TL {
 
                     .polygonMode = config.polygonMode,
                     .cullMode = config.cullMode,
-                    .frontFace = VK_FRONT_FACE_CLOCKWISE,
+                    .frontFace = config.frontFace,
                     .lineWidth = config.lineWidth };
 
             // TODO: expose this through the parameter structure

@@ -26,6 +26,7 @@ namespace TL {
         float lineWidth = 1.0f;
 
         VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
+        VkFrontFace frontFace = VK_FRONT_FACE_CLOCKWISE;
 
         bool depthTest = true;
         bool depthWrite = true;

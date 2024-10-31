@@ -173,5 +173,12 @@ namespace TL {
         std::shared_ptr<Buffer>          m_sceneBufferGpu;
         std::vector<GpuDirectionalLight> m_directionalLights;
         std::vector<GpuPointLight>       m_pointLights;
+
+        // PBR pipelin stuff (WIP)
+        VkDescriptorSetLayout   m_pbrSetLayout               = VK_NULL_HANDLE;
+        MultiDescriptorSet      m_pbrSet                     = { };
+        std::shared_ptr<Buffer> m_gpuIbl                     = nullptr;
+        std::shared_ptr<Buffer> m_gpuDirectionalLightsBuffer = nullptr;
+        std::shared_ptr<Buffer> m_gpuPointLightsBuffer       = nullptr;
     };
 } // namespace TL
