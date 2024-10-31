@@ -122,7 +122,23 @@ namespace TL {
         vkctx->frameNumber++;
     }
     void Renderer::UpdateScene( const Scene &scene ) {
-        // 1. Parse renderable entities (meshes)
+        // 1. Parse renderable entities (must have atleast 1 mesh)
+        m_renderables.clear( );
+
+        // TODO: is this performant ?
+        std::function<void( const std::shared_ptr<Node> & )> parse_node =
+                [&]( const std::shared_ptr<Node> &node ) -> void {
+            if ( !node->meshIds.empty( ) ) {
+                m_renderables.push_back( node );
+            }
+
+            for ( const auto &child : node->children ) {
+                parse_node( child );
+            }
+        };
+        for ( const auto &top_node : scene.topNodes ) {
+            parse_node( top_node );
+        }
 
         // 2. Parse directional lights
         m_directionalLights.resize( scene.directionalLights.size( ) );
@@ -169,12 +185,21 @@ namespace TL {
 
             return light;
         } );
+
+        // 4. Update scene
+        m_sceneData.view                      = m_camera->GetViewMatrix( );
+        m_sceneData.proj                      = m_camera->GetProjectionMatrix( );
+        m_sceneData.viewproj                  = m_sceneData.proj * m_sceneData.view;
+        m_sceneData.cameraPosition            = Vec4( m_camera->GetPosition( ), 0.0f );
+        m_sceneData.numberOfDirectionalLights = static_cast<int>( m_directionalLights.size( ) );
+        m_sceneData.numberOfPointLights       = static_cast<int>( m_pointLights.size( ) );
     }
 
     void Renderer::OnFrameBoundary( ) noexcept {
-        auto &frame  = vkctx->GetCurrentFrame( );
-        auto  cmd    = frame.commandBuffer;
-        auto &engine = TL_Engine::Get( );
+        auto &frame = vkctx->GetCurrentFrame( );
+        auto  cmd   = frame.commandBuffer;
+
+        CreateDrawCommands( );
 
         m_sceneBufferGpu->AdvanceFrame( );
         m_gpuIbl->AdvanceFrame( );
@@ -187,8 +212,8 @@ namespace TL {
                                               sizeof( GpuDirectionalLight ) * m_directionalLights.size( ) );
         m_gpuPointLightsBuffer->Upload( m_pointLights.data( ), sizeof( GpuPointLight ) * m_pointLights.size( ) );
 
-        engine.m_sceneData.materials = vkctx->materialCodex.GetDeviceAddress( );
-        m_sceneBufferGpu->Upload( &engine.m_sceneData, sizeof( GpuSceneData ) );
+        m_sceneData.materials = vkctx->materialCodex.GetDeviceAddress( );
+        m_sceneBufferGpu->Upload( &m_sceneData, sizeof( GpuSceneData ) );
 
 
         // We query the timers for the frame that was previously rendered. This means that the graph
@@ -355,6 +380,7 @@ namespace TL {
                 .name               = "gbuffer",
                 .vertex             = "../shaders/gbuffer.vert.spv",
                 .pixel              = "../shaders/gbuffer.frag.spv",
+                .cullMode           = VK_CULL_MODE_NONE,
                 .colorTargets       = { { .format = albedo.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
                                         { .format = normal.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
                                         { .format = position.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
@@ -396,7 +422,7 @@ namespace TL {
         vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0,
                                  nullptr );
 
-        for ( const auto &draw_command : engine.m_drawCommands ) {
+        for ( const auto &draw_command : m_drawCommands ) {
             vkCmdBindIndexBuffer( cmd, draw_command.indexBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
             MeshPushConstants push_constants = {
@@ -440,9 +466,7 @@ namespace TL {
                 .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
         } );
 
-        auto &engine = TL_Engine::Get( );
-
-        for ( const auto &light : engine.m_gpuDirectionalLights ) {
+        for ( const auto &light : m_directionalLights ) {
             auto &target_image = vkctx->imageCodex.GetImage( light.shadowMap );
 
             VkRenderingAttachmentInfo depth_attachment =
@@ -474,7 +498,7 @@ namespace TL {
                                                    .height = target_image.GetExtent( ).height } };
             vkCmdSetScissor( cmd, 0, 1, &scissor );
 
-            for ( const auto &draw_command : engine.m_shadowMapCommands ) {
+            for ( const auto &draw_command : m_shadowMapCommands ) {
                 vkCmdBindIndexBuffer( cmd, draw_command.indexBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
                 ShadowMapPushConstants push_constants = {
@@ -662,5 +686,145 @@ namespace TL {
         vkCmdDispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16, 6 );
 
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 9 );
+    }
+
+    VisibilityLODResult Renderer::VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
+                                                          const Frustum &frustum ) {
+        // If neither frustum or lod is enable, then everything is visible and finest lod
+        if ( !settings.frustumCulling && !settings.lodSystem ) {
+            return { true, 0 };
+        }
+
+        Vec3 points[] = {
+                { aabb->min.x, aabb->min.y, aabb->min.z }, { aabb->max.x, aabb->min.y, aabb->min.z },
+                { aabb->max.x, aabb->max.y, aabb->min.z }, { aabb->min.x, aabb->max.y, aabb->min.z },
+
+                { aabb->min.x, aabb->min.y, aabb->max.z }, { aabb->max.x, aabb->min.y, aabb->max.z },
+                { aabb->max.x, aabb->max.y, aabb->max.z }, { aabb->min.x, aabb->max.y, aabb->max.z },
+        };
+
+        Vec4 clips[8] = { };
+
+        // Transform points to world space and clip space
+        for ( int i = 0; i < 8; ++i ) {
+            points[i] = transform * Vec4( points[i], 1.0f );
+
+            // Only need the clip space coordinates for the LOD system
+            if ( settings.lodSystem ) {
+                clips[i] = m_camera->GetProjectionMatrix( ) * m_camera->GetViewMatrix( ) * Vec4( points[i], 1.0f );
+            }
+        }
+
+        bool is_visible = true;
+
+        if ( settings.frustumCulling ) {
+            // for each plane…
+            for ( int i = 0; i < 6; ++i ) {
+                bool inside_frustum = false;
+
+                for ( int j = 0; j < 8; ++j ) {
+                    if ( dot( Vec3( points[j] ), Vec3( frustum.planes[i] ) ) + frustum.planes[i].w > 0 ) {
+                        inside_frustum = true;
+                        break;
+                    }
+                }
+
+                if ( !inside_frustum ) {
+                    is_visible = false;
+                }
+            }
+        }
+
+        if ( !is_visible ) {
+            return { false, -1 };
+        }
+
+        if ( settings.lodSystem ) {
+            float min_x = std::numeric_limits<float>::max( );
+            float max_x = std::numeric_limits<float>::lowest( );
+            float min_y = std::numeric_limits<float>::max( );
+            float max_y = std::numeric_limits<float>::lowest( );
+
+            for ( int i = 0; i < 8; i++ ) {
+                Vec4 clip = clips[i];
+                Vec3 ndc  = Vec3( clip ) / clip.w;
+
+                ndc         = glm::clamp( ndc, -1.0f, 1.0f );
+                Vec2 screen = Vec2( ( ndc.x + 1.0f ) * 0.5f * vkctx->extent.width,
+                                    ( 1.0f - ndc.y ) * 0.5f * vkctx->extent.height );
+
+                min_x = std::min( min_x, screen.x );
+                max_x = std::max( max_x, screen.x );
+                min_y = std::min( min_y, screen.y );
+                max_y = std::max( max_y, screen.y );
+            }
+
+            float width       = max_x - min_x;
+            float height      = max_y - min_y;
+            float screen_size = std::max( width, height );
+
+            constexpr float lodThresholds[5] = { 250.0f, 170.0f, 100.0f, 50.0f, 20.0f };
+            int             selected_lod     = 5;
+            for ( int i = 0; i < 5; i++ ) {
+                if ( screen_size > lodThresholds[i] ) {
+                    selected_lod = i;
+                    break;
+                }
+            }
+
+            return { true, selected_lod };
+        }
+
+        return { true, 0 };
+    }
+
+    void Renderer::CreateDrawCommands( ) {
+        const auto &engine = TL_Engine::Get( );
+
+        m_shadowMapCommands.clear( );
+        m_drawCommands.clear( );
+
+        for ( const auto &node : m_renderables ) {
+            int i = 0;
+            for ( const auto mesh_id : node->meshIds ) {
+                auto model = node->GetTransformMatrix( );
+
+                auto           &mesh_asset = engine.m_scene->meshes[mesh_id];
+                auto           &mesh       = vkctx->meshCodex.GetMesh( mesh_asset.mesh );
+                MeshDrawCommand mdc        = {
+                               .indexBuffer         = mesh.indexBuffer[0].buffer,
+                               .indexCount          = mesh.indexCount[0],
+                               .vertexBufferAddress = mesh.vertexBufferAddress,
+                               .worldFromLocal      = model,
+                               .materialId          = engine.m_scene->materials[mesh_asset.material],
+                };
+
+                // TODO: dont rerender static
+                m_shadowMapCommands.push_back( mdc );
+
+                if ( settings.frustumCulling ) {
+                    auto &aabb       = node->boundingBoxes[i++];
+                    auto  visibility = VisibilityCheckWithLOD( model, &aabb,
+                                                              settings.useFrozenFrustum ? settings.lastSavedFrustum
+                                                                                         : m_camera->GetFrustum( ) );
+                    if ( !visibility.isVisible ) {
+                        continue;
+                    }
+
+                    // Do not update the current LOD for the node if freeze LOD system is toggled
+                    if ( !settings.freezeLodSystem ) {
+                        node->currentLod = std::min( static_cast<int>( mesh.indexCount.size( ) - 1 ),
+                                                     visibility.lodLevelToRender );
+                    }
+
+                    mdc.indexBuffer = mesh.indexBuffer[node->currentLod].buffer;
+                    mdc.indexCount  = mesh.indexCount[node->currentLod];
+                    m_drawCommands.push_back( mdc );
+                }
+                else {
+                    m_drawCommands.push_back( mdc );
+                }
+            }
+        }
     }
 } // namespace TL

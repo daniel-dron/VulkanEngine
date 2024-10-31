@@ -312,8 +312,6 @@ void TL_Engine::Draw( ) {
 
     auto &frame = vkctx->GetCurrentFrame( );
 
-    renderer->UpdateScene( *m_scene );
-
     frame.deletionQueue.Flush( );
     renderer->StartFrame( );
     const auto cmd = frame.commandBuffer;
@@ -349,15 +347,7 @@ void TL_Engine::Draw( ) {
     renderer->Present( );
 }
 
-void TL_Engine::InitDefaultData( ) {
-    InitImages( );
-
-    m_gpuSceneData = vkctx->Allocate( sizeof( TL::GpuSceneData ),
-                                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                      VMA_MEMORY_USAGE_CPU_TO_GPU, "drawGeometry" );
-
-    m_mainDeletionQueue.PushFunction( [=, this]( ) { vkctx->Free( m_gpuSceneData ); } );
-}
+void TL_Engine::InitDefaultData( ) { InitImages( ); }
 
 void TL_Engine::InitImages( ) {
     // 3 default textures, white, grey, black. 1 pixel each
@@ -389,7 +379,8 @@ void TL_Engine::InitImages( ) {
 void TL_Engine::InitScene( ) {
     m_ibl.Init( *vkctx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
 
-    m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
+    m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
+    // m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
 
     // Use camera from renderer
     m_camera           = renderer->GetCamera( );
@@ -612,8 +603,8 @@ void TL_Engine::Run( ) {
                             ImGuizmo::SetDrawlist( );
                             ImGuizmo::SetRect( image_pos.x, image_pos.y, image_size.x, image_size.y );
 
-                            auto camera_view = m_sceneData.view;
-                            auto camera_proj = m_sceneData.proj;
+                            auto camera_view = m_camera->GetViewMatrix( );
+                            auto camera_proj = m_camera->GetProjectionMatrix( );
                             camera_proj[1][1] *= -1;
 
                             auto tc = m_selectedNode->GetTransformMatrix( );
@@ -672,10 +663,10 @@ void TL_Engine::Run( ) {
                     ImGui::Separator( );
                     ImGui::DragFloat( "Exposure", &renderer->postProcessSettings.exposure, 0.001f, 0.00f, 10.0f );
                     ImGui::DragFloat( "Gamma", &renderer->postProcessSettings.gamma, 0.01f, 0.01f, 10.0f );
-                    ImGui::Checkbox( "Wireframe", &m_rendererOptions.wireframe );
-                    ImGui::Checkbox( "Render Irradiance Map", &m_rendererOptions.renderIrradianceInsteadSkybox );
-                    if ( ImGui::Checkbox( "VSync", &m_rendererOptions.vsync ) ) {
-                        if ( m_rendererOptions.vsync ) {
+                    ImGui::Checkbox( "Wireframe", &renderer->settings.wireframe );
+                    ImGui::Checkbox( "Render Irradiance Map", &renderer->settings.renderIrradianceInsteadSkybox );
+                    if ( ImGui::Checkbox( "VSync", &renderer->settings.vsync ) ) {
+                        if ( renderer->settings.vsync ) {
                             vkctx->presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
                         }
                         else {
@@ -727,10 +718,10 @@ void TL_Engine::Run( ) {
 
                         if ( ImGui::CollapsingHeader( "Frustum Culling" ) ) {
                             ImGui::Indent( );
-                            ImGui::Checkbox( "Enable", &m_rendererOptions.frustumCulling );
-                            ImGui::Checkbox( "Freeze", &m_rendererOptions.useFrozenFrustum );
+                            ImGui::Checkbox( "Enable", &renderer->settings.frustumCulling );
+                            ImGui::Checkbox( "Freeze", &renderer->settings.useFrozenFrustum );
                             if ( ImGui::Button( "Reload Frozen Frustum" ) ) {
-                                m_rendererOptions.lastSavedFrustum = m_camera->GetFrustum( );
+                                renderer->settings.lastSavedFrustum = m_camera->GetFrustum( );
                             }
                             ImGui::Unindent( );
                         }
@@ -738,8 +729,8 @@ void TL_Engine::Run( ) {
                         if ( ImGui::CollapsingHeader( "LOD System" ) ) {
                             ImGui::Indent( );
                             ImGui::PushID( "LOD" );
-                            ImGui::Checkbox( "Enable", &m_rendererOptions.lodSystem );
-                            ImGui::Checkbox( "Freeze", &m_rendererOptions.freezeLodSystem );
+                            ImGui::Checkbox( "Enable", &renderer->settings.lodSystem );
+                            ImGui::Checkbox( "Freeze", &renderer->settings.freezeLodSystem );
                             ImGui::PopID( );
                             ImGui::Unindent( );
                         }
@@ -768,7 +759,7 @@ void TL_Engine::Run( ) {
                                 auto euler = glm::degrees( light.node->transform.euler );
 
                                 if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
-                                    m_rendererOptions.reRenderShadowMaps = true;
+                                    renderer->settings.reRenderShadowMaps = true;
                                     light.node->transform.euler          = glm::radians( euler );
                                 }
 
@@ -777,11 +768,11 @@ void TL_Engine::Run( ) {
                                         light.distance;
                                 ImGui::DragFloat3( "Pos", glm::value_ptr( shadow_map_pos ) );
 
-                                m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Distance", &light.distance );
-                                m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Right", &light.right );
-                                m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Up", &light.up );
-                                m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Near", &light.nearPlane );
-                                m_rendererOptions.reRenderShadowMaps |= ImGui::DragFloat( "Far", &light.farPlane );
+                                renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Distance", &light.distance );
+                                renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Right", &light.right );
+                                renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Up", &light.up );
+                                renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Near", &light.nearPlane );
+                                renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Far", &light.farPlane );
 
                                 ImGui::Image( ( ImTextureID ) static_cast<uintptr_t>( light.shadowMap ),
                                               ImVec2( 200.0f, 200.0f ) );
@@ -851,217 +842,10 @@ void TL_Engine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targetIm
     vkCmdEndRendering( cmd );
 }
 
-inline float dot( const Vec3 &v, const Vec4 &p ) { return v.x * p.x + v.y * p.y + v.z * p.z + p.w; }
-
-VisibilityLODResult TL_Engine::VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
-                                                       const Frustum &frustum ) {
-    // If neither frustum or lod is enable, then everything is visible and finest lod
-    if ( !m_rendererOptions.frustumCulling && !m_rendererOptions.lodSystem ) {
-        return { true, 0 };
-    }
-
-    Vec3 points[] = {
-            { aabb->min.x, aabb->min.y, aabb->min.z }, { aabb->max.x, aabb->min.y, aabb->min.z },
-            { aabb->max.x, aabb->max.y, aabb->min.z }, { aabb->min.x, aabb->max.y, aabb->min.z },
-
-            { aabb->min.x, aabb->min.y, aabb->max.z }, { aabb->max.x, aabb->min.y, aabb->max.z },
-            { aabb->max.x, aabb->max.y, aabb->max.z }, { aabb->min.x, aabb->max.y, aabb->max.z },
-    };
-
-    Vec4 clips[8] = { };
-
-    // Transform points to world space and clip space
-    for ( int i = 0; i < 8; ++i ) {
-        points[i] = transform * Vec4( points[i], 1.0f );
-
-        // Only need the clip space coordinates for the LOD system
-        if ( m_rendererOptions.lodSystem ) {
-            clips[i] = m_camera->GetProjectionMatrix( ) * m_camera->GetViewMatrix( ) * Vec4( points[i], 1.0f );
-        }
-    }
-
-    bool is_visible = true;
-
-    if ( m_rendererOptions.frustumCulling ) {
-        // for each plane…
-        for ( int i = 0; i < 6; ++i ) {
-            bool inside_frustum = false;
-
-            for ( int j = 0; j < 8; ++j ) {
-                if ( dot( Vec3( points[j] ), Vec3( frustum.planes[i] ) ) + frustum.planes[i].w > 0 ) {
-                    inside_frustum = true;
-                    break;
-                }
-            }
-
-            if ( !inside_frustum ) {
-                is_visible = false;
-            }
-        }
-    }
-
-    if ( !is_visible ) {
-        return { false, -1 };
-    }
-
-    if ( m_rendererOptions.lodSystem ) {
-        float min_x = std::numeric_limits<float>::max( );
-        float max_x = std::numeric_limits<float>::lowest( );
-        float min_y = std::numeric_limits<float>::max( );
-        float max_y = std::numeric_limits<float>::lowest( );
-
-        for ( int i = 0; i < 8; i++ ) {
-            Vec4 clip = clips[i];
-            Vec3 ndc  = Vec3( clip ) / clip.w;
-
-            ndc         = glm::clamp( ndc, -1.0f, 1.0f );
-            Vec2 screen = Vec2( ( ndc.x + 1.0f ) * 0.5f * vkctx->extent.width,
-                                ( 1.0f - ndc.y ) * 0.5f * vkctx->extent.height );
-
-            min_x = std::min( min_x, screen.x );
-            max_x = std::max( max_x, screen.x );
-            min_y = std::min( min_y, screen.y );
-            max_y = std::max( max_y, screen.y );
-        }
-
-        float width       = max_x - min_x;
-        float height      = max_y - min_y;
-        float screen_size = std::max( width, height );
-
-        constexpr float lodThresholds[5] = { 250.0f, 170.0f, 100.0f, 50.0f, 20.0f };
-        int             selected_lod     = 5;
-        for ( int i = 0; i < 5; i++ ) {
-            if ( screen_size > lodThresholds[i] ) {
-                selected_lod = i;
-                break;
-            }
-        }
-
-        return { true, selected_lod };
-    }
-
-    return { true, 0 };
-}
-
-void TL_Engine::CreateDrawCommands( TL_VkContext &vkctx, const Scene &scene, Node &node ) {
-    if ( !node.meshIds.empty( ) ) {
-
-        int i = 0;
-        for ( const auto mesh_id : node.meshIds ) {
-            auto model = node.GetTransformMatrix( );
-
-            auto           &mesh_asset = scene.meshes[mesh_id];
-            auto           &mesh       = vkctx.meshCodex.GetMesh( mesh_asset.mesh );
-            MeshDrawCommand mdc        = {
-                           .indexBuffer         = mesh.indexBuffer[0].buffer,
-                           .indexCount          = mesh.indexCount[0],
-                           .vertexBufferAddress = mesh.vertexBufferAddress,
-                           .worldFromLocal      = model,
-                           .materialId          = scene.materials[mesh_asset.material],
-            };
-            if ( m_rendererOptions.reRenderShadowMaps ) {
-                m_shadowMapCommands.push_back( mdc );
-            }
-
-            if ( m_rendererOptions.frustumCulling ) {
-                auto &aabb = node.boundingBoxes[i++];
-                auto  visibility =
-                        VisibilityCheckWithLOD( model, &aabb,
-                                                m_rendererOptions.useFrozenFrustum ? m_rendererOptions.lastSavedFrustum
-                                                                                   : m_camera->GetFrustum( ) );
-                if ( !visibility.isVisible ) {
-                    continue;
-                }
-
-                // Do not update the current LOD for the node if freeze LOD system is toggled
-                if ( !m_rendererOptions.freezeLodSystem ) {
-                    node.currentLod = std::min( ( int )( mesh.indexCount.size( ) - 1 ), visibility.lodLevelToRender );
-                }
-
-                mdc.indexBuffer = mesh.indexBuffer[node.currentLod].buffer;
-                mdc.indexCount  = mesh.indexCount[node.currentLod];
-                m_drawCommands.push_back( mdc );
-            }
-            else {
-                m_drawCommands.push_back( mdc );
-            }
-        }
-    }
-
-    for ( auto &n : node.children ) {
-        CreateDrawCommands( vkctx, scene, *n.get( ) );
-    }
-}
-
-void TL_Engine::UpdateScene( ) {
+void TL_Engine::UpdateScene( ) const {
     ZoneScopedN( "update_scene" );
-
-    m_drawCommands.clear( );
-    m_shadowMapCommands.clear( );
-    {
-        auto start_commands = utils::GetTime( );
-        for ( auto &node : m_scene->topNodes ) {
-            CreateDrawCommands( *vkctx, *m_scene, *node );
-        }
-        auto end_commands = utils::GetTime( );
-        g_visualProfiler.AddTimer( "Create Commands", end_commands - start_commands, utils::VisualProfiler::Cpu );
-    }
-
-    // camera
-    auto start = utils::GetTime( );
-
-    m_sceneData.view           = m_camera->GetViewMatrix( );
-    m_sceneData.proj           = m_camera->GetProjectionMatrix( );
-    m_sceneData.viewproj       = m_sceneData.proj * m_sceneData.view;
-    m_sceneData.cameraPosition = Vec4( m_camera->GetPosition( ), 0.0f );
-
-    m_gpuDirectionalLights.clear( );
-    m_sceneData.numberOfDirectionalLights = static_cast<int>( m_scene->directionalLights.size( ) );
-    for ( auto i = 0; i < m_scene->directionalLights.size( ); i++ ) {
-        TL::GpuDirectionalLight gpu_light;
-        auto                   &light = m_scene->directionalLights.at( i );
-
-        ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x,
-                                     gpu_light.color.y, gpu_light.color.z );
-        gpu_light.color *= light.power;
-
-        // get direction
-        auto direction      = light.node->GetTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 );
-        gpu_light.direction = direction;
-
-        auto proj = glm::ortho( -light.right, light.right, -light.up, light.up, light.nearPlane, light.farPlane );
-        auto shadow_map_pos =
-                glm::normalize( light.node->GetTransformMatrix( ) * glm::vec4( 0, 0, 1, 0 ) ) * light.distance;
-        auto view      = glm::lookAt( Vec3( shadow_map_pos ), Vec3( 0.0f, 0.0f, 0.0f ), GLOBAL_UP );
-        gpu_light.proj = proj;
-        gpu_light.view = view;
-
-        gpu_light.shadowMap = light.shadowMap;
-
-        m_gpuDirectionalLights.push_back( gpu_light );
-    }
-
-    m_gpuPointLights.clear( );
-    m_sceneData.numberOfPointLights = static_cast<int>( m_scene->pointLights.size( ) );
-    for ( auto i = 0; i < m_scene->pointLights.size( ); i++ ) {
-        TL::GpuPointLight gpu_light;
-        auto             &light = m_scene->pointLights.at( i );
-
-        gpu_light.position = light.node->transform.position;
-
-        ImGui::ColorConvertHSVtoRGB( light.hsv.hue, light.hsv.saturation, light.hsv.value, gpu_light.color.x,
-                                     gpu_light.color.y, gpu_light.color.z );
-        gpu_light.color *= light.power;
-
-        gpu_light.quadratic = light.quadratic;
-        gpu_light.linear    = light.linear;
-        gpu_light.constant  = light.constant;
-
-        m_gpuPointLights.push_back( gpu_light );
-    }
-
-    m_gpuSceneData.Upload( *vkctx, &m_sceneData, sizeof( ::GpuSceneData ) );
-
+    const auto start = utils::GetTime( );
+    renderer->UpdateScene( *m_scene );
     const auto end = utils::GetTime( );
     g_visualProfiler.AddTimer( "Scene", end - start, utils::VisualProfiler::Cpu );
 }

@@ -32,25 +32,6 @@ class TL_Engine;
 extern TL_Engine* g_TL;
 extern utils::VisualProfiler g_visualProfiler;
 
-struct RendererOptions {
-    bool wireframe = false;
-    bool vsync = true;
-    bool renderIrradianceInsteadSkybox = false;
-
-    bool reRenderShadowMaps     = true;    // whether to rerender the shadow map every frame.
-
-    // Frustum settings
-    bool frustumCulling         = true;     // Turn on/off the entire culling system checks
-    bool useFrozenFrustum       = false;    // Toggle the usage of the last saved frustum   
-    Frustum lastSavedFrustum    = { };      // The frustum to be used when frustum checks are frozen.
-                                            // Used for debug purposes
-
-    // LODs
-    bool lodSystem              = true;     // Toggle LOD system usage
-    bool freezeLodSystem        = false;    // Will save the currently used LOD for each node in the scene
-                                            // and use those instead.
-};
-
 class TL_Engine {
 public:
     static TL_Engine &Get( );
@@ -71,17 +52,13 @@ public:
     void InitImGui( );
     void DrawImGui( VkCommandBuffer cmd, VkImageView targetImageView );
 
-    void CreateDrawCommands( TL_VkContext &gfx, const Scene &scene, Node &node );
-    VisibilityLODResult VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
-                                                const Frustum &frustum );
-
     void PbrPass( VkCommandBuffer cmd ) const;
     void SkyboxPass( VkCommandBuffer cmd ) const;
 
     void InitDefaultData( );
     void InitImages( );
     void InitScene( );
-    void UpdateScene( );
+    void UpdateScene( ) const;
 
     void DrawNodeHierarchy( const std::shared_ptr<Node> &node );
 
@@ -102,13 +79,6 @@ public:
     // post process
     float m_backupGamma = 2.2f;
 
-    // ----------
-    // scene
-    std::vector<TL::GpuDirectionalLight> m_gpuDirectionalLights;
-    std::vector<TL::GpuPointLight> m_gpuPointLights;
-    ::GpuSceneData m_sceneData = { };
-    GpuBuffer m_gpuSceneData = { };
-
     ImageId m_whiteImage = ImageCodex::InvalidImageId;
     ImageId m_blackImage = ImageCodex::InvalidImageId;
     ImageId m_greyImage = ImageCodex::InvalidImageId;
@@ -116,16 +86,11 @@ public:
 
     Ibl m_ibl = { };
 
-    std::vector<MeshDrawCommand> m_drawCommands;
-    std::vector<MeshDrawCommand> m_shadowMapCommands;
-
     std::shared_ptr<Node> m_selectedNode = nullptr;
     std::unique_ptr<Scene> m_scene;
     std::shared_ptr<Camera> m_camera;
     std::unique_ptr<FirstPersonFlyingController> m_fpsController;
     CameraController *m_cameraController = nullptr;
-
-    RendererOptions m_rendererOptions;
 
     bool m_open = true;
     bool m_drawEditor = true;

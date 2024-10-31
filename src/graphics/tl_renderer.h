@@ -13,8 +13,6 @@
 #pragma once
 
 #include <graphics/resources/tl_buffer.h>
-#include <graphics/resources/tl_pipeline.h>
-#include <graphics/tl_vkcontext.h>
 #include <vk_types.h>
 
 namespace TL {
@@ -115,7 +113,26 @@ namespace TL {
     struct SkyboxPushConstants {
         VkDeviceAddress sceneDataAddress;
         VkDeviceAddress vertexBufferAddress;
-        uint32_t textureId;
+        uint32_t        textureId;
+    };
+
+    struct RendererOptions {
+        bool wireframe                     = false;
+        bool vsync                         = true;
+        bool renderIrradianceInsteadSkybox = false;
+
+        bool reRenderShadowMaps = true; // whether to rerender the shadow map every frame.
+
+        // Frustum settings
+        bool    frustumCulling   = true; // Turn on/off the entire culling system checks
+        bool    useFrozenFrustum = false; // Toggle the usage of the last saved frustum
+        Frustum lastSavedFrustum = { }; // The frustum to be used when frustum checks are frozen.
+                                        // Used for debug purposes
+
+        // LODs
+        bool lodSystem       = true; // Toggle LOD system usage
+        bool freezeLodSystem = false; // Will save the currently used LOD for each node in the scene
+                                      // and use those instead.
     };
 
     class Renderer {
@@ -156,6 +173,8 @@ namespace TL {
                                      .brdfFactor       = 1.0f,
         };
 
+        RendererOptions settings;
+
         static constexpr VkFormat DepthFormat           = VK_FORMAT_D32_SFLOAT;
         static constexpr u8       MaxColorRenderTargets = 8;
 
@@ -177,10 +196,22 @@ namespace TL {
         Vec2 m_extent = { };
 
         // Main camera
-        std::shared_ptr<Camera>          m_camera;
-        std::shared_ptr<Buffer>          m_sceneBufferGpu;
-        std::vector<GpuDirectionalLight> m_directionalLights;
-        std::vector<GpuPointLight>       m_pointLights;
+        std::shared_ptr<Camera> m_camera;
+
+        // Scene
+        std::vector<std::shared_ptr<Node>> m_renderables;
+        GpuSceneData                       m_sceneData = { };
+        std::shared_ptr<Buffer>            m_sceneBufferGpu;
+        std::vector<GpuDirectionalLight>   m_directionalLights;
+        std::vector<GpuPointLight>         m_pointLights;
+
+        // Draw Commands
+
+        VisibilityLODResult          VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
+                                                             const Frustum &frustum );
+        void                         CreateDrawCommands( );
+        std::vector<MeshDrawCommand> m_drawCommands;
+        std::vector<MeshDrawCommand> m_shadowMapCommands;
 
         // PBR pipelin stuff (WIP)
         VkDescriptorSetLayout   m_pbrSetLayout               = VK_NULL_HANDLE;
