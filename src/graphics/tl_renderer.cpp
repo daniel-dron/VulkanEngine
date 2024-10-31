@@ -15,7 +15,7 @@
 
 #include "tl_renderer.h"
 
-#include <vk_engine.h>
+#include <graphics/ibl.h>
 #include <vk_initializers.h>
 
 using namespace vk_init;
@@ -32,11 +32,16 @@ namespace TL {
         m_sceneBufferGpu = std::make_shared<Buffer>( BufferType::TConstant, sizeof( GpuSceneData ),
                                                      TL_VkContext::FrameOverlap, nullptr, "Scene Buffer" );
 
+        m_ibl = std::make_unique<Ibl>( );
+        m_ibl->Init( *vkctx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
+
         PreparePbrPass( );
         PrepareSkyboxPass( );
     }
 
     void Renderer::Cleanup( ) {
+        m_ibl->Clean( *vkctx );
+
         m_sceneBufferGpu.reset( );
         m_gpuIbl.reset( );
         m_gpuPointLightsBuffer.reset( );
@@ -128,7 +133,7 @@ namespace TL {
         // TODO: is this performant ?
         std::function<void( const std::shared_ptr<Node> & )> parse_node =
                 [&]( const std::shared_ptr<Node> &node ) -> void {
-            if ( !node->meshIds.empty( ) ) {
+            if ( !node->meshAssets.empty( ) ) {
                 m_renderables.push_back( node );
             }
 
@@ -415,8 +420,6 @@ namespace TL {
         vkCmdBeginRendering( cmd, &render_info );
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 2 );
 
-        auto &engine = TL_Engine::Get( );
-
         vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
         const auto bindless_set = vkctx->GetBindlessSet( );
         vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0,
@@ -522,7 +525,6 @@ namespace TL {
     }
 
     void Renderer::PbrPass( ) {
-        auto       &engine  = TL_Engine::Get( );
         const auto &frame   = vkctx->GetCurrentFrame( );
         auto        cmd     = frame.commandBuffer;
         const auto &gbuffer = frame.gBuffer;
@@ -579,9 +581,9 @@ namespace TL {
                                             .normalTex        = gbuffer.normal,
                                             .positionTex      = gbuffer.position,
                                             .pbrTex           = gbuffer.pbr,
-                                            .irradianceTex    = engine.m_ibl.GetIrradiance( ),
-                                            .radianceTex      = engine.m_ibl.GetRadiance( ),
-                                            .brdfLut          = engine.m_ibl.GetBrdf( ) };
+                                            .irradianceTex    = m_ibl->GetIrradiance( ),
+                                            .radianceTex      = m_ibl->GetRadiance( ),
+                                            .brdfLut          = m_ibl->GetBrdf( ) };
         vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                             sizeof( PbrPushConstants ), &push_constants );
 
@@ -642,7 +644,7 @@ namespace TL {
 
         const SkyboxPushConstants push_constants = { .sceneDataAddress    = m_sceneBufferGpu->GetDeviceAddress( ),
                                                      .vertexBufferAddress = mesh.vertexBufferAddress,
-                                                     .textureId           = TL_Engine::Get( ).m_ibl.GetSkybox( ) };
+                                                     .textureId           = m_ibl->GetSkybox( ) };
         vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                             sizeof( SkyboxPushConstants ), &push_constants );
 
@@ -779,24 +781,20 @@ namespace TL {
     }
 
     void Renderer::CreateDrawCommands( ) {
-        const auto &engine = TL_Engine::Get( );
-
         m_shadowMapCommands.clear( );
         m_drawCommands.clear( );
 
         for ( const auto &node : m_renderables ) {
             int i = 0;
-            for ( const auto mesh_id : node->meshIds ) {
-                auto model = node->GetTransformMatrix( );
-
-                auto           &mesh_asset = engine.m_scene->meshes[mesh_id];
-                auto           &mesh       = vkctx->meshCodex.GetMesh( mesh_asset.mesh );
-                MeshDrawCommand mdc        = {
-                               .indexBuffer         = mesh.indexBuffer[0].buffer,
-                               .indexCount          = mesh.indexCount[0],
-                               .vertexBufferAddress = mesh.vertexBufferAddress,
-                               .worldFromLocal      = model,
-                               .materialId          = engine.m_scene->materials[mesh_asset.material],
+            for ( const auto mesh_asset : node->meshAssets ) {
+                auto            model = node->GetTransformMatrix( );
+                auto           &mesh  = vkctx->meshCodex.GetMesh( mesh_asset.mesh );
+                MeshDrawCommand mdc   = {
+                          .indexBuffer         = mesh.indexBuffer[0].buffer,
+                          .indexCount          = mesh.indexCount[0],
+                          .vertexBufferAddress = mesh.vertexBufferAddress,
+                          .worldFromLocal      = model,
+                          .materialId          = mesh_asset.material,
                 };
 
                 // TODO: dont rerender static

@@ -16,6 +16,8 @@
 #include <vk_types.h>
 
 namespace TL {
+    class Ibl;
+
     struct SceneBuffer {
         Mat4 view;
         Mat4 projection;
@@ -200,6 +202,7 @@ namespace TL {
 
         // Scene
         std::vector<std::shared_ptr<Node>> m_renderables;
+        std::unique_ptr<TL::Ibl>               m_ibl;
         GpuSceneData                       m_sceneData = { };
         std::shared_ptr<Buffer>            m_sceneBufferGpu;
         std::vector<GpuDirectionalLight>   m_directionalLights;

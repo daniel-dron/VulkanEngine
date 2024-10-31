@@ -27,8 +27,13 @@ struct AABoundingBox {
     Vec3 max; // The point with the highest coordinate in each cardinal direction (x, y, z)
 };
 
+struct MeshAsset {
+    MeshId mesh;
+    MaterialId material;
+};
+
 struct Node {
-    std::vector<int> meshIds;
+    std::vector<MeshAsset> meshAssets;
     std::vector<AABoundingBox> boundingBoxes;
 
     std::string name;

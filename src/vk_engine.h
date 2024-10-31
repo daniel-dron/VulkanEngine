@@ -73,7 +73,6 @@ public:
 
     DeletionQueue m_mainDeletionQueue;
 
-    MaterialCodex m_materialCodex = { };
     ImGuiPipeline m_imGuiPipeline = { };
 
     // post process
@@ -83,8 +82,6 @@ public:
     ImageId m_blackImage = ImageCodex::InvalidImageId;
     ImageId m_greyImage = ImageCodex::InvalidImageId;
     ImageId m_errorCheckerboardImage = ImageCodex::InvalidImageId;
-
-    Ibl m_ibl = { };
 
     std::shared_ptr<Node> m_selectedNode = nullptr;
     std::unique_ptr<Scene> m_scene;

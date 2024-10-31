@@ -291,8 +291,6 @@ void TL_Engine::Cleanup( ) {
 
         m_imGuiPipeline.Cleanup( *vkctx );
 
-        m_ibl.Clean( *vkctx );
-
         m_mainDeletionQueue.Flush( );
 
         vkctx->Cleanup( );
@@ -377,10 +375,8 @@ void TL_Engine::InitImages( ) {
 }
 
 void TL_Engine::InitScene( ) {
-    m_ibl.Init( *vkctx, "../../assets/texture/ibls/belfast_sunset_4k.hdr" );
-
-    m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
-    // m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
+    // m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
+    m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
 
     // Use camera from renderer
     m_camera           = renderer->GetCamera( );

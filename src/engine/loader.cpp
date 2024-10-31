@@ -369,7 +369,7 @@ static std::shared_ptr<Node> LoadNode( Scene &scene, const aiScene *ai_scene, co
     sceneNode->SetTransform( transform );
 
     if ( node->mNumMeshes == 0 ) {
-        sceneNode->meshIds.clear( );
+        sceneNode->meshAssets.clear( );
     }
     else {
         for ( u32 i = 0; i < node->mNumMeshes; i++ ) {
@@ -382,7 +382,12 @@ static std::shared_ptr<Node> LoadNode( Scene &scene, const aiScene *ai_scene, co
             };
 
             sceneNode->boundingBoxes.push_back( std::move( bounding_box ) );
-            sceneNode->meshIds.push_back( mesh );
+
+            MeshAsset mesh_asset;
+            mesh_asset.material = scene.materials[ai_scene->mMeshes[mesh]->mMaterialIndex];
+            mesh_asset.mesh = scene.meshes[mesh].mesh;
+
+            sceneNode->meshAssets.push_back( mesh_asset );
         }
     }
 
