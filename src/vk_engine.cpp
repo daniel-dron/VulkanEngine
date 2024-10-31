@@ -16,40 +16,26 @@
 #include "vk_engine.h"
 
 #include <SDL.h>
-#include <VkBootstrap.h>
-#include <vk_initializers.h>
-#include <vk_types.h>
-#include <vulkan/vulkan_core.h>
-
-#include <graphics/descriptors.h>
+#include <engine/loader.h>
+#include <glm/gtc/type_ptr.hpp>
+#include <graphics/pipelines/compute_pipeline.h>
+#include <graphics/tl_renderer.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
+#include <tracy/Tracy.hpp>
+#include <utils/ImGuiProfilerRenderer.h>
+#include <vk_initializers.h>
+#include <vk_types.h>
+#include <vulkan/vulkan_core.h>
 #include "SDL_events.h"
 #include "SDL_stdinc.h"
 #include "SDL_video.h"
-#include "fmt/core.h"
-#include "glm/ext/matrix_clip_space.hpp"
-#include "glm/gtx/integer.hpp"
-#include "glm/gtx/matrix_decompose.hpp"
-#include "glm/packing.hpp"
-
-#include "vk_mem_alloc.h"
-
-#include <glm/gtc/type_ptr.hpp>
-
-#include <graphics/pipelines/compute_pipeline.h>
-#include <tracy/Tracy.hpp>
 #include "engine/input.h"
+#include "glm/ext/matrix_clip_space.hpp"
+#include "glm/packing.hpp"
 #include "imguizmo/ImGuizmo.h"
-
-#include <engine/loader.h>
-#include <glm/gtx/euler_angles.hpp>
-
-#include <utils/ImGuiProfilerRenderer.h>
-#include "graphics/draw_command.h"
-
-#include <graphics/tl_renderer.h>
+#include "vk_mem_alloc.h"
 
 TL_Engine            *g_TL             = nullptr;
 utils::VisualProfiler g_visualProfiler = utils::VisualProfiler( 300 );
@@ -756,7 +742,7 @@ void TL_Engine::Run( ) {
 
                                 if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
                                     renderer->settings.reRenderShadowMaps = true;
-                                    light.node->transform.euler          = glm::radians( euler );
+                                    light.node->transform.euler           = glm::radians( euler );
                                 }
 
                                 auto shadow_map_pos =
@@ -764,7 +750,8 @@ void TL_Engine::Run( ) {
                                         light.distance;
                                 ImGui::DragFloat3( "Pos", glm::value_ptr( shadow_map_pos ) );
 
-                                renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Distance", &light.distance );
+                                renderer->settings.reRenderShadowMaps |=
+                                        ImGui::DragFloat( "Distance", &light.distance );
                                 renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Right", &light.right );
                                 renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Up", &light.up );
                                 renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Near", &light.nearPlane );
