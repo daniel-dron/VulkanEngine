@@ -63,6 +63,17 @@ namespace TL {
             vma_flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
             vma_usage = VMA_MEMORY_USAGE_CPU_ONLY;
         }
+        else if ( type == BufferType::TImGuiIndex ) {
+            usage     = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+            vma_flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+            vma_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        }
+        else if ( type == BufferType::TImGuiVertex ) {
+            usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                    VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+            vma_flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+            vma_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        }
         else {
             assert( false );
         }
@@ -75,7 +86,7 @@ namespace TL {
         VKCALL( vmaCreateBuffer( vkctx->allocator, &info, &vma_info, &m_buffer, &m_allocation, &m_allocationInfo ) );
 
         // If its a constant buffer then we will get the device address and also map it
-        if ( m_type == BufferType::TConstant || m_type == BufferType::TStorage ) {
+        if ( m_type == BufferType::TConstant || m_type == BufferType::TStorage || m_type == BufferType::TImGuiVertex ) {
             const VkBufferDeviceAddressInfo address_info = {
                     .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = m_buffer };
             m_deviceAddress = vkGetBufferDeviceAddress( vkctx->device, &address_info );
@@ -89,7 +100,7 @@ namespace TL {
             m_deviceAddress = vkGetBufferDeviceAddress( vkctx->device, &address_info );
             assert( m_deviceAddress && "Could not map gpu buffer" );
         }
-        else if ( m_type == BufferType::TStaging ) {
+        else if ( m_type == BufferType::TStaging || m_type == BufferType::TImGuiIndex ) {
             vmaMapMemory( vkctx->allocator, m_allocation, reinterpret_cast<void **>( &m_gpuData ) );
         }
     }
@@ -111,12 +122,14 @@ namespace TL {
     }
 
     void Buffer::Upload( const void *data, const u32 size ) const {
-        assert( m_type == BufferType::TStorage || m_type == BufferType::TConstant || m_type == BufferType::TStaging );
+        assert( m_type == BufferType::TStorage || m_type == BufferType::TConstant || m_type == BufferType::TStaging ||
+                m_type == BufferType::TImGuiIndex || m_type == BufferType::TImGuiVertex );
         Upload( data, 0, size );
     }
 
     void Buffer::Upload( const void *data, const u64 offset, const u32 size ) const {
-        assert( m_type == BufferType::TStorage || m_type == BufferType::TConstant || m_type == BufferType::TStaging );
+        assert( m_type == BufferType::TStorage || m_type == BufferType::TConstant || m_type == BufferType::TStaging ||
+                m_type == BufferType::TImGuiIndex || m_type == BufferType::TImGuiVertex );
         const auto actual_size = ( size == 0 ) ? m_size : size;
         memcpy( reinterpret_cast<void *>( m_gpuData + m_offset + offset ), data, actual_size );
     }

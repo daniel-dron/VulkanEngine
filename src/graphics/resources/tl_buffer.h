@@ -14,7 +14,7 @@
 
 namespace TL {
 
-    enum class BufferType { TIndex, TVertex, TConstant, TStorage, TStaging, TMax };
+    enum class BufferType { TIndex, TVertex, TConstant, TStorage, TStaging, TImGuiIndex, TImGuiVertex, TMax };
 
     class Buffer {
     public:
@@ -33,7 +33,9 @@ namespace TL {
         VkBuffer        GetVkResource( ) const { return m_buffer; }
         VkDeviceAddress GetDeviceAddress( ) const {
             assert( m_type == BufferType::TConstant || m_type == BufferType::TStorage ||
-                    m_type == BufferType::TVertex && "Device Address only allowed for constant and vertex buffers" );
+                    m_type == BufferType::TVertex ||
+                    m_type == BufferType::TImGuiVertex &&
+                            "Device Address only allowed for constant and vertex buffers" );
             assert( m_deviceAddress != 0 && "Invalid device address" );
             return m_deviceAddress + m_offset;
         }
