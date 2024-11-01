@@ -27,29 +27,29 @@ struct GpuMesh {
     // The amount of LODs is mesh dependent. Some bigger and more complex meshes will
     // have more LODs. Recommended to use std::min(indexBuffer.size() - 1, desiredLod)
     // to access the LOD safely
-    std::vector<GpuBuffer> indexBuffer;
-    GpuBuffer vertexBuffer;
+    std::vector<std::shared_ptr<TL::Buffer>> indexBuffer;
+    std::shared_ptr<TL::Buffer>              vertexBuffer;
 
     AABB aabb;
 
     // List of index count for each index buffer. One for each LOD level. Level 0 is the original mesh.
     std::vector<uint32_t> indexCount;
-    VkDeviceAddress vertexBufferAddress;
+    VkDeviceAddress       vertexBufferAddress;
 };
 
 struct Mesh {
     struct Vertex {
-        Vec3 position;
+        Vec3  position;
         float uvX;
-        Vec3 normal;
+        Vec3  normal;
         float uvY;
-        Vec3 tangent;
+        Vec3  tangent;
         float pad;
-        Vec3 biTangent;
+        Vec3  biTangent;
         float pad2;
     };
 
-    std::vector<Vertex> vertices;
+    std::vector<Vertex>                vertices;
     std::vector<std::vector<uint32_t>> indices;
 
     AABB aabb;
@@ -57,12 +57,12 @@ struct Mesh {
 
 class MeshCodex {
 public:
-    void Cleanup( TL_VkContext &gfx ) const;
+    void Cleanup( TL_VkContext &gfx );
 
-    MeshId AddMesh( TL_VkContext &gfx, const Mesh &mesh );
+    MeshId         AddMesh( TL_VkContext &gfx, const Mesh &mesh );
     const GpuMesh &GetMesh( MeshId id ) const;
 
 private:
-    GpuMesh UploadMesh( TL_VkContext &gfx, const Mesh &mesh ) const;
+    GpuMesh              UploadMesh( TL_VkContext &gfx, const Mesh &mesh ) const;
     std::vector<GpuMesh> m_meshes;
 };

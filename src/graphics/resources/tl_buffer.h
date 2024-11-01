@@ -14,7 +14,7 @@
 
 namespace TL {
 
-    enum class BufferType { TIndex, TVertex, TConstant, TStorage, TMax };
+    enum class BufferType { TIndex, TVertex, TConstant, TStorage, TStaging, TMax };
 
     class Buffer {
     public:

@@ -641,7 +641,7 @@ namespace TL {
                                  nullptr );
 
         auto &mesh = vkctx->meshCodex.GetMesh( m_skyboxMesh );
-        vkCmdBindIndexBuffer( cmd, mesh.indexBuffer[0].buffer, 0, VK_INDEX_TYPE_UINT32 );
+        vkCmdBindIndexBuffer( cmd, mesh.indexBuffer[0]->GetVkResource( ), 0, VK_INDEX_TYPE_UINT32 );
 
         const SkyboxPushConstants push_constants = { .sceneDataAddress    = m_sceneBufferGpu->GetDeviceAddress( ),
                                                      .vertexBufferAddress = mesh.vertexBufferAddress,
@@ -791,7 +791,7 @@ namespace TL {
                 auto            model = node->GetTransformMatrix( );
                 auto           &mesh  = vkctx->meshCodex.GetMesh( mesh_asset.mesh );
                 MeshDrawCommand mdc   = {
-                          .indexBuffer         = mesh.indexBuffer[0].buffer,
+                          .indexBuffer         = mesh.indexBuffer[0]->GetVkResource( ),
                           .indexCount          = mesh.indexCount[0],
                           .vertexBufferAddress = mesh.vertexBufferAddress,
                           .worldFromLocal      = model,
@@ -816,7 +816,7 @@ namespace TL {
                                                      visibility.lodLevelToRender );
                     }
 
-                    mdc.indexBuffer = mesh.indexBuffer[node->currentLod].buffer;
+                    mdc.indexBuffer = mesh.indexBuffer[node->currentLod]->GetVkResource( );
                     mdc.indexCount  = mesh.indexCount[node->currentLod];
                     m_drawCommands.push_back( mdc );
                 }

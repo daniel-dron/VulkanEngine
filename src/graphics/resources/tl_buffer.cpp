@@ -43,15 +43,25 @@ namespace TL {
             vma_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         }
         else if ( type == BufferType::TIndex ) {
-            assert( false );
+            usage     = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+            vma_flags = 0;
+            vma_usage = VMA_MEMORY_USAGE_GPU_ONLY;
         }
         else if ( type == BufferType::TVertex ) {
-            assert( false );
+            usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                    VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+            vma_flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+            vma_usage = VMA_MEMORY_USAGE_GPU_ONLY;
         }
         else if ( type == BufferType::TStorage ) {
             usage     = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
             vma_flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
             vma_usage = VMA_MEMORY_USAGE_AUTO;
+        }
+        else if ( type == BufferType::TStaging ) {
+            usage     = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+            vma_flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+            vma_usage = VMA_MEMORY_USAGE_CPU_ONLY;
         }
         else {
             assert( false );
@@ -69,8 +79,17 @@ namespace TL {
             const VkBufferDeviceAddressInfo address_info = {
                     .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = m_buffer };
             m_deviceAddress = vkGetBufferDeviceAddress( vkctx->device, &address_info );
-            assert( m_deviceAddress && "Could not map gpu constant buffer" );
+            assert( m_deviceAddress && "Could not map gpu buffer" );
 
+            vmaMapMemory( vkctx->allocator, m_allocation, reinterpret_cast<void **>( &m_gpuData ) );
+        }
+        else if ( m_type == BufferType::TVertex ) {
+            const VkBufferDeviceAddressInfo address_info = {
+                    .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = m_buffer };
+            m_deviceAddress = vkGetBufferDeviceAddress( vkctx->device, &address_info );
+            assert( m_deviceAddress && "Could not map gpu buffer" );
+        }
+        else if ( m_type == BufferType::TStaging ) {
             vmaMapMemory( vkctx->allocator, m_allocation, reinterpret_cast<void **>( &m_gpuData ) );
         }
     }
@@ -91,9 +110,13 @@ namespace TL {
         m_deviceAddress  = 0;
     }
 
-    void Buffer::Upload( const void *data, const u32 size ) const { Upload( data, 0, size ); }
+    void Buffer::Upload( const void *data, const u32 size ) const {
+        assert( m_type == BufferType::TStorage || m_type == BufferType::TConstant || m_type == BufferType::TStaging );
+        Upload( data, 0, size );
+    }
 
     void Buffer::Upload( const void *data, const u64 offset, const u32 size ) const {
+        assert( m_type == BufferType::TStorage || m_type == BufferType::TConstant || m_type == BufferType::TStaging );
         const auto actual_size = ( size == 0 ) ? m_size : size;
         memcpy( reinterpret_cast<void *>( m_gpuData + m_offset + offset ), data, actual_size );
     }
