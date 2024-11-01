@@ -92,6 +92,8 @@ struct TL_FrameData {
     std::array<uint64_t, 10> gpuTimestamps;
 };
 
+// Vulkan stuff that most of the render code will want to access at any given time.
+// Its lifetime is global.
 class TL_VkContext {
 public:
     using Ptr = TL_VkContext *;
@@ -114,9 +116,9 @@ public:
              TL_VkContext( ) = default;
     explicit TL_VkContext( struct SDL_Window *window );
 
-    Result<>  Init( );
-    void      Execute( std::function<void( VkCommandBuffer )> &&func );
-    void      Cleanup( );
+    Result<> Init( );
+    void     Execute( std::function<void( VkCommandBuffer )> &&func );
+    void     Cleanup( );
 
     // Resources
     std::shared_ptr<TL::Pipeline> GetOrCreatePipeline( const TL::PipelineConfig &config );
@@ -172,9 +174,8 @@ public:
     VkFormat                               format;
     VkExtent2D                             extent;
     VkPresentModeKHR                       presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-
-    u64           frameNumber = 0;
-    TL_FrameData &GetCurrentFrame( );
+    u64                                    frameNumber = 0;
+    TL_FrameData                          &GetCurrentFrame( );
 
     void DrawDebug( ) const;
 

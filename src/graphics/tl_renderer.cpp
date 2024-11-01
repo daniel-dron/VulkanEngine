@@ -19,6 +19,7 @@
 #include <vk_initializers.h>
 
 using namespace vk_init;
+using namespace utils;
 
 namespace TL {
 
@@ -232,19 +233,19 @@ namespace TL {
         vkCmdResetQueryPool( cmd, frame.queryPoolTimestamps, 0, ( u32 )frame.gpuTimestamps.size( ) );
 
         auto time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 0 ), frame.gpuTimestamps.at( 1 ) ) / 1000.0f;
-        g_visualProfiler.AddTimer( "ShadowMap", time, utils::VisualProfiler::Gpu );
+        g_visualProfiler.AddTimer( "ShadowMap", time, utils::TaskType::Gpu );
 
         time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 2 ), frame.gpuTimestamps.at( 3 ) ) / 1000.0f;
-        g_visualProfiler.AddTimer( "GBuffer", time, utils::VisualProfiler::Gpu );
+        g_visualProfiler.AddTimer( "GBuffer", time, utils::TaskType::Gpu );
 
         time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 4 ), frame.gpuTimestamps.at( 5 ) ) / 1000.0f;
-        g_visualProfiler.AddTimer( "Lighting", time, utils::VisualProfiler::Gpu );
+        g_visualProfiler.AddTimer( "Lighting", time, utils::TaskType::Gpu );
 
         time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 6 ), frame.gpuTimestamps.at( 7 ) ) / 1000.0f;
-        g_visualProfiler.AddTimer( "Skybox", time, utils::VisualProfiler::Gpu );
+        g_visualProfiler.AddTimer( "Skybox", time, utils::TaskType::Gpu );
 
         time = vkctx->GetTimestampInMs( frame.gpuTimestamps.at( 8 ), frame.gpuTimestamps.at( 9 ) ) / 1000.0f;
-        g_visualProfiler.AddTimer( "Post Process", time, utils::VisualProfiler::Gpu );
+        g_visualProfiler.AddTimer( "Post Process", time, utils::TaskType::Gpu );
     }
 
     void Renderer::SetViewportAndScissor( VkCommandBuffer cmd ) noexcept {
@@ -782,6 +783,8 @@ namespace TL {
     }
 
     void Renderer::CreateDrawCommands( ) {
+        ScopedProfiler commands_task( "Create Commands", Cpu );
+
         m_shadowMapCommands.clear( );
         m_drawCommands.clear( );
 

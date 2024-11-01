@@ -39,7 +39,7 @@
 
 TL_Engine            *g_TL             = nullptr;
 utils::VisualProfiler g_visualProfiler = utils::VisualProfiler( 300 );
-TL_Engine &TL_Engine::Get( ) { return *g_TL; }
+TL_Engine            &TL_Engine::Get( ) { return *g_TL; }
 
 using namespace TL;
 
@@ -55,15 +55,14 @@ void TL_Engine::Init( ) {
     EG_INPUT.Init( );
     InitScene( );
 
-    g_visualProfiler.RegisterTask( "GBuffer", utils::colors::CARROT, utils::VisualProfiler::Cpu );
-    g_visualProfiler.RegisterTask( "Create Commands", utils::colors::EMERALD, utils::VisualProfiler::Cpu );
-    g_visualProfiler.RegisterTask( "Scene", utils::colors::EMERALD, utils::VisualProfiler::Cpu );
+    g_visualProfiler.RegisterTask( "Create Commands", utils::colors::EMERALD, utils::TaskType::Cpu );
+    g_visualProfiler.RegisterTask( "Scene", utils::colors::EMERALD, utils::TaskType::Cpu );
 
-    g_visualProfiler.RegisterTask( "ShadowMap", utils::colors::TURQUOISE, utils::VisualProfiler::Gpu );
-    g_visualProfiler.RegisterTask( "GBuffer", utils::colors::ALIZARIN, utils::VisualProfiler::Gpu );
-    g_visualProfiler.RegisterTask( "Lighting", utils::colors::AMETHYST, utils::VisualProfiler::Gpu );
-    g_visualProfiler.RegisterTask( "Skybox", utils::colors::SUN_FLOWER, utils::VisualProfiler::Gpu );
-    g_visualProfiler.RegisterTask( "Post Process", utils::colors::PETER_RIVER, utils::VisualProfiler::Gpu );
+    g_visualProfiler.RegisterTask( "ShadowMap", utils::colors::TURQUOISE, utils::TaskType::Gpu );
+    g_visualProfiler.RegisterTask( "GBuffer", utils::colors::ALIZARIN, utils::TaskType::Gpu );
+    g_visualProfiler.RegisterTask( "Lighting", utils::colors::AMETHYST, utils::TaskType::Gpu );
+    g_visualProfiler.RegisterTask( "Skybox", utils::colors::SUN_FLOWER, utils::TaskType::Gpu );
+    g_visualProfiler.RegisterTask( "Post Process", utils::colors::PETER_RIVER, utils::TaskType::Gpu );
 
     m_isInitialized = true;
 }
@@ -771,8 +770,6 @@ void TL_Engine::Run( ) {
         }
 
         m_timer += m_stats.frametime;
-        const auto end_task = utils::GetTime( );
-        // g_visualProfiler.AddTimer( "Main", end_task - start_task, utils::VisualProfiler::Cpu );
     }
 }
 
@@ -802,8 +799,6 @@ void TL_Engine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targetIm
 
 void TL_Engine::UpdateScene( ) const {
     ZoneScopedN( "update_scene" );
-    const auto start = utils::GetTime( );
+    utils::ScopedProfiler scene_task( "Scene", utils::TaskType::Cpu );
     renderer->UpdateScene( *m_scene );
-    const auto end = utils::GetTime( );
-    g_visualProfiler.AddTimer( "Scene", end - start, utils::VisualProfiler::Cpu );
 }
