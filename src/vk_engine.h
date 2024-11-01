@@ -47,13 +47,8 @@ public:
     std::unique_ptr<TL::Renderer> renderer = nullptr;
 
     void InitSdl( );
-    void InitRenderer( );
-
     void InitImGui( );
     void DrawImGui( VkCommandBuffer cmd, VkImageView targetImageView );
-
-    void PbrPass( VkCommandBuffer cmd ) const;
-    void SkyboxPass( VkCommandBuffer cmd ) const;
 
     void InitDefaultData( );
     void InitImages( );
@@ -69,7 +64,6 @@ public:
 
     SDL_Window *m_window{ nullptr };
 
-    bool m_dirtSwapchain = false;
 
     DeletionQueue m_mainDeletionQueue;
 

@@ -48,16 +48,17 @@ void TL_Engine::Init( ) {
     g_TL = this;
 
     InitSdl( );
-    InitRenderer( );
+
+    renderer = std::make_unique<TL::Renderer>( );
+    renderer->Init( m_window, { WIDTH, HEIGHT } );
+
     InitDefaultData( );
     InitImGui( );
-    m_imGuiPipeline.Init( *vkctx );
     EG_INPUT.Init( );
     InitScene( );
 
     g_visualProfiler.RegisterTask( "Create Commands", utils::colors::EMERALD, utils::TaskType::Cpu );
     g_visualProfiler.RegisterTask( "Scene", utils::colors::EMERALD, utils::TaskType::Cpu );
-
     g_visualProfiler.RegisterTask( "ShadowMap", utils::colors::TURQUOISE, utils::TaskType::Gpu );
     g_visualProfiler.RegisterTask( "GBuffer", utils::colors::ALIZARIN, utils::TaskType::Gpu );
     g_visualProfiler.RegisterTask( "Lighting", utils::colors::AMETHYST, utils::TaskType::Gpu );
@@ -74,13 +75,6 @@ void TL_Engine::InitSdl( ) {
 
     m_window = SDL_CreateWindow( "Vulkan Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
                                  m_windowExtent.width, m_windowExtent.height, window_flags );
-}
-
-void TL_Engine::InitRenderer( ) {
-    renderer = std::make_unique<TL::Renderer>( );
-    renderer->Init( m_window, { WIDTH, HEIGHT } );
-
-    m_mainDeletionQueue.Flush( );
 }
 
 void TL_Engine::InitImGui( ) {
@@ -219,6 +213,8 @@ void TL_Engine::InitImGui( ) {
         ImGui_ImplVulkan_Shutdown( );
         vkDestroyDescriptorPool( vkctx->device, imgui_pool, nullptr );
     } );
+
+    m_imGuiPipeline.Init( *vkctx );
 }
 
 auto RandomRange( const float min, const float max ) -> float {
@@ -272,11 +268,11 @@ void TL_Engine::Draw( ) {
 
     frame.deletionQueue.Flush( );
     renderer->StartFrame( );
-    const auto cmd = frame.commandBuffer;
     renderer->Frame( );
 
     {
         ZoneScopedN( "Final Image" );
+        const auto cmd = frame.commandBuffer;
         if ( m_drawEditor ) {
             DrawImGui( cmd, vkctx->views[renderer->swapchainImageIndex] );
             image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
@@ -457,12 +453,6 @@ void TL_Engine::Run( ) {
             SDL_WarpMouseInWindow( m_window, saved_mouse_x, saved_mouse_y );
         }
 
-        if ( m_dirtSwapchain ) {
-            // TODO:
-            // vkctx->Recreate( vkctx->extent.width, vkctx->extent.height );
-            m_dirtSwapchain = false;
-        }
-
         m_cameraController->Update( m_stats.frametime / 1000.0f );
 
         // do not draw if we are minimized
@@ -621,15 +611,6 @@ void TL_Engine::Run( ) {
                     ImGui::DragFloat( "Gamma", &renderer->postProcessSettings.gamma, 0.01f, 0.01f, 10.0f );
                     ImGui::Checkbox( "Wireframe", &renderer->settings.wireframe );
                     ImGui::Checkbox( "Render Irradiance Map", &renderer->settings.renderIrradianceInsteadSkybox );
-                    if ( ImGui::Checkbox( "VSync", &renderer->settings.vsync ) ) {
-                        if ( renderer->settings.vsync ) {
-                            vkctx->presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-                        }
-                        else {
-                            vkctx->presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-                        }
-                        m_dirtSwapchain = true;
-                    }
                     ImGui::EndPopup( );
                 }
 

@@ -211,7 +211,7 @@ namespace TL {
         // Draw Commands
 
         VisibilityLODResult          VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
-                                                             const Frustum &frustum );
+                                                             const Frustum &frustum ) const;
         void                         CreateDrawCommands( );
         std::vector<MeshDrawCommand> m_drawCommands;
         std::vector<MeshDrawCommand> m_shadowMapCommands;

@@ -693,7 +693,7 @@ namespace TL {
     }
 
     VisibilityLODResult Renderer::VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
-                                                          const Frustum &frustum ) {
+                                                          const Frustum &frustum ) const {
         // If neither frustum or lod is enable, then everything is visible and finest lod
         if ( !settings.frustumCulling && !settings.lodSystem ) {
             return { true, 0 };
@@ -722,12 +722,11 @@ namespace TL {
         bool is_visible = true;
 
         if ( settings.frustumCulling ) {
-            // for each plane…
-            for ( int i = 0; i < 6; ++i ) {
+            for ( auto plane : frustum.planes ) {
                 bool inside_frustum = false;
 
-                for ( int j = 0; j < 8; ++j ) {
-                    if ( dot( Vec3( points[j] ), Vec3( frustum.planes[i] ) ) + frustum.planes[i].w > 0 ) {
+                for ( auto point : points ) {
+                    if ( dot( Vec3( point ), Vec3( plane ) ) + plane.w > 0 ) {
                         inside_frustum = true;
                         break;
                     }
