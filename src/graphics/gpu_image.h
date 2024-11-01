@@ -27,7 +27,7 @@ class GpuImage {
 public:
     using Ptr = std::shared_ptr<GpuImage>;
 
-    GpuImage( ) = delete;
+    GpuImage( ) = default;
     GpuImage( TL_VkContext *gfx, const std::string &name, void *data, VkExtent3D extent, VkFormat format,
               ImageType imageType = T2D, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT,
               bool generateMipmaps = false );
@@ -36,7 +36,7 @@ public:
     ~GpuImage( );
 
     // delete copy constructors
-    GpuImage( const GpuImage & ) = delete;
+              GpuImage( const GpuImage           &)  = delete;
     GpuImage &operator=( const GpuImage & ) = delete;
 
     // allow move constructors
@@ -50,18 +50,18 @@ public:
         m_name( std::move( other.m_name ) ) {}
     GpuImage &operator=( GpuImage &&other ) noexcept {
         if ( this != &other ) {
-            m_gfx = std::exchange( other.m_gfx, nullptr );
-            m_id = std::exchange( other.m_id, -1 );
-            m_type = std::exchange( other.m_type, TUnknown );
-            m_image = std::exchange( other.m_image, VK_NULL_HANDLE );
-            m_view = std::exchange( other.m_view, VK_NULL_HANDLE );
-            m_extent = std::exchange( other.m_extent, { } );
-            m_format = std::exchange( other.m_format, { } );
-            m_usage = std::exchange( other.m_usage, { } );
+            m_gfx        = std::exchange( other.m_gfx, nullptr );
+            m_id         = std::exchange( other.m_id, -1 );
+            m_type       = std::exchange( other.m_type, TUnknown );
+            m_image      = std::exchange( other.m_image, VK_NULL_HANDLE );
+            m_view       = std::exchange( other.m_view, VK_NULL_HANDLE );
+            m_extent     = std::exchange( other.m_extent, { } );
+            m_format     = std::exchange( other.m_format, { } );
+            m_usage      = std::exchange( other.m_usage, { } );
             m_allocation = std::exchange( other.m_allocation, { } );
-            m_mipmapped = std::exchange( other.m_mipmapped, false );
-            m_mipViews = std::move( other.m_mipViews );
-            m_name = std::move( other.m_name );
+            m_mipmapped  = std::exchange( other.m_mipmapped, false );
+            m_mipViews   = std::move( other.m_mipViews );
+            m_name       = std::move( other.m_name );
         }
         return *this;
     }
@@ -72,19 +72,19 @@ public:
 
     void Resize( VkExtent3D size );
 
-    ImageId GetId( ) const { return m_id; }
-    void SetId( const ImageId new_id ) { m_id = new_id; }
-    ImageType GetType( ) const { return m_type; }
-    VkImage GetImage( ) const { return m_image; }
-    VkImageView GetBaseView( ) const { return m_view; }
-    VkExtent3D GetExtent( ) const { return m_extent; }
-    VkFormat GetFormat( ) const { return m_format; }
-    VkImageUsageFlags GetUsage( ) const { return m_usage; }
-    VmaAllocation GetAllocation( ) const { return m_allocation; }
-    bool IsMipmapped( ) const { return m_mipmapped; }
-    VkImageView GetMipView( const size_t mipLevel ) const { return m_mipViews.at( mipLevel ); }
+    ImageId                         GetId( ) const { return m_id; }
+    void                            SetId( const ImageId new_id ) { m_id = new_id; }
+    ImageType                       GetType( ) const { return m_type; }
+    VkImage                         GetImage( ) const { return m_image; }
+    VkImageView                     GetBaseView( ) const { return m_view; }
+    VkExtent3D                      GetExtent( ) const { return m_extent; }
+    VkFormat                        GetFormat( ) const { return m_format; }
+    VkImageUsageFlags               GetUsage( ) const { return m_usage; }
+    VmaAllocation                   GetAllocation( ) const { return m_allocation; }
+    bool                            IsMipmapped( ) const { return m_mipmapped; }
+    VkImageView                     GetMipView( const size_t mipLevel ) const { return m_mipViews.at( mipLevel ); }
     const std::vector<VkImageView> &GetMipViews( ) { return m_mipViews; }
-    const std::string &GetName( ) const { return m_name; }
+    const std::string              &GetName( ) const { return m_name; }
 
 private:
     void SetDebugName( const std::string &name );
@@ -101,48 +101,18 @@ private:
 
     ImageType m_type = TUnknown;
 
-    VkImage m_image = VK_NULL_HANDLE;
-    VkImageView m_view = VK_NULL_HANDLE;
-    VkExtent3D m_extent = { };
-    VkFormat m_format = { };
-    VkImageUsageFlags m_usage = { };
+    VkImage           m_image  = VK_NULL_HANDLE;
+    VkImageView       m_view   = VK_NULL_HANDLE;
+    VkExtent3D        m_extent = { };
+    VkFormat          m_format = { };
+    VkImageUsageFlags m_usage  = { };
 
     VmaAllocation m_allocation = { };
 
-    bool m_mipmapped = false;
+    bool                     m_mipmapped = false;
     std::vector<VkImageView> m_mipViews;
 
     std::string m_name;
-};
-
-class MultiFrameGpuImage {
-public:
-    MultiFrameGpuImage( const std::vector<ImageId> &images );
-
-    // delete copy constructors
-    MultiFrameGpuImage( const MultiFrameGpuImage & ) = delete;
-    MultiFrameGpuImage &operator=( const MultiFrameGpuImage & ) = delete;
-
-    MultiFrameGpuImage( MultiFrameGpuImage &&other ) noexcept :
-        m_frames( std::move( other.m_frames ) ), m_id( other.m_id ) {
-        other.m_id = -1;
-    }
-    MultiFrameGpuImage &operator=( MultiFrameGpuImage &&other ) noexcept {
-        if ( this != &other ) {
-            m_frames = std::move( other.m_frames );
-            m_id = other.m_id;
-        }
-        return *this;
-    }
-
-    ImageId GetCurrentImage( ) const;
-
-    MultiFrameImageId GetId( ) const { return m_id; }
-    void SetId( MultiFrameImageId id ) { m_id = id; }
-
-private:
-    std::vector<ImageId> m_frames;
-    MultiFrameImageId m_id = -1;
 };
 
 namespace image {

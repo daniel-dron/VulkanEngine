@@ -78,10 +78,10 @@ namespace TL {
             }
         }
 
+        OnFrameBoundary( );
+
         const auto &depth = vkctx->imageCodex.GetImage( frame.depth );
         depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
-
-        OnFrameBoundary( );
     }
 
     void Renderer::Frame( ) noexcept {
@@ -202,9 +202,16 @@ namespace TL {
         m_sceneData.numberOfPointLights       = static_cast<int>( m_pointLights.size( ) );
     }
 
+    void Renderer::OnResize( u32 width, u32 height ) {
+        m_extent = { width, height };
+        m_camera->SetAspectRatio( static_cast<f32>( width ), static_cast<f32>( height ) );
+    }
+
     void Renderer::OnFrameBoundary( ) noexcept {
         auto &frame = vkctx->GetCurrentFrame( );
         auto  cmd   = frame.commandBuffer;
+
+        frame.deletionQueue.Flush( );
 
         CreateDrawCommands( );
 

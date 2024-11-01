@@ -117,6 +117,7 @@ public:
     explicit TL_VkContext( struct SDL_Window *window );
 
     Result<> Init( );
+    void     RecreateSwapchain( u32 width, u32 height );
     void     Execute( std::function<void( VkCommandBuffer )> &&func );
     void     Cleanup( );
 

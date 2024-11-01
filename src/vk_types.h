@@ -39,8 +39,8 @@
 #define VKCALL( x ) x
 #endif
 
-#define WIDTH 2560
-#define HEIGHT 1440
+#define WIDTH 1920
+#define HEIGHT 1080
 
 // Helper macro for early return
 #define RETURN_IF_ERROR( expression )                                                                                  \
@@ -53,7 +53,6 @@ constexpr glm::vec3 GLOBAL_RIGHT{ 1.0f, 0.0f, 0.0f };
 constexpr glm::vec3 GLOBAL_FRONT{ 0.0f, 0.0f, 1.0f };
 
 using ImageId = uint32_t;
-using MultiFrameImageId = uint32_t;
 using MeshId = uint32_t;
 using MaterialId = uint32_t;
 

@@ -125,11 +125,12 @@ TL_VkContext::Result<> TL_VkContext::Init( ) {
     imageCodex.Init( this );
     materialCodex.Init( );
 
-    // .Init( this, WIDTH, HEIGHT );
     InitSwapchain( WIDTH, HEIGHT );
 
     return { };
 }
+
+void TL_VkContext::RecreateSwapchain( u32 width, u32 height ) { InitSwapchain( width, height ); }
 
 void TL_VkContext::Execute( std::function<void( VkCommandBuffer )> &&func ) { executor.Execute( std::move( func ) ); }
 
@@ -387,18 +388,24 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
     SwapchainBuilder builder( chosenGpu, device, surface );
     format = VK_FORMAT_R8G8B8A8_SRGB;
 
+    auto old_swapchain = swapchain;
+
     auto swapchain_res = builder.set_desired_format( VkSurfaceFormatKHR{
                                                              .format     = format,
                                                              .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
                                                      } )
                                  .set_desired_present_mode( presentMode )
+                                 .set_old_swapchain( old_swapchain )
                                  .add_image_usage_flags( VK_IMAGE_USAGE_TRANSFER_DST_BIT )
                                  .build( );
 
     // TODO: throw instead
     assert( swapchain_res.has_value( ) );
-
     auto &bs_swapchain = swapchain_res.value( );
+
+    if ( old_swapchain != VK_NULL_HANDLE ) {
+        CleanupSwapchain( );
+    }
 
     swapchain = bs_swapchain.swapchain;
     images    = bs_swapchain.get_images( ).value( );
@@ -487,15 +494,35 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
     }
 }
 void TL_VkContext::CleanupSwapchain( ) {
+
     for ( uint64_t i = 0; i < FrameOverlap; i++ ) {
+        auto &frame = frames[i];
+
+        auto oldDepth    = frame.depth;
+        auto oldHdr      = frame.hdrColor;
+        auto oldPPI      = frame.postProcessImage;
+        auto oldAlbedo   = frame.gBuffer.albedo;
+        auto oldNormal   = frame.gBuffer.normal;
+        auto oldPbr      = frame.gBuffer.pbr;
+        auto oldPosition = frame.gBuffer.position;
+
+        frame.deletionQueue.PushFunction( [&, oldDepth, oldHdr, oldPPI, oldAlbedo, oldNormal, oldPbr, oldPosition] {
+            // destroy the images
+            imageCodex.UnloadIamge( oldDepth );
+            imageCodex.UnloadIamge( oldHdr );
+            imageCodex.UnloadIamge( oldPPI );
+            imageCodex.UnloadIamge( oldAlbedo );
+            imageCodex.UnloadIamge( oldNormal );
+            imageCodex.UnloadIamge( oldPbr );
+            imageCodex.UnloadIamge( oldPosition );
+        } );
+
         vkDestroyCommandPool( device, frames[i].pool, nullptr );
 
         // sync objects
         vkDestroyFence( device, frames[i].fence, nullptr );
         vkDestroySemaphore( device, frames[i].renderSemaphore, nullptr );
         vkDestroySemaphore( device, frames[i].swapchainSemaphore, nullptr );
-
-        frames[i].deletionQueue.Flush( );
 
         vkDestroyQueryPool( device, frames[i].queryPoolTimestamps, nullptr );
     }

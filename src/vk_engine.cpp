@@ -40,6 +40,7 @@
 TL_Engine            *g_TL             = nullptr;
 utils::VisualProfiler g_visualProfiler = utils::VisualProfiler( 300 );
 TL_Engine            &TL_Engine::Get( ) { return *g_TL; }
+static ImageId        selected_set = 0;
 
 using namespace TL;
 
@@ -234,8 +235,9 @@ void TL_Engine::ResizeSwapchain( uint32_t width, uint32_t height ) {
     m_windowExtent.width  = width;
     m_windowExtent.height = height;
 
-    // TODO:
-    // vkctx->Recreate( width, height );
+    vkctx->RecreateSwapchain( width, height );
+    renderer->OnResize( width, height );
+    selected_set = vkctx->GetCurrentFrame( ).postProcessImage;
 }
 
 void TL_Engine::Cleanup( ) {
@@ -266,7 +268,6 @@ void TL_Engine::Draw( ) {
 
     auto &frame = vkctx->GetCurrentFrame( );
 
-    frame.deletionQueue.Flush( );
     renderer->StartFrame( );
     renderer->Frame( );
 
@@ -397,8 +398,8 @@ static void drawSceneHierarchy( Node &node ) {
 void TL_Engine::Run( ) {
     bool b_quit = false;
 
-    static ImageId selected_set   = vkctx->GetCurrentFrame( ).postProcessImage;
-    static int     selected_set_n = 0;
+    selected_set              = vkctx->GetCurrentFrame( ).postProcessImage;
+    static int selected_set_n = 0;
 
     // main loop
     while ( !b_quit ) {

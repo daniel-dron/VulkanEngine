@@ -47,16 +47,16 @@ ImageId ImageCodex::LoadImageFromFile( const std::string &path, const VkFormat f
         }
     }
 
-    int width, height, nr_channels;
+    int            width, height, nr_channels;
     unsigned char *data = stbi_load( path.c_str( ), &width, &height, &nr_channels, 4 );
     if ( !data ) {
         return -1;
     }
 
     const VkExtent3D extent = {
-            .width = static_cast<uint32_t>( width ),
+            .width  = static_cast<uint32_t>( width ),
             .height = static_cast<uint32_t>( height ),
-            .depth = 1,
+            .depth  = 1,
     };
 
     const auto id = LoadImageFromData( path, data, extent, format, usage, mipmapped );
@@ -76,16 +76,16 @@ ImageId ImageCodex::LoadHdrFromFile( const std::string &path, const VkFormat for
         }
     }
 
-    int width, height, nr_channels;
+    int    width, height, nr_channels;
     float *data = stbi_loadf( path.c_str( ), &width, &height, &nr_channels, 4 );
     if ( !data ) {
         return -1;
     }
 
     const VkExtent3D extent = {
-            .width = static_cast<uint32_t>( width ),
+            .width  = static_cast<uint32_t>( width ),
             .height = static_cast<uint32_t>( height ),
-            .depth = 1,
+            .depth  = 1,
     };
 
     const auto id = LoadImageFromData( path, data, extent, format, usage, mipmapped );
@@ -107,9 +107,9 @@ ImageId ImageCodex::LoadCubemapFromFile( const std::vector<std::string> &paths, 
     }
 
     VkExtent3D extent = {
-            .width = 0,
+            .width  = 0,
             .height = 0,
-            .depth = 1,
+            .depth  = 1,
     };
 
     stbi_set_flip_vertically_on_load( true );
@@ -117,13 +117,13 @@ ImageId ImageCodex::LoadCubemapFromFile( const std::vector<std::string> &paths, 
     for ( size_t i = 0; i < 6; i++ ) {
         auto &path = paths.at( i );
 
-        int width, height, nr_channels;
+        int            width, height, nr_channels;
         unsigned char *data = stbi_load( path.c_str( ), &width, &height, &nr_channels, 4 );
         if ( !data ) {
             return -1;
         }
 
-        extent.width = width;
+        extent.width  = width;
         extent.height = height;
 
         datas.push_back( data );
@@ -139,30 +139,30 @@ ImageId ImageCodex::LoadCubemapFromFile( const std::vector<std::string> &paths, 
     return image_id;
 }
 
-ImageId ImageCodex::LoadCubemapFromData( const std::vector<std::string> &paths,
+ImageId ImageCodex::LoadCubemapFromData( const std::vector<std::string>     &paths,
                                          const std::vector<unsigned char *> &datas, const VkExtent3D extent,
                                          const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped ) {
     const size_t total_size = image::CalculateSize( extent, format ) * datas.size( );
-    const size_t face_size = image::CalculateSize( extent, format );
+    const size_t face_size  = image::CalculateSize( extent, format );
 
     unsigned char *merged_data = new unsigned char[total_size];
-    size_t offset = { };
+    size_t         offset      = { };
 
     for ( const auto &data : datas ) {
         std::memcpy( merged_data + offset, data, face_size );
         offset += face_size;
     }
 
-    GpuImage image = GpuImage( m_gfx, paths.at( 0 ), ( void * )merged_data, extent, format, ImageType::TCubeMap, usage,
+    auto image = GpuImage( m_gfx, paths.at( 0 ), ( void * )merged_data, extent, format, ImageType::TCubeMap, usage,
                                mipmapped );
 
     delete[] merged_data;
 
-    const ImageId image_id = ( ImageId )m_images.size( );
+    const ImageId image_id = GetAvailableId( );
     image.SetId( image_id );
 
     bindlessRegistry.AddImage( *m_gfx, image_id, image.GetBaseView( ) );
-    m_images.push_back( std::move( image ) );
+    m_images[image_id] = std::move( image );
 
     return image_id;
 }
@@ -171,40 +171,23 @@ ImageId ImageCodex::CreateCubemap( const std::string &name, const VkExtent3D ext
                                    const VkImageUsageFlags usage, int mipmaps ) {
     auto image = GpuImage( m_gfx, name, extent, format, ImageType::TCubeMap, usage, mipmaps );
 
-    const ImageId image_id = ( ImageId )m_images.size( );
+    const ImageId image_id = GetAvailableId( );
     image.SetId( image_id );
 
     bindlessRegistry.AddImage( *m_gfx, image_id, image.GetBaseView( ) );
-    m_images.push_back( std::move( image ) );
+    m_images[image_id] = std::move( image );
     return image_id;
-}
-
-MultiFrameImageId ImageCodex::CreateMultiFrameEmptyImage( const std::string &name, VkExtent3D extent, VkFormat format,
-                                                          VkImageUsageFlags usage, bool mipmapped ) {
-    std::vector<ImageId> frames;
-
-    // upload each image to the bindless registry and to the individual id system
-    for ( auto i = 0; i < TL_VkContext::FrameOverlap; i++ ) {
-        frames.push_back( CreateEmptyImage( name, extent, format, usage, mipmapped ) );
-    }
-
-    auto multi_frame = MultiFrameGpuImage( frames );
-    MultiFrameImageId id = ( MultiFrameImageId )m_multiFrameImages.size( );
-    multi_frame.SetId( id );
-    m_multiFrameImages.push_back( std::move( multi_frame ) );
-
-    return id;
 }
 
 ImageId ImageCodex::CreateEmptyImage( const std::string &name, const VkExtent3D extent, const VkFormat format,
                                       const VkImageUsageFlags usage, const bool mipmapped ) {
     auto image = GpuImage( m_gfx, name, extent, format, ImageType::T2D, usage, mipmapped );
 
-    const ImageId image_id = ( ImageId )m_images.size( );
+    const ImageId image_id = GetAvailableId( );
     image.SetId( image_id );
 
     bindlessRegistry.AddImage( *m_gfx, image_id, image.GetBaseView( ) );
-    m_images.push_back( std::move( image ) );
+    m_images[image_id] = std::move( image );
     return image_id;
 }
 
@@ -212,11 +195,11 @@ ImageId ImageCodex::LoadImageFromData( const std::string &name, void *data, cons
                                        const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped ) {
     auto image = GpuImage( m_gfx, name, data, extent, format, ImageType::T2D, usage, mipmapped );
 
-    const ImageId image_id = ( ImageId )m_images.size( );
+    const ImageId image_id = GetAvailableId( );
     image.SetId( image_id );
 
     bindlessRegistry.AddImage( *m_gfx, image_id, image.GetBaseView( ) );
-    m_images.push_back( std::move( image ) );
+    m_images[image_id] = std::move( image );
 
     return image_id;
 }
@@ -225,12 +208,17 @@ VkDescriptorSetLayout ImageCodex::GetBindlessLayout( ) const { return bindlessRe
 
 VkDescriptorSet ImageCodex::GetBindlessSet( ) const { return bindlessRegistry.set; }
 
+void ImageCodex::UnloadIamge( const ImageId id ) {
+    auto image = std::move( GetImage( id ) );
+    m_freeIds.push_back( id );
+}
+
 void ImageCodex::DrawDebug( ) const {
     ImGui::Columns( 10 );
     {
         for ( u64 i = 1; i < m_images.size( ); i++ ) {
-            auto &image = m_images.at( i );
-            f32 column_width = ImGui::GetColumnWidth( );
+            auto &image        = m_images.at( i );
+            f32   column_width = ImGui::GetColumnWidth( );
             ImGui::Image( ( ImTextureID )( i ), ImVec2( column_width, column_width ) );
             if ( ImGui::IsItemHovered( ) ) {
                 ImGui::BeginTooltip( );
@@ -261,7 +249,7 @@ void ImageCodex::InitDefaultImages( ) {
                                VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     // checkerboard image
-    const uint32_t magenta = glm::packUnorm4x8( glm::vec4( 1, 0, 1, 1 ) );
+    const uint32_t                magenta = glm::packUnorm4x8( glm::vec4( 1, 0, 1, 1 ) );
     std::array<uint32_t, 16 * 16> pixels; // for 16x16 checkerboard texture
     for ( int x = 0; x < 16; x++ ) {
         for ( int y = 0; y < 16; y++ ) {
@@ -270,4 +258,16 @@ void ImageCodex::InitDefaultImages( ) {
     }
     m_checkboard = LoadImageFromData( "debug_checkboard_img", ( void * )&white, VkExtent3D{ 16, 16, 1 },
                                       VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
+}
+ImageId ImageCodex::GetAvailableId( ) {
+    if ( m_freeIds.empty( ) ) {
+        const auto id = m_images.size( );
+        m_images.resize( id + 1 );
+        return id;
+    }
+
+    const auto id = m_freeIds.back( );
+    m_freeIds.pop_back( );
+
+    return id;
 }

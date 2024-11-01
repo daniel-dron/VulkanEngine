@@ -164,6 +164,8 @@ namespace TL {
         // Upload scene to the rendere
         void UpdateScene( const Scene &scene );
 
+        void OnResize( u32 width, u32 height );
+
         // Returns the main camera used to render the scene
         std::shared_ptr<Camera> GetCamera( ) { return m_camera; }
 
@@ -202,7 +204,7 @@ namespace TL {
 
         // Scene
         std::vector<std::shared_ptr<Node>> m_renderables;
-        std::unique_ptr<TL::Ibl>               m_ibl;
+        std::unique_ptr<TL::Ibl>           m_ibl;
         GpuSceneData                       m_sceneData = { };
         std::shared_ptr<Buffer>            m_sceneBufferGpu;
         std::vector<GpuDirectionalLight>   m_directionalLights;
