@@ -15,16 +15,15 @@
 
 #include <vk_types.h>
 
-struct VisibilityLODResult {
+struct VisibilityResult {
     bool isVisible;
-    int lodLevelToRender;
 };
 
 struct MeshDrawCommand {
-	VkBuffer indexBuffer;
-	uint32_t indexCount;
-	VkDeviceAddress vertexBufferAddress;
+    VkBuffer        indexBuffer;
+    uint32_t        indexCount;
+    VkDeviceAddress vertexBufferAddress;
 
-	Mat4 worldFromLocal;
-	MaterialId materialId;
+    Mat4       worldFromLocal;
+    MaterialId materialId;
 };

@@ -271,28 +271,7 @@ static MeshId LoadMesh( TL_VkContext &gfx, aiMesh *aiMesh ) {
         indices.push_back( face.mIndices[1] );
         indices.push_back( face.mIndices[2] );
     }
-    mesh.indices.push_back( indices );
-
-
-    // Generate max 6 LODS. meshop_simplify will return an empty index buffer if it can no longer simplify the mesh.
-    // Whenever we query for LODs later, we need to be careful and check how many indexbuffers the vector actually has.
-    for ( u32 i = 1; i < 6; i++ ) {
-        float  ratio              = std::pow( 0.5f, static_cast<float>( i ) );
-        size_t target_index_count = size_t( mesh.indices[0].size( ) * ratio );
-        float  target_error       = 1e-2f;
-
-        std::vector<uint32_t> lod( mesh.indices[0].size( ) );
-        float                 lod_error = 0.f;
-        lod.resize( meshopt_simplify( &lod[0], indices.data( ), mesh.indices[0].size( ), &mesh.vertices[0].position.x,
-                                      mesh.vertices.size( ), sizeof( Mesh::Vertex ), target_index_count, target_error,
-                                      /* options= */ 0, &lod_error ) );
-        // We can no longer simplify the mesh.
-        if ( lod.size( ) == 0 ) {
-            break;
-        }
-
-        mesh.indices.push_back( lod );
-    }
+    mesh.indices = indices;
 
     mesh.aabb = {
             .min = Vec3{ aiMesh->mAABB.mMin.x, aiMesh->mAABB.mMin.y, aiMesh->mAABB.mMin.z },

@@ -649,7 +649,7 @@ namespace TL {
                                  nullptr );
 
         auto &mesh = vkctx->meshCodex.GetMesh( m_skyboxMesh );
-        vkCmdBindIndexBuffer( cmd, mesh.indexBuffer[0]->GetVkResource( ), 0, VK_INDEX_TYPE_UINT32 );
+        vkCmdBindIndexBuffer( cmd, mesh.indexBuffer->GetVkResource( ), 0, VK_INDEX_TYPE_UINT32 );
 
         const SkyboxPushConstants push_constants = { .sceneDataAddress    = m_sceneBufferGpu->GetDeviceAddress( ),
                                                      .vertexBufferAddress = mesh.vertexBufferAddress,
@@ -657,7 +657,7 @@ namespace TL {
         vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                             sizeof( SkyboxPushConstants ), &push_constants );
 
-        vkCmdDrawIndexed( cmd, mesh.indexCount[0], 1, 0, 0, 0 );
+        vkCmdDrawIndexed( cmd, mesh.indexCount, 1, 0, 0, 0 );
 
         vkCmdEndRendering( cmd );
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 7 );
@@ -699,11 +699,10 @@ namespace TL {
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 9 );
     }
 
-    VisibilityLODResult Renderer::VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
-                                                          const Frustum &frustum ) const {
-        // If neither frustum or lod is enable, then everything is visible and finest lod
-        if ( !settings.frustumCulling && !settings.lodSystem ) {
-            return { true, 0 };
+    VisibilityResult Renderer::VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
+                                                       const Frustum &frustum ) const {
+        if ( !settings.frustumCulling ) {
+            return { true };
         }
 
         Vec3 points[] = {
@@ -714,16 +713,9 @@ namespace TL {
                 { aabb->max.x, aabb->max.y, aabb->max.z }, { aabb->min.x, aabb->max.y, aabb->max.z },
         };
 
-        Vec4 clips[8] = { };
-
-        // Transform points to world space and clip space
+        // Transform points to world space
         for ( int i = 0; i < 8; ++i ) {
             points[i] = transform * Vec4( points[i], 1.0f );
-
-            // Only need the clip space coordinates for the LOD system
-            if ( settings.lodSystem ) {
-                clips[i] = m_camera->GetProjectionMatrix( ) * m_camera->GetViewMatrix( ) * Vec4( points[i], 1.0f );
-            }
         }
 
         bool is_visible = true;
@@ -746,46 +738,10 @@ namespace TL {
         }
 
         if ( !is_visible ) {
-            return { false, -1 };
+            return { false };
         }
 
-        if ( settings.lodSystem ) {
-            float min_x = std::numeric_limits<float>::max( );
-            float max_x = std::numeric_limits<float>::lowest( );
-            float min_y = std::numeric_limits<float>::max( );
-            float max_y = std::numeric_limits<float>::lowest( );
-
-            for ( int i = 0; i < 8; i++ ) {
-                Vec4 clip = clips[i];
-                Vec3 ndc  = Vec3( clip ) / clip.w;
-
-                ndc         = glm::clamp( ndc, -1.0f, 1.0f );
-                Vec2 screen = Vec2( ( ndc.x + 1.0f ) * 0.5f * vkctx->extent.width,
-                                    ( 1.0f - ndc.y ) * 0.5f * vkctx->extent.height );
-
-                min_x = std::min( min_x, screen.x );
-                max_x = std::max( max_x, screen.x );
-                min_y = std::min( min_y, screen.y );
-                max_y = std::max( max_y, screen.y );
-            }
-
-            float width       = max_x - min_x;
-            float height      = max_y - min_y;
-            float screen_size = std::max( width, height );
-
-            constexpr float lodThresholds[5] = { 250.0f, 170.0f, 100.0f, 50.0f, 20.0f };
-            int             selected_lod     = 5;
-            for ( int i = 0; i < 5; i++ ) {
-                if ( screen_size > lodThresholds[i] ) {
-                    selected_lod = i;
-                    break;
-                }
-            }
-
-            return { true, selected_lod };
-        }
-
-        return { true, 0 };
+        return { true };
     }
 
     void Renderer::CreateDrawCommands( ) {
@@ -800,8 +756,8 @@ namespace TL {
                 auto            model = node->GetTransformMatrix( );
                 auto           &mesh  = vkctx->meshCodex.GetMesh( mesh_asset.mesh );
                 MeshDrawCommand mdc   = {
-                          .indexBuffer         = mesh.indexBuffer[0]->GetVkResource( ),
-                          .indexCount          = mesh.indexCount[0],
+                          .indexBuffer         = mesh.indexBuffer->GetVkResource( ),
+                          .indexCount          = mesh.indexCount,
                           .vertexBufferAddress = mesh.vertexBufferAddress,
                           .worldFromLocal      = model,
                           .materialId          = mesh_asset.material,
@@ -819,14 +775,8 @@ namespace TL {
                         continue;
                     }
 
-                    // Do not update the current LOD for the node if freeze LOD system is toggled
-                    if ( !settings.freezeLodSystem ) {
-                        node->currentLod = std::min( static_cast<int>( mesh.indexCount.size( ) - 1 ),
-                                                     visibility.lodLevelToRender );
-                    }
-
-                    mdc.indexBuffer = mesh.indexBuffer[node->currentLod]->GetVkResource( );
-                    mdc.indexCount  = mesh.indexCount[node->currentLod];
+                    mdc.indexBuffer = mesh.indexBuffer->GetVkResource( );
+                    mdc.indexCount  = mesh.indexCount;
                     m_drawCommands.push_back( mdc );
                 }
                 else {

@@ -20,10 +20,7 @@
 
 void MeshCodex::Cleanup( TL_VkContext &gfx ) {
     for ( auto &mesh : m_meshes ) {
-        for ( auto &buffer : mesh.indexBuffer ) {
-            buffer.reset( );
-        }
-
+        mesh.indexBuffer.reset( );
         mesh.vertexBuffer.reset( );
     }
 }
@@ -44,7 +41,7 @@ GpuMesh MeshCodex::UploadMesh( TL_VkContext &gfx, const Mesh &mesh ) const {
     gpu_mesh.aabb = mesh.aabb;
 
     const size_t vertex_buffer_size = mesh.vertices.size( ) * sizeof( Mesh::Vertex );
-    const size_t index_buffer_size  = mesh.indices[0].size( ) * sizeof( uint32_t );
+    const size_t index_buffer_size  = mesh.indices.size( ) * sizeof( uint32_t );
 
     std::string name_vertex = std::format( "{}.(vtx)", m_meshes.size( ) );
     std::string name_index  = std::format( "{}.(idx)", m_meshes.size( ) );
@@ -52,17 +49,17 @@ GpuMesh MeshCodex::UploadMesh( TL_VkContext &gfx, const Mesh &mesh ) const {
 
     // Staging
     {
-        auto vertex_buffer = std::make_shared<TL::Buffer>( TL::BufferType::TVertex, vertex_buffer_size, 1, nullptr,
-                                                           name_vertex.c_str( ) );
+        const auto vertex_buffer     = std::make_shared<TL::Buffer>( TL::BufferType::TVertex, vertex_buffer_size, 1,
+                                                                 nullptr, name_vertex.c_str( ) );
         gpu_mesh.vertexBufferAddress = vertex_buffer->GetDeviceAddress( );
 
-        auto index_buffer = std::make_shared<TL::Buffer>( TL::BufferType::TIndex, index_buffer_size, 1, nullptr,
-                                                          name_index.c_str( ) );
-        auto staging =
+        const auto index_buffer = std::make_shared<TL::Buffer>( TL::BufferType::TIndex, index_buffer_size, 1, nullptr,
+                                                                name_index.c_str( ) );
+        const auto staging =
                 TL::Buffer( TL::BufferType::TStaging, vertex_buffer_size + index_buffer_size, 1, nullptr, "Staging" );
 
         staging.Upload( mesh.vertices.data( ), vertex_buffer_size );
-        staging.Upload( mesh.indices[0].data( ), vertex_buffer_size, index_buffer_size );
+        staging.Upload( mesh.indices.data( ), vertex_buffer_size, index_buffer_size );
 
         gfx.Execute( [&]( const VkCommandBuffer cmd ) {
             const VkBufferCopy vertex_copy = {
@@ -77,36 +74,10 @@ GpuMesh MeshCodex::UploadMesh( TL_VkContext &gfx, const Mesh &mesh ) const {
             vkCmdCopyBuffer( cmd, staging.GetVkResource( ), index_buffer->GetVkResource( ), 1, &index_copy );
         } );
 
-        gpu_mesh.indexBuffer.push_back( index_buffer );
+        gpu_mesh.indexBuffer  = index_buffer;
         gpu_mesh.vertexBuffer = vertex_buffer;
-        gpu_mesh.indexCount.push_back( ( u32 )mesh.indices[0].size( ) );
+        gpu_mesh.indexCount   = static_cast<u32>( mesh.indices.size( ) );
     }
-
-    // Time for LODs
-    for ( int i = 1; i < mesh.indices.size( ); i++ ) {
-        if ( mesh.indices[i].empty( ) ) {
-            continue;
-        }
-        auto index_buffer_lod = std::make_shared<TL::Buffer>( TL::BufferType::TIndex,
-                                                              mesh.indices[i].size( ) * sizeof( u32 ), 1, nullptr, "" );
-
-        auto staging =
-                TL::Buffer( TL::BufferType::TStaging, mesh.indices[i].size( ) * sizeof( u32 ), 1, nullptr, "Staging" );
-        staging.Upload( mesh.indices[i].data( ), sizeof( u32 ) * mesh.indices[i].size( ) );
-
-        gfx.Execute( [&]( const VkCommandBuffer cmd ) {
-            const VkBufferCopy copy = {
-                    .srcOffset = 0,
-                    .dstOffset = 0,
-                    .size      = sizeof( uint32_t ) * mesh.indices[i].size( ),
-            };
-            vkCmdCopyBuffer( cmd, staging.GetVkResource( ), index_buffer_lod->GetVkResource( ), 1, &copy );
-        } );
-
-        gpu_mesh.indexBuffer.push_back( index_buffer_lod );
-        gpu_mesh.indexCount.push_back( ( u32 )mesh.indices[i].size( ) );
-    }
-
 
     return gpu_mesh;
 }

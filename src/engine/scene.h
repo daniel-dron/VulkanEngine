@@ -37,7 +37,6 @@ struct Node {
     std::vector<AABoundingBox> boundingBoxes;
 
     std::string name;
-    int currentLod;
 
     Transform transform;
 

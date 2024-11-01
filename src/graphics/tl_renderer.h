@@ -130,11 +130,6 @@ namespace TL {
         bool    useFrozenFrustum = false; // Toggle the usage of the last saved frustum
         Frustum lastSavedFrustum = { }; // The frustum to be used when frustum checks are frozen.
                                         // Used for debug purposes
-
-        // LODs
-        bool lodSystem       = true; // Toggle LOD system usage
-        bool freezeLodSystem = false; // Will save the currently used LOD for each node in the scene
-                                      // and use those instead.
     };
 
     class Renderer {
@@ -212,7 +207,7 @@ namespace TL {
 
         // Draw Commands
 
-        VisibilityLODResult          VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
+        VisibilityResult          VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
                                                              const Frustum &frustum ) const;
         void                         CreateDrawCommands( );
         std::vector<MeshDrawCommand> m_drawCommands;

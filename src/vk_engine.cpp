@@ -333,7 +333,7 @@ void TL_Engine::InitImages( ) {
 
 void TL_Engine::InitScene( ) {
     // m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
-    m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
+    m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
 
     // Use camera from renderer
     m_camera           = renderer->GetCamera( );
@@ -624,7 +624,6 @@ void TL_Engine::Run( ) {
                             }
 
                             if ( m_selectedNode ) {
-                                ImGui::Text( "LOD rendering: %d", m_selectedNode->currentLod );
                                 m_selectedNode->transform.DrawDebug( m_selectedNode->name );
                             }
 
@@ -661,15 +660,6 @@ void TL_Engine::Run( ) {
                             if ( ImGui::Button( "Reload Frozen Frustum" ) ) {
                                 renderer->settings.lastSavedFrustum = m_camera->GetFrustum( );
                             }
-                            ImGui::Unindent( );
-                        }
-
-                        if ( ImGui::CollapsingHeader( "LOD System" ) ) {
-                            ImGui::Indent( );
-                            ImGui::PushID( "LOD" );
-                            ImGui::Checkbox( "Enable", &renderer->settings.lodSystem );
-                            ImGui::Checkbox( "Freeze", &renderer->settings.freezeLodSystem );
-                            ImGui::PopID( );
                             ImGui::Unindent( );
                         }
 
