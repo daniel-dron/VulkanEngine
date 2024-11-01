@@ -133,41 +133,6 @@ TL_VkContext::Result<> TL_VkContext::Init( ) {
 
 void TL_VkContext::Execute( std::function<void( VkCommandBuffer )> &&func ) { executor.Execute( std::move( func ) ); }
 
-GpuBuffer TL_VkContext::Allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage,
-                                  const std::string &name ) {
-    const VkBufferCreateInfo info = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, .pNext = nullptr, .size = size, .usage = usage };
-
-    const VmaAllocationCreateInfo vma_info = { .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT |
-                                                        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                               .usage = vmaUsage };
-
-    GpuBuffer buffer{ };
-    VKCALL( vmaCreateBuffer( allocator, &info, &vma_info, &buffer.buffer, &buffer.allocation, &buffer.info ) );
-    buffer.name = name;
-
-#ifdef ENABLE_DEBUG_UTILS
-    allocationCounter[name]++;
-    const VkDebugUtilsObjectNameInfoEXT obj = { .sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-                                                .pNext        = nullptr,
-                                                .objectType   = VK_OBJECT_TYPE_BUFFER,
-                                                .objectHandle = reinterpret_cast<uint64_t>( buffer.buffer ),
-                                                .pObjectName  = name.c_str( ) };
-    vkSetDebugUtilsObjectNameEXT( device, &obj );
-#endif
-
-    return buffer;
-}
-
-void TL_VkContext::Free( const GpuBuffer &buffer ) {
-
-#ifdef ENABLE_DEBUG_UTILS
-    allocationCounter[buffer.name]--;
-#endif
-
-    vmaDestroyBuffer( allocator, buffer.buffer, buffer.allocation );
-}
-
 void TL_VkContext::Cleanup( ) {
     CleanupSwapchain( );
 

@@ -94,17 +94,6 @@ struct DeletionQueue {
 
 class TL_VkContext;
 
-struct GpuBuffer {
-    VkBuffer buffer = VK_NULL_HANDLE;
-    VmaAllocation allocation = { };
-    VmaAllocationInfo info = { };
-    std::string name;
-    VkDeviceAddress deviceAddress = 0;
-
-    void Upload( const TL_VkContext &gfx, const void *data, size_t size ) const;
-    VkDeviceAddress GetDeviceAddress( const TL_VkContext &gfx );
-};
-
 struct EngineStats {
     float frametime;
     uint64_t triangleCount;

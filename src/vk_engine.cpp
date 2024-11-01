@@ -39,31 +39,6 @@
 
 TL_Engine            *g_TL             = nullptr;
 utils::VisualProfiler g_visualProfiler = utils::VisualProfiler( 300 );
-
-
-// TODO: move
-void GpuBuffer::Upload( const TL_VkContext &vkctx, const void *data, const size_t size ) const {
-    void *mapped_buffer = { };
-
-    vmaMapMemory( vkctx.allocator, allocation, &mapped_buffer );
-    memcpy( mapped_buffer, data, size );
-    vmaUnmapMemory( vkctx.allocator, allocation );
-}
-
-VkDeviceAddress GpuBuffer::GetDeviceAddress( const TL_VkContext &vkctx ) {
-    if ( deviceAddress == 0 ) {
-        const VkBufferDeviceAddressInfo address_info = {
-                .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                .pNext  = nullptr,
-                .buffer = buffer,
-        };
-
-        deviceAddress = vkGetBufferDeviceAddress( vkctx.device, &address_info );
-    }
-
-    return deviceAddress;
-}
-
 TL_Engine &TL_Engine::Get( ) { return *g_TL; }
 
 using namespace TL;

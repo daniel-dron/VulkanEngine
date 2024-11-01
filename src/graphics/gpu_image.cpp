@@ -20,10 +20,11 @@
 
 #include "vk_engine.h"
 
-GpuImage::GpuImage( TL_VkContext *gfx, const std::string &name, void *data, const VkExtent3D extent, const VkFormat format,
-                    const ImageType imageType, const VkImageUsageFlags usage, bool generateMipmaps ) :
-    m_gfx( gfx ),
-    m_name( name ), m_extent( extent ), m_format( format ), m_usage( usage ), m_mipmapped( generateMipmaps ) {
+GpuImage::GpuImage( TL_VkContext *gfx, const std::string &name, void *data, const VkExtent3D extent,
+                    const VkFormat format, const ImageType imageType, const VkImageUsageFlags usage,
+                    bool generateMipmaps ) :
+    m_gfx( gfx ), m_name( name ), m_extent( extent ), m_format( format ), m_usage( usage ),
+    m_mipmapped( generateMipmaps ) {
 
     assert( data != nullptr );
     assert( extent.width > 0 && extent.height > 0 );
@@ -41,8 +42,8 @@ GpuImage::GpuImage( TL_VkContext *gfx, const std::string &name, void *data, cons
 
 GpuImage::GpuImage( TL_VkContext *gfx, const std::string &name, VkExtent3D extent, VkFormat format, ImageType imageType,
                     VkImageUsageFlags usage, bool generateMipmaps ) :
-    m_gfx( gfx ),
-    m_name( name ), m_extent( extent ), m_format( format ), m_usage( usage ), m_mipmapped( generateMipmaps ) {
+    m_gfx( gfx ), m_name( name ), m_extent( extent ), m_format( format ), m_usage( usage ),
+    m_mipmapped( generateMipmaps ) {
 
     assert( extent.width > 0 && extent.height > 0 );
     assert( !name.empty( ) );
@@ -75,11 +76,11 @@ void GpuImage::Resize( VkExtent3D size ) {
     assert( size.width > 0 && size.height > 0 );
 
     // backup old needed data
-    VkImage original_image = m_image;
-    VkImageView original_view = m_view;
-    std::vector<VkImageView> original_mip_views = m_mipViews;
-    VkExtent3D original_extent = m_extent;
-    VmaAllocation original_allocation = m_allocation;
+    VkImage                  original_image      = m_image;
+    VkImageView              original_view       = m_view;
+    std::vector<VkImageView> original_mip_views  = m_mipViews;
+    VkExtent3D               original_extent     = m_extent;
+    VmaAllocation            original_allocation = m_allocation;
 
     m_extent = size;
 
@@ -128,17 +129,17 @@ void GpuImage::GenerateMipmaps( VkCommandBuffer cmd ) const {
 
 void GpuImage::SetDebugName( const std::string &name ) {
     const VkDebugUtilsObjectNameInfoEXT obj = {
-            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-            .pNext = nullptr,
-            .objectType = VK_OBJECT_TYPE_IMAGE,
+            .sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+            .pNext        = nullptr,
+            .objectType   = VK_OBJECT_TYPE_IMAGE,
             .objectHandle = reinterpret_cast<uint64_t>( m_image ),
-            .pObjectName = name.c_str( ),
+            .pObjectName  = name.c_str( ),
     };
     vkSetDebugUtilsObjectNameEXT( m_gfx->device, &obj );
 }
 
 void GpuImage::ActuallyCreateEmptyImage2D( ) {
-    const bool depth = m_format == VK_FORMAT_D32_SFLOAT;
+    const bool               depth  = m_format == VK_FORMAT_D32_SFLOAT;
     const VkImageAspectFlags aspect = depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
     uint32_t mip_levels = 1;
@@ -165,9 +166,9 @@ void GpuImage::ActuallyCreateEmptyImage2D( ) {
 }
 
 void GpuImage::ActuallyCreateImage2DFromData( const void *data ) {
-    const size_t data_size = image::CalculateSize( m_extent, m_format );
-    const bool depth = m_format == VK_FORMAT_D32_SFLOAT;
-    const VkImageAspectFlags aspect = depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    const size_t             data_size = image::CalculateSize( m_extent, m_format );
+    const bool               depth     = m_format == VK_FORMAT_D32_SFLOAT;
+    const VkImageAspectFlags aspect    = depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
     uint32_t mip_levels = 1;
     if ( m_mipmapped ) {
@@ -182,14 +183,13 @@ void GpuImage::ActuallyCreateImage2DFromData( const void *data ) {
     SetDebugName( m_name );
 
     // upload buffer to image & generate mipmaps if needed
-    GpuBuffer staging_buffer =
-            m_gfx->Allocate( data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, __FUNCTION__ );
-    staging_buffer.Upload( *m_gfx, data, data_size );
+    const auto staging_buffer = TL::Buffer( TL::BufferType::TStaging, data_size, 1, nullptr, __FUNCTION__ );
+    staging_buffer.Upload( data, data_size );
 
     m_gfx->Execute( [&]( VkCommandBuffer cmd ) {
         TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, depth );
 
-        image::CopyFromBuffer( cmd, staging_buffer.buffer, m_image, m_extent, aspect );
+        image::CopyFromBuffer( cmd, staging_buffer.GetVkResource( ), m_image, m_extent, aspect );
 
         if ( m_mipmapped ) {
             GenerateMipmaps( cmd );
@@ -199,7 +199,6 @@ void GpuImage::ActuallyCreateImage2DFromData( const void *data ) {
             TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, depth );
         }
     } );
-    m_gfx->Free( staging_buffer );
 
     // create views
     m_view = image::CreateView2D( m_gfx->device, m_image, m_format, aspect );
@@ -210,7 +209,7 @@ void GpuImage::ActuallyCreateImage2DFromData( const void *data ) {
 void GpuImage::ActuallyCreateCubemapFromData( const void *data ) {
     const size_t face_size = image::CalculateSize( m_extent, m_format );
     const size_t data_size = face_size * 6;
-    const bool depth = m_format == VK_FORMAT_D32_SFLOAT;
+    const bool   depth     = m_format == VK_FORMAT_D32_SFLOAT;
 
     VkImageAspectFlags aspect = depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
@@ -225,9 +224,8 @@ void GpuImage::ActuallyCreateCubemapFromData( const void *data ) {
     SetDebugName( m_name );
 
     // upload data & generate mipmaps
-    const GpuBuffer staging_buffer =
-            m_gfx->Allocate( data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, __FUNCTION__ );
-    staging_buffer.Upload( *m_gfx, data, data_size );
+    const auto staging_buffer = TL::Buffer( TL::BufferType::TStaging, data_size, 1, nullptr, __FUNCTION__ );
+    staging_buffer.Upload( data, data_size );
 
     m_gfx->Execute( [&]( VkCommandBuffer cmd ) {
         TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, depth );
@@ -235,7 +233,7 @@ void GpuImage::ActuallyCreateCubemapFromData( const void *data ) {
         for ( uint32_t face = 0; face < 6; face++ ) {
             size_t offset = face * face_size;
 
-            image::CopyFromBuffer( cmd, staging_buffer.buffer, m_image, m_extent, aspect, offset, face );
+            image::CopyFromBuffer( cmd, staging_buffer.GetVkResource( ), m_image, m_extent, aspect, offset, face );
         }
 
         if ( m_mipmapped ) {
@@ -246,7 +244,6 @@ void GpuImage::ActuallyCreateCubemapFromData( const void *data ) {
             TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, depth );
         }
     } );
-    m_gfx->Free( staging_buffer );
 
     // create views
     for ( u32 i = 0; i < mip_levels; i++ ) {
@@ -260,7 +257,7 @@ void GpuImage::ActuallyCreateCubemapFromData( const void *data ) {
 
 void GpuImage::ActuallyCreateEmptyCubemap( ) {
     const size_t face_size = image::CalculateSize( m_extent, m_format );
-    const bool depth = m_format == VK_FORMAT_D32_SFLOAT;
+    const bool   depth     = m_format == VK_FORMAT_D32_SFLOAT;
 
     const VkImageAspectFlags aspect = depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
@@ -329,19 +326,19 @@ void image::Allocate2D( VmaAllocator allocator, VkFormat format, VkExtent3D exte
             .pNext = nullptr,
 
             .imageType = VK_IMAGE_TYPE_2D,
-            .format = format,
-            .extent = extent,
+            .format    = format,
+            .extent    = extent,
 
-            .mipLevels = mipLevels,
+            .mipLevels   = mipLevels,
             .arrayLayers = 1,
 
             .samples = VK_SAMPLE_COUNT_1_BIT,
-            .tiling = VK_IMAGE_TILING_OPTIMAL,
-            .usage = usage,
+            .tiling  = VK_IMAGE_TILING_OPTIMAL,
+            .usage   = usage,
     };
 
     constexpr VmaAllocationCreateInfo alloc_info = {
-            .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+            .usage         = VMA_MEMORY_USAGE_GPU_ONLY,
             .requiredFlags = static_cast<VkMemoryPropertyFlags>( VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ),
     };
     VKCALL( vmaCreateImage( allocator, &create_info, &alloc_info, image, allocation, nullptr ) );
@@ -353,21 +350,21 @@ void image::AllocateCubemap( VmaAllocator allocator, VkFormat format, VkExtent3D
             .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
             .pNext = nullptr,
 
-            .flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
+            .flags     = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
             .imageType = VK_IMAGE_TYPE_2D,
-            .format = format,
-            .extent = extent,
+            .format    = format,
+            .extent    = extent,
 
-            .mipLevels = mipLevels,
+            .mipLevels   = mipLevels,
             .arrayLayers = 6,
 
             .samples = VK_SAMPLE_COUNT_1_BIT,
-            .tiling = VK_IMAGE_TILING_OPTIMAL,
-            .usage = usage,
+            .tiling  = VK_IMAGE_TILING_OPTIMAL,
+            .usage   = usage,
     };
 
     constexpr VmaAllocationCreateInfo alloc_info = {
-            .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+            .usage         = VMA_MEMORY_USAGE_GPU_ONLY,
             .requiredFlags = static_cast<VkMemoryPropertyFlags>( VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ),
     };
     VKCALL( vmaCreateImage( allocator, &create_info, &alloc_info, image, allocation, nullptr ) );
@@ -381,16 +378,16 @@ VkImageView image::CreateView2D( VkDevice device, VkImage image, VkFormat format
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .pNext = nullptr,
 
-            .image = image,
+            .image    = image,
             .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = format,
+            .format   = format,
             .subresourceRange =
                     {
-                            .aspectMask = aspectFlags,
-                            .baseMipLevel = mipLevel,
-                            .levelCount = VK_REMAINING_MIP_LEVELS,
+                            .aspectMask     = aspectFlags,
+                            .baseMipLevel   = mipLevel,
+                            .levelCount     = VK_REMAINING_MIP_LEVELS,
                             .baseArrayLayer = 0,
-                            .layerCount = 1,
+                            .layerCount     = 1,
                     },
     };
     VKCALL( vkCreateImageView( device, &view_info, nullptr, &view ) );
@@ -406,16 +403,16 @@ VkImageView image::CreateViewCubemap( VkDevice device, VkImage image, VkFormat f
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .pNext = nullptr,
 
-            .image = image,
+            .image    = image,
             .viewType = VK_IMAGE_VIEW_TYPE_CUBE,
-            .format = format,
+            .format   = format,
             .subresourceRange =
                     {
-                            .aspectMask = aspectFlags,
-                            .baseMipLevel = mipLevel,
-                            .levelCount = VK_REMAINING_MIP_LEVELS,
+                            .aspectMask     = aspectFlags,
+                            .baseMipLevel   = mipLevel,
+                            .levelCount     = VK_REMAINING_MIP_LEVELS,
                             .baseArrayLayer = 0,
-                            .layerCount = 6,
+                            .layerCount     = 6,
                     },
     };
     VKCALL( vkCreateImageView( device, &view_info, nullptr, &view ) );
@@ -428,11 +425,11 @@ void image::TransitionLayout( VkCommandBuffer cmd, VkImage image, VkImageLayout 
     assert( image != VK_NULL_HANDLE && "Transition on uninitialized image" );
 
     const VkImageMemoryBarrier2 image_barrier = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-            .pNext = nullptr,
-            .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .sType         = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+            .pNext         = nullptr,
+            .srcStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
             .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
-            .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .dstStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
             .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
 
             .oldLayout = currentLayout,
@@ -442,20 +439,20 @@ void image::TransitionLayout( VkCommandBuffer cmd, VkImage image, VkImageLayout 
 
             .subresourceRange =
                     {
-                            .aspectMask = static_cast<VkImageAspectFlags>( ( depth ) ? VK_IMAGE_ASPECT_DEPTH_BIT
-                                                                                     : VK_IMAGE_ASPECT_COLOR_BIT ),
-                            .baseMipLevel = 0,
-                            .levelCount = VK_REMAINING_MIP_LEVELS,
+                            .aspectMask     = static_cast<VkImageAspectFlags>( ( depth ) ? VK_IMAGE_ASPECT_DEPTH_BIT
+                                                                                         : VK_IMAGE_ASPECT_COLOR_BIT ),
+                            .baseMipLevel   = 0,
+                            .levelCount     = VK_REMAINING_MIP_LEVELS,
                             .baseArrayLayer = 0,
-                            .layerCount = VK_REMAINING_ARRAY_LAYERS,
+                            .layerCount     = VK_REMAINING_ARRAY_LAYERS,
                     },
     };
 
     const VkDependencyInfo dependency_info = {
-            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-            .pNext = nullptr,
+            .sType                   = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .pNext                   = nullptr,
             .imageMemoryBarrierCount = 1,
-            .pImageMemoryBarriers = &image_barrier,
+            .pImageMemoryBarriers    = &image_barrier,
     };
 
     vkCmdPipelineBarrier2( cmd, &dependency_info );
@@ -478,9 +475,9 @@ void image::GenerateMipmaps( VkCommandBuffer cmd, VkImage image, VkExtent2D imag
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
                 .pNext = nullptr,
 
-                .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                .srcStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
-                .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                .dstStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
 
                 .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -490,18 +487,18 @@ void image::GenerateMipmaps( VkCommandBuffer cmd, VkImage image, VkExtent2D imag
 
                 .subresourceRange =
                         {
-                                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                .baseMipLevel = mip,
-                                .levelCount = 1,
+                                .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                                .baseMipLevel   = mip,
+                                .levelCount     = 1,
                                 .baseArrayLayer = 0,
-                                .layerCount = VK_REMAINING_ARRAY_LAYERS,
+                                .layerCount     = VK_REMAINING_ARRAY_LAYERS,
                         },
         };
 
-        const VkDependencyInfo dependency_info = { .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-                                                   .pNext = nullptr,
+        const VkDependencyInfo dependency_info = { .sType                   = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+                                                   .pNext                   = nullptr,
                                                    .imageMemoryBarrierCount = 1,
-                                                   .pImageMemoryBarriers = &image_barrier };
+                                                   .pImageMemoryBarriers    = &image_barrier };
 
         vkCmdPipelineBarrier2( cmd, &dependency_info );
 
@@ -513,10 +510,10 @@ void image::GenerateMipmaps( VkCommandBuffer cmd, VkImage image, VkExtent2D imag
 
                     .srcSubresource =
                             {
-                                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                    .mipLevel = mip,
+                                    .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                                    .mipLevel       = mip,
                                     .baseArrayLayer = 0,
-                                    .layerCount = 1,
+                                    .layerCount     = 1,
                             },
                     .srcOffsets = { { },
                                     { static_cast<int32_t>( imageSize.width ), static_cast<int32_t>( imageSize.height ),
@@ -524,10 +521,10 @@ void image::GenerateMipmaps( VkCommandBuffer cmd, VkImage image, VkExtent2D imag
 
                     .dstSubresource =
                             {
-                                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                    .mipLevel = mip + 1,
+                                    .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                                    .mipLevel       = mip + 1,
                                     .baseArrayLayer = 0,
-                                    .layerCount = 1,
+                                    .layerCount     = 1,
                             },
                     .dstOffsets = { { },
                                     { static_cast<int32_t>( half_size.width ), static_cast<int32_t>( half_size.height ),
@@ -538,14 +535,14 @@ void image::GenerateMipmaps( VkCommandBuffer cmd, VkImage image, VkExtent2D imag
                     .sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2,
                     .pNext = nullptr,
 
-                    .srcImage = image,
+                    .srcImage       = image,
                     .srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 
-                    .dstImage = image,
+                    .dstImage       = image,
                     .dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 
                     .regionCount = 1,
-                    .pRegions = &blit_region,
+                    .pRegions    = &blit_region,
             };
 
             vkCmdBlitImage2( cmd, &blit_info );
@@ -558,9 +555,9 @@ void image::GenerateMipmaps( VkCommandBuffer cmd, VkImage image, VkExtent2D imag
 void image::CopyFromBuffer( VkCommandBuffer cmd, VkBuffer buffer, VkImage image, VkExtent3D extent,
                             VkImageAspectFlags aspect, VkDeviceSize offset, uint32_t face ) {
     const VkBufferImageCopy copy_region = {
-            .bufferOffset = offset,
+            .bufferOffset     = offset,
             .imageSubresource = { .aspectMask = aspect, .mipLevel = 0, .baseArrayLayer = face, .layerCount = 1 },
-            .imageExtent = extent,
+            .imageExtent      = extent,
     };
 
     vkCmdCopyBufferToImage( cmd, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region );
@@ -573,10 +570,10 @@ void image::Blit( VkCommandBuffer cmd, VkImage srcImage, VkExtent2D srcExtent, V
             .pNext = nullptr,
             .srcSubresource =
                     {
-                            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                            .mipLevel = 0,
+                            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .mipLevel       = 0,
                             .baseArrayLayer = 0,
-                            .layerCount = 1,
+                            .layerCount     = 1,
                     },
             .srcOffsets =
                     {
@@ -585,10 +582,10 @@ void image::Blit( VkCommandBuffer cmd, VkImage srcImage, VkExtent2D srcExtent, V
                     },
             .dstSubresource =
                     {
-                            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                            .mipLevel = 0,
+                            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .mipLevel       = 0,
                             .baseArrayLayer = 0,
-                            .layerCount = 1,
+                            .layerCount     = 1,
                     },
             .dstOffsets =
                     {
@@ -598,15 +595,15 @@ void image::Blit( VkCommandBuffer cmd, VkImage srcImage, VkExtent2D srcExtent, V
     };
 
     const VkBlitImageInfo2 blit_info = {
-            .sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2,
-            .pNext = nullptr,
-            .srcImage = srcImage,
+            .sType          = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2,
+            .pNext          = nullptr,
+            .srcImage       = srcImage,
             .srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            .dstImage = dstImage,
+            .dstImage       = dstImage,
             .dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .regionCount = 1,
-            .pRegions = &blit_region,
-            .filter = filter,
+            .regionCount    = 1,
+            .pRegions       = &blit_region,
+            .filter         = filter,
     };
 
     vkCmdBlitImage2( cmd, &blit_info );

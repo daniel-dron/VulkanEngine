@@ -116,8 +116,6 @@ public:
 
     Result<>  Init( );
     void      Execute( std::function<void( VkCommandBuffer )> &&func );
-    GpuBuffer Allocate( size_t size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, const std::string &name );
-    void      Free( const GpuBuffer &buffer );
     void      Cleanup( );
 
     // Resources
