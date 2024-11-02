@@ -182,6 +182,12 @@ std::optional<TL::renderer::MaterialData*> TL::renderer::MaterialPool::GetMateri
     return std::nullopt;
 }
 
+void TL::renderer::MaterialPool::UpdateMaterial( const MaterialHandle handle ) {
+    if ( IsValid( handle ) ) {
+        m_materialsGpuBuffer->Upload( &m_materialDatas[handle.index], handle.index * sizeof( MaterialData ), sizeof( MaterialData ) );
+    }
+}
+
 bool TL::renderer::MaterialPool::IsValid( MaterialHandle handle ) const {
     if ( handle.index > MAX_MATERIALS ) {
         return false;

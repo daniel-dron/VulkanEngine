@@ -113,6 +113,8 @@ namespace TL::renderer {
         void                         DestroyMaterial( MaterialHandle handle );
         MaterialData&                GetMaterial( MaterialHandle handle );     // Asserted fetch. Recommended only for pre validated and hot paths (renderer code)
         std::optional<MaterialData*> GetMaterialSafe( MaterialHandle handle ); // Returns possible material if present. Not recommended for hot paths.
+        void                         UpdateMaterial( MaterialHandle handle );  // Update material data for the gpu. Updating the material must be done
+                                                                               // through a reference gotten from GetMaterial or GetMaterialSafe.
         bool                         IsValid( MaterialHandle handle ) const;   // Check if the index is valid and it matches its current generation
 
     private:
