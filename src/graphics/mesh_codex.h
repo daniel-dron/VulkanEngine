@@ -15,6 +15,10 @@
 
 #include <vk_types.h>
 
+namespace TL {
+    class Buffer;
+}
+
 class TL_VkContext;
 
 struct AABB {
@@ -52,12 +56,12 @@ struct Mesh {
 
 class MeshCodex {
 public:
-    void Cleanup( TL_VkContext &gfx );
+    void Cleanup( TL_VkContext& gfx );
 
-    MeshId         AddMesh( TL_VkContext &gfx, const Mesh &mesh );
-    const GpuMesh &GetMesh( MeshId id ) const;
+    MeshId         AddMesh( TL_VkContext& gfx, const Mesh& mesh );
+    const GpuMesh& GetMesh( MeshId id ) const;
 
 private:
-    GpuMesh              UploadMesh( TL_VkContext &gfx, const Mesh &mesh ) const;
+    GpuMesh              UploadMesh( TL_VkContext& gfx, const Mesh& mesh ) const;
     std::vector<GpuMesh> m_meshes;
 };

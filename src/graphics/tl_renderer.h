@@ -12,12 +12,17 @@
 ******************************************************************************/
 #pragma once
 
+#include <graphics/ibl.h>
+#include <graphics/r_resources.h>
 #include <graphics/resources/tl_buffer.h>
 #include <vk_types.h>
 
-namespace TL {
-    class Ibl;
+#include "draw_command.h"
 
+struct Scene;
+struct AABoundingBox;
+
+namespace TL {
     struct SceneBuffer {
         Mat4 view;
         Mat4 projection;
@@ -126,15 +131,22 @@ namespace TL {
         bool reRenderShadowMaps = true; // whether to rerender the shadow map every frame.
 
         // Frustum settings
-        bool    frustumCulling   = true; // Turn on/off the entire culling system checks
+        bool    frustumCulling   = true;  // Turn on/off the entire culling system checks
         bool    useFrozenFrustum = false; // Toggle the usage of the last saved frustum
-        Frustum lastSavedFrustum = { }; // The frustum to be used when frustum checks are frozen.
-                                        // Used for debug purposes
+        Frustum lastSavedFrustum = { };   // The frustum to be used when frustum checks are frozen.
+                                          // Used for debug purposes
+    };
+
+    struct Renderable {
+        MeshId                   meshId;
+        renderer::MaterialHandle materialHandle;
+        Mat4                     transform;
+        AABoundingBox            aabb;
     };
 
     class Renderer {
     public:
-        void Init( struct SDL_Window *window, Vec2 extent );
+        void Init( struct SDL_Window* window, Vec2 extent );
         void Cleanup( );
 
         // This will setup the current frame.
@@ -157,7 +169,7 @@ namespace TL {
         void Present( ) noexcept;
 
         // Upload scene to the rendere
-        void UpdateScene( const Scene &scene );
+        void UpdateScene( const Scene& scene );
 
         void OnResize( u32 width, u32 height );
 
@@ -198,17 +210,17 @@ namespace TL {
         std::shared_ptr<Camera> m_camera;
 
         // Scene
-        std::vector<std::shared_ptr<Node>> m_renderables;
-        std::unique_ptr<TL::Ibl>           m_ibl;
-        GpuSceneData                       m_sceneData = { };
-        std::shared_ptr<Buffer>            m_sceneBufferGpu;
-        std::vector<GpuDirectionalLight>   m_directionalLights;
-        std::vector<GpuPointLight>         m_pointLights;
+        std::vector<Renderable>          m_renderables;
+        std::unique_ptr<Ibl>             m_ibl       = nullptr;
+        GpuSceneData                     m_sceneData = { };
+        std::shared_ptr<Buffer>          m_sceneBufferGpu;
+        std::vector<GpuDirectionalLight> m_directionalLights;
+        std::vector<GpuPointLight>       m_pointLights;
 
         // Draw Commands
 
-        VisibilityResult          VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
-                                                             const Frustum &frustum ) const;
+        VisibilityResult             VisibilityCheckWithLOD( const Mat4& transform, const AABoundingBox* aabb,
+                                                             const Frustum& frustum ) const;
         void                         CreateDrawCommands( );
         std::vector<MeshDrawCommand> m_drawCommands;
         std::vector<MeshDrawCommand> m_shadowMapCommands;

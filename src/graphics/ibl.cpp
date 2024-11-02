@@ -16,7 +16,7 @@
 #include "ibl.h"
 
 #include <graphics/image_codex.h>
-#include <graphics/tl_vkcontext.h>
+#include <graphics/r_resources.h>
 
 #include <graphics/pipelines/compute_pipeline.h>
 #include <imgui.h>

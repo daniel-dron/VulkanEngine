@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include <graphics/tl_vkcontext.h>
+#include <graphics/r_resources.h>
 #include <vk_types.h>
 
 class BindlessCompute {

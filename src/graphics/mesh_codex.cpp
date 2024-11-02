@@ -16,7 +16,7 @@
 #include "mesh_codex.h"
 
 #include <format>
-#include <graphics/tl_vkcontext.h>
+#include <graphics/r_resources.h>
 
 void MeshCodex::Cleanup( TL_VkContext &gfx ) {
     for ( auto &mesh : m_meshes ) {

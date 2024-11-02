@@ -17,14 +17,13 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <assimp/texture.h>
-#include <graphics/material_codex.h>
 #include <stb_image.h>
 #include <utils/workers.h>
 #include "loader.h"
 
 #include <graphics/image_codex.h>
 #include <graphics/light.h>
-#include <graphics/tl_vkcontext.h>
+#include <graphics/r_resources.h>
 
 #include <meshoptimizer.h>
 
@@ -33,9 +32,10 @@
 #include <filesystem>
 
 using namespace TL;
+using namespace TL::renderer;
 
-static std::vector<Material> LoadMaterials( const aiScene *scene, const std::string &basePath,
-                                            std::vector<std::string> &externalTexturePaths ) {
+static std::vector<Material> LoadMaterials( const aiScene* scene, const std::string& basePath,
+                                            std::vector<std::string>& externalTexturePaths ) {
     const auto n_materials = scene->mNumMaterials;
 
     std::vector<Material> materials;
@@ -61,7 +61,7 @@ static std::vector<Material> LoadMaterials( const aiScene *scene, const std::str
         ai_material->Get( AI_MATKEY_ROUGHNESS_FACTOR, roughness_factor );
         material.roughnessFactor = roughness_factor;
 
-        auto loadTexture = [&]( aiTextureType type, ImageId &textureId ) {
+        auto loadTexture = [&]( aiTextureType type, ImageId& textureId ) {
             aiString texturePath;
             if ( aiReturn_SUCCESS == ai_material->GetTexture( type, 0, &texturePath ) ) {
                 const auto [texture, embeddedIndex] = scene->GetEmbeddedTextureAndIndex( texturePath.C_Str( ) );
@@ -106,7 +106,7 @@ static std::vector<Material> LoadMaterials( const aiScene *scene, const std::str
     return materials;
 }
 
-static std::vector<ImageId> LoadImages( TL_VkContext &gfx, const aiScene *scene, const std::string &basePath ) {
+static std::vector<ImageId> LoadImages( TL_VkContext& gfx, const aiScene* scene, const std::string& basePath ) {
     std::vector<ImageId> images;
     images.resize( scene->mNumTextures );
 
@@ -128,7 +128,7 @@ static std::vector<ImageId> LoadImages( TL_VkContext &gfx, const aiScene *scene,
                 }
 
                 int            width, height, channels;
-                unsigned char *data = stbi_load_from_memory( reinterpret_cast<stbi_uc *>( texture->pcData ), size,
+                unsigned char* data = stbi_load_from_memory( reinterpret_cast<stbi_uc*>( texture->pcData ), size,
                                                              &width, &height, &channels, 4 );
 
                 if ( data ) {
@@ -159,8 +159,8 @@ static std::vector<ImageId> LoadImages( TL_VkContext &gfx, const aiScene *scene,
     return images;
 }
 
-static std::vector<ImageId> LoadExternalImages( TL_VkContext &gfx, const std::vector<std::string> &paths,
-                                                const std::string &basePath ) {
+static std::vector<ImageId> LoadExternalImages( TL_VkContext& gfx, const std::vector<std::string>& paths,
+                                                const std::string& basePath ) {
     std::vector<ImageId> images;
     images.resize( paths.size( ) );
 
@@ -170,12 +170,12 @@ static std::vector<ImageId> LoadExternalImages( TL_VkContext &gfx, const std::ve
         WorkerPool pool( 20 );
 
         for ( u32 i = 0; i < paths.size( ); i++ ) {
-            const auto &path     = paths[i];
+            const auto& path     = paths[i];
             std::string fullPath = ( std::filesystem::path( basePath ) / path ).string( );
 
             pool.Work( [&gfx, &gfxMutex, &images, fullPath, i]( ) {
                 int            width, height, channels;
-                unsigned char *data = stbi_load( fullPath.c_str( ), &width, &height, &channels, 4 );
+                unsigned char* data = stbi_load( fullPath.c_str( ), &width, &height, &channels, 4 );
 
                 if ( data ) {
                     const VkExtent3D extent_3d = {
@@ -205,13 +205,13 @@ static std::vector<ImageId> LoadExternalImages( TL_VkContext &gfx, const std::ve
     return images;
 }
 
-void ProcessMaterials( std::vector<Material> &preprocessedMaterials, const std::vector<ImageId> &images,
-                       TL_VkContext &gfx, const aiScene *aiScene ) {
-    for ( auto &[base_color, metalness_factor, roughness_factor, color_id, metal_roughness_id, normal_id, name] :
+void ProcessMaterials( std::vector<Material>& preprocessedMaterials, const std::vector<ImageId>& images,
+                       TL_VkContext& gfx, const aiScene* aiScene ) {
+    for ( auto& [base_color, metalness_factor, roughness_factor, color_id, metal_roughness_id, normal_id, name] :
           preprocessedMaterials ) {
         if ( color_id != ImageCodex::InvalidImageId ) {
             const auto texture = aiScene->mTextures[color_id];
-            auto      &t       = gfx.imageCodex.GetImage( images.at( color_id ) );
+            auto&      t       = gfx.imageCodex.GetImage( images.at( color_id ) );
             assert( strcmp( texture->mFilename.C_Str( ), t.GetName( ).c_str( ) ) == 0 && "missmatched texture" );
 
             color_id = images.at( color_id );
@@ -219,7 +219,7 @@ void ProcessMaterials( std::vector<Material> &preprocessedMaterials, const std::
 
         if ( metal_roughness_id != ImageCodex::InvalidImageId ) {
             const auto texture = aiScene->mTextures[metal_roughness_id];
-            auto      &t       = gfx.imageCodex.GetImage( images.at( metal_roughness_id ) );
+            auto&      t       = gfx.imageCodex.GetImage( images.at( metal_roughness_id ) );
             assert( strcmp( texture->mFilename.C_Str( ), t.GetName( ).c_str( ) ) == 0 && "missmatched texture" );
 
             metal_roughness_id = images.at( metal_roughness_id );
@@ -227,7 +227,7 @@ void ProcessMaterials( std::vector<Material> &preprocessedMaterials, const std::
 
         if ( normal_id != ImageCodex::InvalidImageId ) {
             const auto texture = aiScene->mTextures[normal_id];
-            auto      &t       = gfx.imageCodex.GetImage( images.at( normal_id ) );
+            auto&      t       = gfx.imageCodex.GetImage( images.at( normal_id ) );
             assert( strcmp( texture->mFilename.C_Str( ), t.GetName( ).c_str( ) ) == 0 && "missmatched texture" );
 
             normal_id = images.at( normal_id );
@@ -235,7 +235,7 @@ void ProcessMaterials( std::vector<Material> &preprocessedMaterials, const std::
     }
 }
 
-static MeshId LoadMesh( TL_VkContext &gfx, aiMesh *aiMesh ) {
+static MeshId LoadMesh( TL_VkContext& gfx, aiMesh* aiMesh ) {
     Mesh mesh;
     mesh.vertices.clear( );
     mesh.indices.clear( );
@@ -266,7 +266,7 @@ static MeshId LoadMesh( TL_VkContext &gfx, aiMesh *aiMesh ) {
     std::vector<uint32_t> indices;
     indices.reserve( aiMesh->mNumFaces * 3 );
     for ( u32 i = 0; i < aiMesh->mNumFaces; i++ ) {
-        auto &face = aiMesh->mFaces[i];
+        auto& face = aiMesh->mFaces[i];
         indices.push_back( face.mIndices[0] );
         indices.push_back( face.mIndices[1] );
         indices.push_back( face.mIndices[2] );
@@ -281,7 +281,7 @@ static MeshId LoadMesh( TL_VkContext &gfx, aiMesh *aiMesh ) {
     return gfx.meshCodex.AddMesh( gfx, mesh );
 }
 
-static std::vector<MeshId> LoadMeshes( TL_VkContext &gfx, const aiScene *scene ) {
+static std::vector<MeshId> LoadMeshes( TL_VkContext& gfx, const aiScene* scene ) {
     std::vector<MeshId> mesh_assets;
 
     for ( u32 i = 0; i < scene->mNumMeshes; i++ ) {
@@ -292,30 +292,30 @@ static std::vector<MeshId> LoadMeshes( TL_VkContext &gfx, const aiScene *scene )
     return mesh_assets;
 }
 
-static std::vector<MaterialId> UploadMaterials( TL_VkContext &gfx, const std::vector<Material> &materials ) {
-    std::vector<MaterialId> gpu_materials;
+static std::vector<MaterialHandle> UploadMaterials( TL_VkContext& gfx, const std::vector<Material>& materials ) {
+    std::vector<MaterialHandle> gpu_materials;
 
     gpu_materials.reserve( materials.size( ) );
-    for ( auto &material : materials ) {
-        gpu_materials.push_back( gfx.materialCodex.AddMaterial( material ) );
+    for ( auto& material : materials ) {
+        gpu_materials.push_back( gfx.materialPool.CreateMaterial( material ) );
     }
 
     return gpu_materials;
 }
 
-static std::vector<Scene::MeshAsset> MatchMaterialMeshes( const aiScene *scene, const std::vector<MeshId> &meshes,
-                                                          const std::vector<MaterialId> &materials ) {
-    std::vector<Scene::MeshAsset> mesh_assets;
+static std::vector<MeshAsset> MatchMaterialMeshes( const aiScene* ai_scene, const std::vector<MeshId>& meshes,
+                                                   const std::vector<MaterialHandle>& materials ) {
+    std::vector<MeshAsset> mesh_assets;
 
-    for ( u32 i = 0; i < scene->mNumMeshes; i++ ) {
-        const auto mat_idx = materials[scene->mMeshes[i]->mMaterialIndex];
-        mesh_assets.push_back( { meshes.at( i ), mat_idx } );
+    for ( u32 meshIndex = 0; meshIndex < ai_scene->mNumMeshes; meshIndex++ ) {
+        const auto mat_idx = ai_scene->mMeshes[meshIndex]->mMaterialIndex;
+        mesh_assets.push_back( { meshIndex, mat_idx } );
     }
 
     return mesh_assets;
 }
 
-inline glm::mat4 AssimpToGlm( const aiMatrix4x4 &from ) {
+inline glm::mat4 AssimpToGlm( const aiMatrix4x4& from ) {
     glm::mat4 to{ };
     to[0][0] = from.a1;
     to[1][0] = from.a2;
@@ -336,7 +336,7 @@ inline glm::mat4 AssimpToGlm( const aiMatrix4x4 &from ) {
     return to;
 }
 
-static std::shared_ptr<Node> LoadNode( Scene &scene, const aiScene *ai_scene, const aiNode *node ) {
+static std::shared_ptr<Node> LoadNode( Scene& scene, const aiScene* ai_scene, const aiNode* node ) {
     auto sceneNode = std::make_shared<Node>( );
 
     sceneNode->name = node->mName.C_Str( );
@@ -355,7 +355,7 @@ static std::shared_ptr<Node> LoadNode( Scene &scene, const aiScene *ai_scene, co
     else {
         for ( u32 i = 0; i < node->mNumMeshes; i++ ) {
             const auto  mesh = node->mMeshes[i];
-            const auto &aabb = ai_scene->mMeshes[mesh]->mAABB;
+            const auto& aabb = ai_scene->mMeshes[mesh]->mAABB;
 
             AABoundingBox bounding_box = {
                     .min = { aabb.mMin.x, aabb.mMin.y, aabb.mMin.z },
@@ -365,8 +365,8 @@ static std::shared_ptr<Node> LoadNode( Scene &scene, const aiScene *ai_scene, co
             sceneNode->boundingBoxes.push_back( std::move( bounding_box ) );
 
             MeshAsset mesh_asset;
-            mesh_asset.material = scene.materials[ai_scene->mMeshes[mesh]->mMaterialIndex];
-            mesh_asset.mesh     = scene.meshes[mesh].mesh;
+            mesh_asset.materialIndex = ai_scene->mMeshes[mesh]->mMaterialIndex;
+            mesh_asset.meshIndex     = mesh;
 
             sceneNode->meshAssets.push_back( mesh_asset );
         }
@@ -382,7 +382,7 @@ static std::shared_ptr<Node> LoadNode( Scene &scene, const aiScene *ai_scene, co
     return sceneNode;
 }
 
-static void LoadHierarchy( const aiScene *ai_scene, Scene &scene ) {
+static void LoadHierarchy( const aiScene* ai_scene, Scene& scene ) {
     const auto root_node = ai_scene->mRootNode;
 
     auto node = LoadNode( scene, ai_scene, root_node );
@@ -390,7 +390,7 @@ static void LoadHierarchy( const aiScene *ai_scene, Scene &scene ) {
     scene.allNodes.push_back( node );
 }
 
-static void LoadCameras( const aiScene *aiScene, Scene &scene ) {
+static void LoadCameras( const aiScene* aiScene, Scene& scene ) {
     if ( !aiScene->HasCameras( ) ) {
         return;
     }
@@ -421,7 +421,7 @@ static void LoadCameras( const aiScene *aiScene, Scene &scene ) {
     }
 }
 
-void RgBtoHsv( const float fR, const float fG, const float fB, float &fH, float &fS, float &fV ) {
+void RgBtoHsv( const float fR, const float fG, const float fB, float& fH, float& fS, float& fV ) {
     const float f_c_max = std::max( std::max( fR, fG ), fB );
     const float f_c_min = std::min( std::min( fR, fG ), fB );
     const float f_delta = f_c_max - f_c_min;
@@ -462,13 +462,13 @@ float ConvertHueToImGui( const float hue, const float sourceMax = 360.0f ) {
     return std::clamp( normalized_hue, 0.0f, 1.0f );
 }
 
-void ConvertHsvToImGui( float &h, float &s, float &v, float sourceHueMax = 360.0f ) {
+void ConvertHsvToImGui( float& h, float& s, float& v, float sourceHueMax = 360.0f ) {
     h = ConvertHueToImGui( h, sourceHueMax );
     s = std::clamp( s, 0.0f, 1.0f );
     v = std::clamp( v, 0.0f, 1.0f );
 }
 
-static void LoadLights( TL_VkContext &gfx, const aiScene *aiScene, Scene &scene ) {
+static void LoadLights( TL_VkContext& gfx, const aiScene* aiScene, Scene& scene ) {
     if ( !aiScene->HasLights( ) ) {
         return;
     }
@@ -514,9 +514,9 @@ static void LoadLights( TL_VkContext &gfx, const aiScene *aiScene, Scene &scene 
     }
 }
 
-std::unique_ptr<Scene> GltfLoader::Load( TL_VkContext &gfx, const std::string &path ) {
+std::unique_ptr<Scene> GltfLoader::Load( TL_VkContext& gfx, const std::string& path ) {
     auto  scene_ptr = std::make_unique<Scene>( );
-    auto &scene     = *scene_ptr;
+    auto& scene     = *scene_ptr;
 
     scene.name           = path;
     std::string basePath = std::filesystem::path( path ).parent_path( ).string( );
@@ -539,7 +539,7 @@ std::unique_ptr<Scene> GltfLoader::Load( TL_VkContext &gfx, const std::string &p
 
     TL_Engine::Get( ).console.AddLog( "Processing materials..." );
     // Update material IDs based on whether they were embedded or external
-    for ( auto &material : materials ) {
+    for ( auto& material : materials ) {
         if ( material.colorId != ImageCodex::InvalidImageId ) {
             material.colorId = material.colorId < embeddedImages.size( )
                                      ? embeddedImages[material.colorId]
@@ -559,9 +559,7 @@ std::unique_ptr<Scene> GltfLoader::Load( TL_VkContext &gfx, const std::string &p
 
     const auto gpu_materials = UploadMaterials( gfx, materials );
     scene.materials          = gpu_materials;
-
-    const auto mesh_assets = MatchMaterialMeshes( ai_scene, meshes, gpu_materials );
-    scene.meshes           = mesh_assets;
+    scene.meshes             = meshes;
 
     LoadHierarchy( ai_scene, scene );
     LoadCameras( ai_scene, scene );

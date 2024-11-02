@@ -20,6 +20,8 @@
 
 #include <memory>
 
+#include "graphics/r_resources.h"
+
 struct PointLight;
 
 struct AABoundingBox {
@@ -28,40 +30,47 @@ struct AABoundingBox {
 };
 
 struct MeshAsset {
-    MeshId mesh;
-    MaterialId material;
+    u32 meshIndex;
+    u32 materialIndex;
+};
+
+struct Material {
+    Vec4  baseColor;
+    float metalnessFactor;
+    float roughnessFactor;
+
+    ImageId colorId;
+    ImageId metalRoughnessId;
+    ImageId normalId;
+
+    std::string name;
 };
 
 struct Node {
-    std::vector<MeshAsset> meshAssets;
+    std::vector<MeshAsset>     meshAssets;
     std::vector<AABoundingBox> boundingBoxes;
 
     std::string name;
 
     Transform transform;
 
-    std::weak_ptr<Node> parent;
+    std::weak_ptr<Node>                parent;
     std::vector<std::shared_ptr<Node>> children;
 
-    void SetTransform( const Mat4 &newTransform );
+    void SetTransform( const Mat4& newTransform );
     Mat4 GetTransformMatrix( ) const;
 };
 
 struct Scene {
-    struct MeshAsset {
-        MeshId mesh;
-        size_t material;
-    };
+    std::shared_ptr<Node> FindNodeByName( const std::string& name ) const;
 
-    std::shared_ptr<Node> FindNodeByName( const std::string &name ) const;
-
-    std::vector<MaterialId> materials;
-    std::vector<MeshAsset> meshes;
-    std::vector<std::shared_ptr<Node>> topNodes;
-    std::vector<std::shared_ptr<Node>> allNodes;
-    std::vector<Camera> cameras;
-    std::vector<PointLight> pointLights;
-    std::vector<DirectionalLight> directionalLights;
+    std::vector<TL::renderer::MaterialHandle> materials;
+    std::vector<MeshId>                       meshes;
+    std::vector<std::shared_ptr<Node>>        topNodes;
+    std::vector<std::shared_ptr<Node>>        allNodes;
+    std::vector<Camera>                       cameras;
+    std::vector<PointLight>                   pointLights;
+    std::vector<DirectionalLight>             directionalLights;
 
     std::string name;
 };

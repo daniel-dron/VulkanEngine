@@ -15,7 +15,7 @@
 
 #include "gpu_image.h"
 
-#include <graphics/tl_vkcontext.h>
+#include <graphics/r_resources.h>
 #include <vk_types.h>
 
 #include "vk_engine.h"

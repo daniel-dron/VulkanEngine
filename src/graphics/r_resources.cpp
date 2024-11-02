@@ -13,7 +13,7 @@
 
 #include <pch.h>
 
-#include "tl_vkcontext.h"
+#include "r_resources.h"
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
@@ -21,6 +21,7 @@
 #include <imgui.h>
 #include <vk_initializers.h>
 
+#include "resources/tl_pipeline.h"
 #include "vk_engine.h"
 
 using namespace vkb;
@@ -31,7 +32,7 @@ namespace TL {
 
 constexpr bool B_USE_VALIDATION_LAYERS = true;
 
-ImmediateExecutor::Result<> ImmediateExecutor::Init( TL_VkContext *gfx ) {
+ImmediateExecutor::Result<> ImmediateExecutor::Init( TL_VkContext* gfx ) {
     this->m_gfx = gfx;
 
     // Fence creation
@@ -49,17 +50,17 @@ ImmediateExecutor::Result<> ImmediateExecutor::Init( TL_VkContext *gfx ) {
                                                 .queueFamilyIndex = gfx->graphicsQueueFamily };
     VKCALL( vkCreateCommandPool( gfx->device, &pool_info, nullptr, &pool ) );
 
-    const VkCommandBufferAllocateInfo buffer_info = { .sType       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                                                      .pNext       = nullptr,
-                                                      .commandPool = pool,
-                                                      .level       = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+    const VkCommandBufferAllocateInfo buffer_info = { .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+                                                      .pNext              = nullptr,
+                                                      .commandPool        = pool,
+                                                      .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
                                                       .commandBufferCount = 1 };
     VKCALL( vkAllocateCommandBuffers( gfx->device, &buffer_info, &commandBuffer ) );
 
     return { };
 }
 
-void ImmediateExecutor::Execute( std::function<void( VkCommandBuffer cmd )> &&func ) {
+void ImmediateExecutor::Execute( std::function<void( VkCommandBuffer cmd )>&& func ) {
     mutex.lock( );
 
     VKCALL( vkResetFences( m_gfx->device, 1, &fence ) );
@@ -106,7 +107,98 @@ void ImmediateExecutor::Cleanup( ) const {
     vkDestroyCommandPool( m_gfx->device, pool, nullptr );
 }
 
-TL_VkContext::TL_VkContext( SDL_Window *window ) {
+//==============================================================================//
+//                             Materials                                        //
+//==============================================================================//
+
+void TL::renderer::MaterialPool::Init( ) {
+    // Fill free list backwards
+    m_freeIndices.reserve( MAX_MATERIALS );
+    for ( uint16_t i = 0; i < MAX_MATERIALS; i++ ) {
+        m_freeIndices.push_back( MAX_MATERIALS - 1 - i );
+    }
+
+    // Initialize generations to 0
+    m_generations.fill( 0 );
+
+    m_materialsGpuBuffer = std::make_unique<Buffer>( BufferType::TStorage, MAX_MATERIALS * sizeof( MaterialData ), 1, nullptr, "[TL] Material Data" );
+}
+
+void TL::renderer::MaterialPool::Shutdown( ) {
+    // Implictly call the buffer destructor
+    m_materialsGpuBuffer.reset( );
+}
+
+TL::renderer::MaterialHandle TL::renderer::MaterialPool::CreateMaterial( const Material& material ) {
+    MaterialData material_data = { };
+
+    // Fill gpu data
+    material_data.BaseColor     = material.baseColor;
+    material_data.EmissiveColor = Vec4( 0.0f, 0.0f, 0.0f, 0.0f ); // TODO: add emissiveness
+
+    material_data.TextureIndices[0] = material.colorId;
+    material_data.TextureIndices[1] = material.metalRoughnessId;
+    material_data.TextureIndices[2] = material.normalId;
+    material_data.TextureIndices[3] = 0; // Unused
+
+    material_data.Factors[0] = material.metalnessFactor;
+    material_data.Factors[1] = material.roughnessFactor;
+    material_data.Factors[2] = 0; // Unused
+    material_data.Factors[3] = 0; // Unused
+
+    // Get available index and save data
+    const u16 index = m_freeIndices.back( );
+    m_freeIndices.pop_back( );
+    m_materialDatas[index] = material_data;
+
+    // Generation increment only happens on destruction to invalidate current ones
+
+    // Upload data to the gpu
+    m_materialsGpuBuffer->Upload( &material_data, index * sizeof( MaterialData ), sizeof( MaterialData ) );
+
+    return MaterialHandle{ index, m_generations[index] };
+}
+
+void TL::renderer::MaterialPool::DestroyMaterial( const MaterialHandle handle ) {
+    if ( IsValid( handle ) ) {
+        // Increase generation to invalidate existing handles
+        m_generations[handle.index]++;
+
+        // Register index as available
+        m_freeIndices.push_back( handle.index );
+    }
+}
+
+TL::renderer::MaterialData& TL::renderer::MaterialPool::GetMaterial( const MaterialHandle handle ) {
+    assert( IsValid( handle ) );
+    return m_materialDatas[handle.index];
+}
+
+std::optional<TL::renderer::MaterialData*> TL::renderer::MaterialPool::GetMaterialSafe( MaterialHandle handle ) {
+    if ( IsValid( handle ) ) {
+        return &m_materialDatas[handle.index];
+    }
+
+    return std::nullopt;
+}
+
+bool TL::renderer::MaterialPool::IsValid( MaterialHandle handle ) const {
+    if ( handle.index > MAX_MATERIALS ) {
+        return false;
+    }
+
+    return m_generations[handle.index] == handle.generation;
+}
+
+//==============================================================================//
+//==============================================================================//
+
+
+//==============================================================================//
+//                             VK CONTEXT                                       //
+//==============================================================================//
+
+TL_VkContext::TL_VkContext( SDL_Window* window ) {
     InitDevice( window );
     InitAllocator( );
 }
@@ -122,8 +214,11 @@ TL_VkContext::Result<> TL_VkContext::Init( ) {
 
     executor.Init( this );
 
+    // Resource
+    materialPool.Init( );
+
     imageCodex.Init( this );
-    materialCodex.Init( );
+    // materialCodex.Init( );
 
     InitSwapchain( WIDTH, HEIGHT );
 
@@ -132,14 +227,16 @@ TL_VkContext::Result<> TL_VkContext::Init( ) {
 
 void TL_VkContext::RecreateSwapchain( u32 width, u32 height ) { InitSwapchain( width, height ); }
 
-void TL_VkContext::Execute( std::function<void( VkCommandBuffer )> &&func ) { executor.Execute( std::move( func ) ); }
+void TL_VkContext::Execute( std::function<void( VkCommandBuffer )>&& func ) { executor.Execute( std::move( func ) ); }
 
 void TL_VkContext::Cleanup( ) {
     CleanupSwapchain( );
 
     m_pipelines.clear( );
 
-    materialCodex.Cleanup( );
+    materialPool.Shutdown( );
+
+    // materialCodex.Cleanup( );
     imageCodex.Cleanup( );
     meshCodex.Cleanup( *this );
     executor.Cleanup( );
@@ -154,7 +251,7 @@ void TL_VkContext::Cleanup( ) {
     vkDestroyInstance( instance, nullptr );
 }
 
-std::shared_ptr<TL::Pipeline> TL_VkContext::GetOrCreatePipeline( const TL::PipelineConfig &config ) {
+std::shared_ptr<TL::Pipeline> TL_VkContext::GetOrCreatePipeline( const TL::PipelineConfig& config ) {
     assert( config.name != nullptr );
 
     // Check if pipeline already exists
@@ -190,7 +287,7 @@ float TL_VkContext::GetTimestampInMs( uint64_t start, uint64_t end ) const {
     return ( end - start ) * period / 1000000.0f;
 }
 
-void TL_VkContext::SetObjectDebugName( VkObjectType type, void *object, const std::string &name ) {
+void TL_VkContext::SetObjectDebugName( VkObjectType type, void* object, const std::string& name ) {
 #ifdef ENABLE_DEBUG_FEATURES
     const VkDebugUtilsObjectNameInfoEXT obj = {
             .sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
@@ -203,7 +300,7 @@ void TL_VkContext::SetObjectDebugName( VkObjectType type, void *object, const st
 #endif
 }
 
-TL_FrameData &TL_VkContext::GetCurrentFrame( ) { return frames.at( frameNumber % FrameOverlap ); }
+TL_FrameData& TL_VkContext::GetCurrentFrame( ) { return frames.at( frameNumber % FrameOverlap ); }
 
 void TL_VkContext::DrawDebug( ) const {
     auto       props  = deviceProperties.properties;
@@ -247,16 +344,16 @@ void TL_VkContext::DrawDebug( ) const {
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback( VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
                                               VkDebugUtilsMessageTypeFlagsEXT             messageType,
-                                              const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-                                              void                                       *pUserData ) {
+                                              const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+                                              void*                                       pUserData ) {
 
-    auto &engine = TL_Engine::Get( );
+    auto& engine = TL_Engine::Get( );
     engine.console.AddLog( "{}", pCallbackData->pMessage );
 
     return VK_FALSE;
 }
 
-TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window *window ) {
+TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window* window ) {
     // Instance
     InstanceBuilder builder;
     auto            instance_prototype = builder.set_app_name( "Vulkan Engine" )
@@ -270,7 +367,7 @@ TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window *window ) {
         return std::unexpected( GfxDeviceError{ Error::InstanceCreationFailed } );
     }
 
-    auto &bs_instance = instance_prototype.value( );
+    auto& bs_instance = instance_prototype.value( );
 
     instance = bs_instance.instance;
 
@@ -318,10 +415,10 @@ TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window *window ) {
         return std::unexpected( GfxDeviceError{ Error::PhysicalDeviceSelectionFailed } );
     }
 
-    auto &physical_device = physical_device_res.value( );
+    auto& physical_device = physical_device_res.value( );
     chosenGpu             = physical_device;
 
-    for ( const auto &ext : physical_device.get_available_extensions( ) ) {
+    for ( const auto& ext : physical_device.get_available_extensions( ) ) {
         TL_Engine::Get( ).console.AddLog( "{}", ext.c_str( ) );
     }
 
@@ -340,7 +437,7 @@ TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window *window ) {
         return std::unexpected( GfxDeviceError{ Error::LogicalDeviceCreationFailed } );
     }
 
-    auto &bs_device = device_res.value( );
+    auto& bs_device = device_res.value( );
     device          = bs_device;
 
     VkPhysicalDeviceProperties properties;
@@ -401,7 +498,7 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
 
     // TODO: throw instead
     assert( swapchain_res.has_value( ) );
-    auto &bs_swapchain = swapchain_res.value( );
+    auto& bs_swapchain = swapchain_res.value( );
 
     if ( old_swapchain != VK_NULL_HANDLE ) {
         CleanupSwapchain( );
@@ -456,7 +553,7 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
     const VkExtent3D            extent = { .width = this->extent.width, .height = this->extent.height, .depth = 1 };
 
     // TODO: transition to correct layout ( check validation layers )
-    for ( auto &frame : frames ) {
+    for ( auto& frame : frames ) {
         std::vector<unsigned char> empty_image_data;
         empty_image_data.resize( extent.width * extent.height * 8, 0 );
         frame.hdrColor = imageCodex.LoadImageFromData( "hdr image pbr", empty_image_data.data( ), draw_image_extent,
@@ -465,7 +562,7 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
         frame.postProcessImage =
                 imageCodex.CreateEmptyImage( "post process", draw_image_extent, VK_FORMAT_R8G8B8A8_UNORM,
                                              draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
-        auto &ppi = imageCodex.GetImage( frame.postProcessImage );
+        auto& ppi = imageCodex.GetImage( frame.postProcessImage );
         imageCodex.bindlessRegistry.AddStorageImage( *this, frame.postProcessImage, ppi.GetBaseView( ) );
 
         empty_image_data.resize( extent.width * extent.height * 4, 0 );
@@ -496,7 +593,7 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
 void TL_VkContext::CleanupSwapchain( ) {
 
     for ( uint64_t i = 0; i < FrameOverlap; i++ ) {
-        auto &frame = frames[i];
+        auto& frame = frames[i];
 
         auto oldDepth    = frame.depth;
         auto oldHdr      = frame.hdrColor;
@@ -529,7 +626,7 @@ void TL_VkContext::CleanupSwapchain( ) {
 
     vkDestroySwapchainKHR( device, swapchain, nullptr );
 
-    for ( const auto &view : views ) {
+    for ( const auto& view : views ) {
         vkDestroyImageView( device, view, nullptr );
     }
 }
@@ -574,7 +671,7 @@ namespace Debug {
     PFN_vkSetDebugUtilsObjectTagEXT     vkSetDebugUtilsObjectTagEXT_ptr     = nullptr;
     PFN_vkSubmitDebugUtilsMessageEXT    vkSubmitDebugUtilsMessageEXT_ptr    = nullptr;
 
-    void StartLabel( VkCommandBuffer cmd, const std::string &name, Vec4 color ) {
+    void StartLabel( VkCommandBuffer cmd, const std::string& name, Vec4 color ) {
         const VkDebugUtilsLabelEXT label = {
                 .sType      = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
                 .pNext      = nullptr,
@@ -587,7 +684,7 @@ namespace Debug {
 } // namespace Debug
 
 // definitions for linkage to the vulkan library
-void vkCmdBeginDebugUtilsLabelEXT( VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT *pLabelInfo ) {
+void vkCmdBeginDebugUtilsLabelEXT( VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT* pLabelInfo ) {
     return Debug::vkCmdBeginDebugUtilsLabelEXT_ptr( commandBuffer, pLabelInfo );
 }
 
@@ -595,41 +692,41 @@ void vkCmdEndDebugUtilsLabelEXT( VkCommandBuffer commandBuffer ) {
     return Debug::vkCmdEndDebugUtilsLabelEXT_ptr( commandBuffer );
 }
 
-void vkCmdInsertDebugUtilsLabelEXT( VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT *pLabelInfo ) {
+void vkCmdInsertDebugUtilsLabelEXT( VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT* pLabelInfo ) {
     return Debug::vkCmdInsertDebugUtilsLabelEXT_ptr( commandBuffer, pLabelInfo );
 }
 
-VkResult vkCreateDebugUtilsMessengerEXT( VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
-                                         const VkAllocationCallbacks *pAllocator,
-                                         VkDebugUtilsMessengerEXT    *pMessenger ) {
+VkResult vkCreateDebugUtilsMessengerEXT( VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+                                         const VkAllocationCallbacks* pAllocator,
+                                         VkDebugUtilsMessengerEXT*    pMessenger ) {
     return Debug::vkCreateDebugUtilsMessengerEXT_ptr( instance, pCreateInfo, pAllocator, pMessenger );
 }
 
 void vkDestroyDebugUtilsMessengerEXT( VkInstance instance, VkDebugUtilsMessengerEXT messenger,
-                                      const VkAllocationCallbacks *pAllocator ) {
+                                      const VkAllocationCallbacks* pAllocator ) {
     return Debug::vkDestroyDebugUtilsMessengerEXT_ptr( instance, messenger, pAllocator );
 }
 
-void vkQueueBeginDebugUtilsLabelEXT( VkQueue queue, const VkDebugUtilsLabelEXT *pLabelInfo ) {
+void vkQueueBeginDebugUtilsLabelEXT( VkQueue queue, const VkDebugUtilsLabelEXT* pLabelInfo ) {
     return Debug::vkQueueBeginDebugUtilsLabelEXT_ptr( queue, pLabelInfo );
 }
 
 void vkQueueEndDebugUtilsLabelEXT( VkQueue queue ) { return Debug::vkQueueEndDebugUtilsLabelEXT_ptr( queue ); }
 
-void vkQueueInsertDebugUtilsLabelEXT( VkQueue queue, const VkDebugUtilsLabelEXT *pLabelInfo ) {
+void vkQueueInsertDebugUtilsLabelEXT( VkQueue queue, const VkDebugUtilsLabelEXT* pLabelInfo ) {
     return Debug::vkQueueInsertDebugUtilsLabelEXT_ptr( queue, pLabelInfo );
 }
 
-VkResult vkSetDebugUtilsObjectNameEXT( VkDevice device, const VkDebugUtilsObjectNameInfoEXT *pNameInfo ) {
+VkResult vkSetDebugUtilsObjectNameEXT( VkDevice device, const VkDebugUtilsObjectNameInfoEXT* pNameInfo ) {
     return Debug::vkSetDebugUtilsObjectNameEXT_ptr( device, pNameInfo );
 }
 
-VkResult vkSetDebugUtilsObjectTagEXT( VkDevice device, const VkDebugUtilsObjectTagInfoEXT *pTagInfo ) {
+VkResult vkSetDebugUtilsObjectTagEXT( VkDevice device, const VkDebugUtilsObjectTagInfoEXT* pTagInfo ) {
     return Debug::vkSetDebugUtilsObjectTagEXT_ptr( device, pTagInfo );
 }
 
 void vkSubmitDebugUtilsMessageEXT( VkInstance instance, VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                                    VkDebugUtilsMessageTypeFlagsEXT             messageTypes,
-                                   const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData ) {
+                                   const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData ) {
     return Debug::vkSubmitDebugUtilsMessageEXT_ptr( instance, messageSeverity, messageTypes, pCallbackData );
 }

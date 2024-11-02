@@ -6,7 +6,6 @@ AlignConsecutiveDeclarations: AcrossComments
 AlignOperands: AlignAfterOperator
 BreakBeforeBinaryOperators: None
 AccessModifierOffset: -4
-AlignTrailingComments: false
 AlwaysBreakTemplateDeclarations: Yes
 BraceWrapping: 
   AfterCaseLabel: false
@@ -28,7 +27,7 @@ BraceWrapping:
 BreakBeforeBraces: Custom
 BreakConstructorInitializers: AfterColon
 BreakConstructorInitializersBeforeComma: false
-ColumnLimit: 120
+ColumnLimit: 0
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
 ContinuationIndentWidth: 8
 IncludeCategories: 
@@ -51,4 +50,6 @@ SpacesInConditionalStatement: true
 SpacesInCStyleCastParentheses: true
 SpacesInParentheses: true
 TabWidth: 4
+PointerAlignment: Left
+ReferenceAlignment: Left
 ...

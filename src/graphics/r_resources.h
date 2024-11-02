@@ -20,12 +20,16 @@
 #include "descriptors.h"
 #include "gbuffer.h"
 #include "image_codex.h"
-#include "material_codex.h"
 #include "mesh_codex.h"
 
-#include <graphics/resources/tl_pipeline.h>
 #include "shader_storage.h"
 
+
+struct Material;
+namespace TL {
+    class Pipeline;
+    struct PipelineConfig;
+} // namespace TL
 class TL_VkContext;
 class ShaderStorage;
 
@@ -34,7 +38,7 @@ class ShaderStorage;
 #define END_LABEL( cmd ) Debug::EndLabel( cmd )
 #else
 #define START_LABEL( cmd, name, color )
-#define END_LABEL
+#define END_LABEL( cmd )
 #endif
 
 namespace Debug {
@@ -50,7 +54,7 @@ namespace Debug {
     extern PFN_vkSetDebugUtilsObjectTagEXT     vkSetDebugUtilsObjectTagEXT_ptr;
     extern PFN_vkSubmitDebugUtilsMessageEXT    vkSubmitDebugUtilsMessageEXT_ptr;
 
-    void StartLabel( VkCommandBuffer cmd, const std::string &name, Vec4 color );
+    void StartLabel( VkCommandBuffer cmd, const std::string& name, Vec4 color );
     void EndLabel( VkCommandBuffer cmd );
 } // namespace Debug
 
@@ -68,13 +72,70 @@ struct ImmediateExecutor {
     template<typename T = void>
     using Result = std::expected<T, Error>;
 
-    Result<> Init( TL_VkContext *gfx );
-    void     Execute( std::function<void( VkCommandBuffer )> &&func );
+    Result<> Init( TL_VkContext* gfx );
+    void     Execute( std::function<void( VkCommandBuffer )>&& func );
     void     Cleanup( ) const;
 
 private:
-    TL_VkContext *m_gfx = nullptr;
+    TL_VkContext* m_gfx = nullptr;
 };
+
+//==============================================================================//
+//                             Materials                                        //
+//==============================================================================//
+
+namespace TL {
+    class Renderer;
+}
+
+namespace TL::renderer {
+
+    struct MaterialHandle {
+        u16 index;      // Index into material data array
+        u16 generation; // Generation counter for lifetime validation
+    };
+
+    struct MaterialData {
+        Vec4    BaseColor;         // 16 bytes
+        Vec4    EmissiveColor;     // 16 bytes
+        Vec4    Factors;           // 16 bytes ( metalness, roughness, N/A, N/A )
+        ImageId TextureIndices[4]; // 16 bytes ( albedo, mr, normal, N/A )
+    };
+
+    constexpr u32 MAX_MATERIALS = 1024;
+
+    class MaterialPool {
+    public:
+        void Init( );
+        void Shutdown( );
+
+        MaterialHandle               CreateMaterial( const Material& material );
+        void                         DestroyMaterial( MaterialHandle handle );
+        MaterialData&                GetMaterial( MaterialHandle handle );     // Asserted fetch. Recommended only for pre validated and hot paths (renderer code)
+        std::optional<MaterialData*> GetMaterialSafe( MaterialHandle handle ); // Returns possible material if present. Not recommended for hot paths.
+        bool                         IsValid( MaterialHandle handle ) const;   // Check if the index is valid and it matches its current generation
+
+    private:
+        std::array<MaterialData, MAX_MATERIALS> m_materialDatas = { }; // Material data mapped directly to gpu memory
+                                                                       // (Hot data, accessed every frame by the game)
+        std::array<u16, MAX_MATERIALS>          m_generations   = { }; // This indicates how many times the given handle was allocated.
+                                                                       // The same handle ID but different generation means the older one is invalid.
+        std::vector<u16>                        m_freeIndices   = { }; // Filled with free indices. At the start, it contains all indices into m_materialDatas backwards
+
+        std::unique_ptr<Buffer> m_materialsGpuBuffer = nullptr;
+
+        friend class Renderer;
+    };
+
+} // namespace TL::renderer
+
+//==============================================================================//
+//==============================================================================//
+
+
+//==============================================================================//
+//                             VK CONTEXT                                       //
+//==============================================================================//
 
 struct TL_FrameData {
     VkCommandPool   pool;
@@ -96,7 +157,7 @@ struct TL_FrameData {
 // Its lifetime is global.
 class TL_VkContext {
 public:
-    using Ptr = TL_VkContext *;
+    using Ptr = TL_VkContext*;
     using Ref = std::shared_ptr<TL_VkContext>;
 
     enum class Error {
@@ -114,15 +175,15 @@ public:
     using Result = std::expected<T, GfxDeviceError>;
 
              TL_VkContext( ) = default;
-    explicit TL_VkContext( struct SDL_Window *window );
+    explicit TL_VkContext( struct SDL_Window* window );
 
     Result<> Init( );
     void     RecreateSwapchain( u32 width, u32 height );
-    void     Execute( std::function<void( VkCommandBuffer )> &&func );
+    void     Execute( std::function<void( VkCommandBuffer )>&& func );
     void     Cleanup( );
 
     // Resources
-    std::shared_ptr<TL::Pipeline> GetOrCreatePipeline( const TL::PipelineConfig &config );
+    std::shared_ptr<TL::Pipeline> GetOrCreatePipeline( const TL::PipelineConfig& config );
 
     VkDescriptorSet    AllocateSet( VkDescriptorSetLayout layout );
     MultiDescriptorSet AllocateMultiSet( VkDescriptorSetLayout layout );
@@ -132,7 +193,7 @@ public:
 
     float GetTimestampInMs( uint64_t start, uint64_t end ) const;
 
-    void SetObjectDebugName( VkObjectType type, void *object, const std::string &name );
+    void SetObjectDebugName( VkObjectType type, void* object, const std::string& name );
 
     DescriptorAllocatorGrowable setPool;
 
@@ -160,9 +221,12 @@ public:
 
     VkSurfaceKHR surface;
 
-    ImageCodex        imageCodex;
-    TL::MaterialCodex materialCodex;
-    MeshCodex         meshCodex;
+    // Resources
+    TL::renderer::MaterialPool materialPool;
+
+    ImageCodex imageCodex;
+    // TL::MaterialCodex materialCodex;
+    MeshCodex  meshCodex;
 
     std::unique_ptr<ShaderStorage> shaderStorage;
 
@@ -176,12 +240,12 @@ public:
     VkExtent2D                             extent;
     VkPresentModeKHR                       presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
     u64                                    frameNumber = 0;
-    TL_FrameData                          &GetCurrentFrame( );
+    TL_FrameData&                          GetCurrentFrame( );
 
     void DrawDebug( ) const;
 
 private:
-    Result<> InitDevice( struct SDL_Window *window );
+    Result<> InitDevice( struct SDL_Window* window );
     Result<> InitAllocator( );
     void     InitSwapchain( u32 width, u32 height );
     void     CleanupSwapchain( );

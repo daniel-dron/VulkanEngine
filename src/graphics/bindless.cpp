@@ -13,7 +13,7 @@
 
 #include <pch.h>
 
-#include <graphics/tl_vkcontext.h>
+#include <graphics/r_resources.h>
 #include "bindless.h"
 
 #include "vk_engine.h"

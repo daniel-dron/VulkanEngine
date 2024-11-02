@@ -17,13 +17,14 @@
 
 #include <graphics/ibl.h>
 #include <vk_initializers.h>
+#include "resources/tl_pipeline.h"
 
 using namespace vk_init;
 using namespace utils;
 
 namespace TL {
 
-    void Renderer::Init( SDL_Window *window, Vec2 extent ) {
+    void Renderer::Init( SDL_Window* window, Vec2 extent ) {
         m_extent = extent;
 
         vkctx = std::make_unique<TL_VkContext>( window );
@@ -53,7 +54,7 @@ namespace TL {
     }
 
     void Renderer::StartFrame( ) noexcept {
-        auto &frame = vkctx->GetCurrentFrame( );
+        auto& frame = vkctx->GetCurrentFrame( );
 
         if ( vkctx->frameNumber != 0 ) {
             VKCALL( vkWaitForFences( vkctx->device, 1, &frame.fence, true, UINT64_MAX ) );
@@ -80,12 +81,12 @@ namespace TL {
 
         OnFrameBoundary( );
 
-        const auto &depth = vkctx->imageCodex.GetImage( frame.depth );
+        const auto& depth = vkctx->imageCodex.GetImage( frame.depth );
         depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
     }
 
     void Renderer::Frame( ) noexcept {
-        auto &frame = vkctx->GetCurrentFrame( );
+        auto& frame = vkctx->GetCurrentFrame( );
         ShadowMapPass( );
 
         SetViewportAndScissor( frame.commandBuffer );
@@ -97,7 +98,7 @@ namespace TL {
     }
 
     void Renderer::EndFrame( ) noexcept {
-        const auto &frame = vkctx->GetCurrentFrame( );
+        const auto& frame = vkctx->GetCurrentFrame( );
 
         VKCALL( vkEndCommandBuffer( frame.commandBuffer ) );
 
@@ -110,7 +111,7 @@ namespace TL {
     }
 
     void Renderer::Present( ) noexcept {
-        const auto &frame = vkctx->GetCurrentFrame( );
+        const auto& frame = vkctx->GetCurrentFrame( );
 
         const VkPresentInfoKHR presentInfo = { .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
                                                .pNext              = nullptr,
@@ -128,29 +129,37 @@ namespace TL {
         // increase frame number for next loop
         vkctx->frameNumber++;
     }
-    void Renderer::UpdateScene( const Scene &scene ) {
+    void Renderer::UpdateScene( const Scene& scene ) {
         // 1. Parse renderable entities (must have atleast 1 mesh)
         m_renderables.clear( );
 
         // TODO: is this performant ?
-        std::function<void( const std::shared_ptr<Node> & )> parse_node =
-                [&]( const std::shared_ptr<Node> &node ) -> void {
+        std::function<void( const std::shared_ptr<Node>& )> parse_node =
+                [&]( const std::shared_ptr<Node>& node ) -> void {
             if ( !node->meshAssets.empty( ) ) {
-                m_renderables.push_back( node );
+                u32 i = 0;
+                for ( auto& mesh_asset : node->meshAssets ) {
+                    Renderable renderable = {
+                            .meshId         = scene.meshes[mesh_asset.meshIndex],
+                            .materialHandle = scene.materials[mesh_asset.materialIndex],
+                            .transform      = node->GetTransformMatrix( ),
+                            .aabb           = node->boundingBoxes[i++] };
+                    m_renderables.push_back( renderable );
+                }
             }
 
-            for ( const auto &child : node->children ) {
+            for ( const auto& child : node->children ) {
                 parse_node( child );
             }
         };
-        for ( const auto &top_node : scene.topNodes ) {
+        for ( const auto& top_node : scene.topNodes ) {
             parse_node( top_node );
         }
 
         // 2. Parse directional lights
         m_directionalLights.resize( scene.directionalLights.size( ) );
         std::ranges::transform(
-                scene.directionalLights, m_directionalLights.begin( ), []( const DirectionalLight &dir_light ) {
+                scene.directionalLights, m_directionalLights.begin( ), []( const DirectionalLight& dir_light ) {
                     GpuDirectionalLight light = { };
 
                     // Convert HSV to RGB and power
@@ -176,7 +185,7 @@ namespace TL {
 
         // 3. Parse point lights
         m_pointLights.resize( scene.pointLights.size( ) );
-        std::ranges::transform( scene.pointLights, m_pointLights.begin( ), []( const PointLight &point_light ) {
+        std::ranges::transform( scene.pointLights, m_pointLights.begin( ), []( const PointLight& point_light ) {
             GpuPointLight light = { };
 
             // Convert HSV to RGB and power
@@ -208,7 +217,7 @@ namespace TL {
     }
 
     void Renderer::OnFrameBoundary( ) noexcept {
-        auto &frame = vkctx->GetCurrentFrame( );
+        auto& frame = vkctx->GetCurrentFrame( );
         auto  cmd   = frame.commandBuffer;
 
         frame.deletionQueue.Flush( );
@@ -226,7 +235,7 @@ namespace TL {
                                               sizeof( GpuDirectionalLight ) * m_directionalLights.size( ) );
         m_gpuPointLightsBuffer->Upload( m_pointLights.data( ), sizeof( GpuPointLight ) * m_pointLights.size( ) );
 
-        m_sceneData.materials = vkctx->materialCodex.GetDeviceAddress( );
+        m_sceneData.materials = vkctx->materialPool.m_materialsGpuBuffer->GetDeviceAddress( );
         m_sceneBufferGpu->Upload( &m_sceneData, sizeof( GpuSceneData ) );
 
 
@@ -380,15 +389,15 @@ namespace TL {
     }
 
     void Renderer::GBufferPass( ) {
-        const auto &frame = vkctx->GetCurrentFrame( );
+        const auto& frame = vkctx->GetCurrentFrame( );
         auto        cmd   = frame.commandBuffer;
 
-        auto &gbuffer  = vkctx->GetCurrentFrame( ).gBuffer;
-        auto &albedo   = vkctx->imageCodex.GetImage( gbuffer.albedo );
-        auto &normal   = vkctx->imageCodex.GetImage( gbuffer.normal );
-        auto &position = vkctx->imageCodex.GetImage( gbuffer.position );
-        auto &pbr      = vkctx->imageCodex.GetImage( gbuffer.pbr );
-        auto &depth    = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
+        auto& gbuffer  = vkctx->GetCurrentFrame( ).gBuffer;
+        auto& albedo   = vkctx->imageCodex.GetImage( gbuffer.albedo );
+        auto& normal   = vkctx->imageCodex.GetImage( gbuffer.normal );
+        auto& position = vkctx->imageCodex.GetImage( gbuffer.position );
+        auto& pbr      = vkctx->imageCodex.GetImage( gbuffer.pbr );
+        auto& depth    = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
 
         auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
                 .name               = "gbuffer",
@@ -434,7 +443,7 @@ namespace TL {
         vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0,
                                  nullptr );
 
-        for ( const auto &draw_command : m_drawCommands ) {
+        for ( const auto& draw_command : m_drawCommands ) {
             vkCmdBindIndexBuffer( cmd, draw_command.indexBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
             MeshPushConstants push_constants = {
@@ -455,7 +464,7 @@ namespace TL {
     }
 
     void Renderer::ShadowMapPass( ) {
-        const auto &frame = vkctx->GetCurrentFrame( );
+        const auto& frame = vkctx->GetCurrentFrame( );
         auto        cmd   = frame.commandBuffer;
         START_LABEL( cmd, "ShadowMap Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 0 );
@@ -478,15 +487,15 @@ namespace TL {
                 .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
         } );
 
-        for ( const auto &light : m_directionalLights ) {
-            auto &target_image = vkctx->imageCodex.GetImage( light.shadowMap );
+        for ( const auto& light : m_directionalLights ) {
+            auto& target_image = vkctx->imageCodex.GetImage( light.shadowMap );
 
             VkRenderingAttachmentInfo depth_attachment =
                     DepthAttachmentInfo( target_image.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
-            VkRenderingInfo render_info = { .sType      = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                                            .pNext      = nullptr,
-                                            .renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, VkExtent2D{ 2048, 2048 } },
-                                            .layerCount = 1,
+            VkRenderingInfo render_info = { .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                            .pNext                = nullptr,
+                                            .renderArea           = VkRect2D{ VkOffset2D{ 0, 0 }, VkExtent2D{ 2048, 2048 } },
+                                            .layerCount           = 1,
                                             .colorAttachmentCount = 0,
                                             .pColorAttachments    = nullptr,
                                             .pDepthAttachment     = &depth_attachment,
@@ -510,7 +519,7 @@ namespace TL {
                                                    .height = target_image.GetExtent( ).height } };
             vkCmdSetScissor( cmd, 0, 1, &scissor );
 
-            for ( const auto &draw_command : m_shadowMapCommands ) {
+            for ( const auto& draw_command : m_shadowMapCommands ) {
                 vkCmdBindIndexBuffer( cmd, draw_command.indexBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
                 ShadowMapPushConstants push_constants = {
@@ -534,10 +543,10 @@ namespace TL {
     }
 
     void Renderer::PbrPass( ) {
-        const auto &frame   = vkctx->GetCurrentFrame( );
+        const auto& frame   = vkctx->GetCurrentFrame( );
         auto        cmd     = frame.commandBuffer;
-        const auto &gbuffer = frame.gBuffer;
-        auto       &hdr     = vkctx->imageCodex.GetImage( frame.hdrColor );
+        const auto& gbuffer = frame.gBuffer;
+        auto&       hdr     = vkctx->imageCodex.GetImage( frame.hdrColor );
 
         auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
                 .name                 = "pbr",
@@ -604,10 +613,10 @@ namespace TL {
     }
 
     void Renderer::SkyboxPass( ) {
-        auto &frame = vkctx->GetCurrentFrame( );
+        auto& frame = vkctx->GetCurrentFrame( );
         auto  cmd   = frame.commandBuffer;
-        auto &hdr   = vkctx->imageCodex.GetImage( frame.hdrColor );
-        auto &depth = vkctx->imageCodex.GetImage( frame.depth );
+        auto& hdr   = vkctx->imageCodex.GetImage( frame.hdrColor );
+        auto& depth = vkctx->imageCodex.GetImage( frame.depth );
 
         auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
                 .name                 = "skybox",
@@ -648,7 +657,7 @@ namespace TL {
         vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0,
                                  nullptr );
 
-        auto &mesh = vkctx->meshCodex.GetMesh( m_skyboxMesh );
+        auto& mesh = vkctx->meshCodex.GetMesh( m_skyboxMesh );
         vkCmdBindIndexBuffer( cmd, mesh.indexBuffer->GetVkResource( ), 0, VK_INDEX_TYPE_UINT32 );
 
         const SkyboxPushConstants push_constants = { .sceneDataAddress    = m_sceneBufferGpu->GetDeviceAddress( ),
@@ -665,7 +674,7 @@ namespace TL {
     }
 
     void Renderer::PostProcessPass( ) {
-        auto &frame = vkctx->GetCurrentFrame( );
+        auto& frame = vkctx->GetCurrentFrame( );
         auto  cmd   = frame.commandBuffer;
 
         auto pipeline = vkctx->GetOrCreatePipeline( TL::PipelineConfig{
@@ -679,7 +688,7 @@ namespace TL {
 
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 8 );
 
-        auto &output = vkctx->imageCodex.GetImage( frame.postProcessImage );
+        auto& output = vkctx->imageCodex.GetImage( frame.postProcessImage );
         output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
 
         vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->GetVkResource( ) );
@@ -699,18 +708,22 @@ namespace TL {
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 9 );
     }
 
-    VisibilityResult Renderer::VisibilityCheckWithLOD( const Mat4 &transform, const AABoundingBox *aabb,
-                                                       const Frustum &frustum ) const {
+    VisibilityResult Renderer::VisibilityCheckWithLOD( const Mat4& transform, const AABoundingBox* aabb,
+                                                       const Frustum& frustum ) const {
         if ( !settings.frustumCulling ) {
             return { true };
         }
 
         Vec3 points[] = {
-                { aabb->min.x, aabb->min.y, aabb->min.z }, { aabb->max.x, aabb->min.y, aabb->min.z },
-                { aabb->max.x, aabb->max.y, aabb->min.z }, { aabb->min.x, aabb->max.y, aabb->min.z },
+                { aabb->min.x, aabb->min.y, aabb->min.z },
+                { aabb->max.x, aabb->min.y, aabb->min.z },
+                { aabb->max.x, aabb->max.y, aabb->min.z },
+                { aabb->min.x, aabb->max.y, aabb->min.z },
 
-                { aabb->min.x, aabb->min.y, aabb->max.z }, { aabb->max.x, aabb->min.y, aabb->max.z },
-                { aabb->max.x, aabb->max.y, aabb->max.z }, { aabb->min.x, aabb->max.y, aabb->max.z },
+                { aabb->min.x, aabb->min.y, aabb->max.z },
+                { aabb->max.x, aabb->min.y, aabb->max.z },
+                { aabb->max.x, aabb->max.y, aabb->max.z },
+                { aabb->min.x, aabb->max.y, aabb->max.z },
         };
 
         // Transform points to world space
@@ -750,38 +763,33 @@ namespace TL {
         m_shadowMapCommands.clear( );
         m_drawCommands.clear( );
 
-        for ( const auto &node : m_renderables ) {
-            int i = 0;
-            for ( const auto mesh_asset : node->meshAssets ) {
-                auto            model = node->GetTransformMatrix( );
-                auto           &mesh  = vkctx->meshCodex.GetMesh( mesh_asset.mesh );
-                MeshDrawCommand mdc   = {
-                          .indexBuffer         = mesh.indexBuffer->GetVkResource( ),
-                          .indexCount          = mesh.indexCount,
-                          .vertexBufferAddress = mesh.vertexBufferAddress,
-                          .worldFromLocal      = model,
-                          .materialId          = mesh_asset.material,
-                };
+        for ( const auto& renderable : m_renderables ) {
+            auto&           mesh = vkctx->meshCodex.GetMesh( renderable.meshId );
+            MeshDrawCommand mdc  = {
+                     .indexBuffer         = mesh.indexBuffer->GetVkResource( ),
+                     .indexCount          = mesh.indexCount,
+                     .vertexBufferAddress = mesh.vertexBufferAddress,
+                     .worldFromLocal      = renderable.transform,
+                     .materialId          = renderable.materialHandle.index,
+            };
 
-                // TODO: dont rerender static
-                m_shadowMapCommands.push_back( mdc );
+            // TODO: dont rerender static
+            m_shadowMapCommands.push_back( mdc );
 
-                if ( settings.frustumCulling ) {
-                    auto &aabb       = node->boundingBoxes[i++];
-                    auto  visibility = VisibilityCheckWithLOD( model, &aabb,
-                                                              settings.useFrozenFrustum ? settings.lastSavedFrustum
-                                                                                         : m_camera->GetFrustum( ) );
-                    if ( !visibility.isVisible ) {
-                        continue;
-                    }
-
-                    mdc.indexBuffer = mesh.indexBuffer->GetVkResource( );
-                    mdc.indexCount  = mesh.indexCount;
-                    m_drawCommands.push_back( mdc );
+            if ( settings.frustumCulling ) {
+                auto visibility = VisibilityCheckWithLOD( renderable.transform, &renderable.aabb,
+                                                          settings.useFrozenFrustum ? settings.lastSavedFrustum
+                                                                                    : m_camera->GetFrustum( ) );
+                if ( !visibility.isVisible ) {
+                    continue;
                 }
-                else {
-                    m_drawCommands.push_back( mdc );
-                }
+
+                mdc.indexBuffer = mesh.indexBuffer->GetVkResource( );
+                mdc.indexCount  = mesh.indexCount;
+                m_drawCommands.push_back( mdc );
+            }
+            else {
+                m_drawCommands.push_back( mdc );
             }
         }
     }

@@ -19,7 +19,7 @@
 #include <vk_initializers.h>
 #include <vk_pipelines.h>
 
-#include "graphics/tl_vkcontext.h"
+#include "graphics/r_resources.h"
 #include "vk_engine.h"
 
 using namespace vk_init;

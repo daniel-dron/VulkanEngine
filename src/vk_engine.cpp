@@ -333,7 +333,7 @@ void TL_Engine::InitImages( ) {
 
 void TL_Engine::InitScene( ) {
     // m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
-    m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
+    m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
 
     // Use camera from renderer
     m_camera           = renderer->GetCamera( );
