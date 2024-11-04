@@ -20,7 +20,7 @@
 #include <vk_types.h>
 #include <vulkan/vulkan_core.h>
 #include "camera/camera.h"
-#include "graphics/r_resources.h"
+#include "graphics/resources/r_resources.h"
 #include "graphics/tl_renderer.h"
 #include "utils/profiler.h"
 
@@ -69,10 +69,10 @@ public:
     // post process
     float m_backupGamma = 2.2f;
 
-    ImageId m_whiteImage             = ImageCodex::InvalidImageId;
-    ImageId m_blackImage             = ImageCodex::InvalidImageId;
-    ImageId m_greyImage              = ImageCodex::InvalidImageId;
-    ImageId m_errorCheckerboardImage = ImageCodex::InvalidImageId;
+    ImageId m_whiteImage             = TL::renderer::ImageCodex::InvalidImageId;
+    ImageId m_blackImage             = TL::renderer::ImageCodex::InvalidImageId;
+    ImageId m_greyImage              = TL::renderer::ImageCodex::InvalidImageId;
+    ImageId m_errorCheckerboardImage = TL::renderer::ImageCodex::InvalidImageId;
 
     std::shared_ptr<Node>                        m_selectedNode = nullptr;
     std::unique_ptr<Scene>                       m_scene;

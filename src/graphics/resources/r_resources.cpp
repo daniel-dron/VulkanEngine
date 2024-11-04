@@ -15,14 +15,12 @@
 
 #include "r_resources.h"
 
-#include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 #include <VkBootstrap.h>
 #include <imgui.h>
 #include <vk_initializers.h>
 
-#include "resources/tl_pipeline.h"
-#include "vk_engine.h"
+#include "r_pipeline.h"
 
 using namespace vkb;
 
@@ -328,7 +326,7 @@ TL_VkContext::Result<> TL_VkContext::Init( ) {
     MaterialPool.Init( );
     MeshPool.Init( );
 
-    imageCodex.Init( this );
+    ImageCodex.Init( this );
 
     InitSwapchain( WIDTH, HEIGHT );
 
@@ -348,7 +346,7 @@ void TL_VkContext::Cleanup( ) {
     MaterialPool.Shutdown( );
 
     // materialCodex.Cleanup( );
-    imageCodex.Cleanup( );
+    ImageCodex.Cleanup( );
     executor.Cleanup( );
     setPool.DestroyPools( device );
     shaderStorage->Cleanup( );
@@ -388,9 +386,9 @@ MultiDescriptorSet TL_VkContext::AllocateMultiSet( VkDescriptorSetLayout layout 
     return md_set;
 }
 
-VkDescriptorSetLayout TL_VkContext::GetBindlessLayout( ) const { return imageCodex.GetBindlessLayout( ); }
+VkDescriptorSetLayout TL_VkContext::GetBindlessLayout( ) const { return ImageCodex.GetBindlessLayout( ); }
 
-VkDescriptorSet TL_VkContext::GetBindlessSet( ) const { return imageCodex.GetBindlessSet( ); }
+VkDescriptorSet TL_VkContext::GetBindlessSet( ) const { return ImageCodex.GetBindlessSet( ); }
 
 float TL_VkContext::GetTimestampInMs( uint64_t start, uint64_t end ) const {
     const auto period = deviceProperties.properties.limits.timestampPeriod;
@@ -666,28 +664,28 @@ void TL_VkContext::InitSwapchain( const u32 width, const u32 height ) {
     for ( auto& frame : frames ) {
         std::vector<unsigned char> empty_image_data;
         empty_image_data.resize( extent.width * extent.height * 8, 0 );
-        frame.hdrColor = imageCodex.LoadImageFromData( "hdr image pbr", empty_image_data.data( ), draw_image_extent,
+        frame.hdrColor = ImageCodex.LoadImageFromData( "hdr image pbr", empty_image_data.data( ), draw_image_extent,
                                                        VK_FORMAT_R16G16B16A16_SFLOAT, draw_image_usages, false );
 
         frame.postProcessImage =
-                imageCodex.CreateEmptyImage( "post process", draw_image_extent, VK_FORMAT_R8G8B8A8_UNORM,
+                ImageCodex.CreateEmptyImage( "post process", draw_image_extent, VK_FORMAT_R8G8B8A8_UNORM,
                                              draw_image_usages | VK_IMAGE_USAGE_STORAGE_BIT, false );
-        auto& ppi = imageCodex.GetImage( frame.postProcessImage );
-        imageCodex.bindlessRegistry.AddStorageImage( *this, frame.postProcessImage, ppi.GetBaseView( ) );
+        auto& ppi = ImageCodex.GetImage( frame.postProcessImage );
+        ImageCodex.bindlessRegistry.AddStorageImage( *this, frame.postProcessImage, ppi.GetBaseView( ) );
 
         empty_image_data.resize( extent.width * extent.height * 4, 0 );
-        frame.depth = imageCodex.LoadImageFromData( "main depth image", empty_image_data.data( ), draw_image_extent,
+        frame.depth = ImageCodex.LoadImageFromData( "main depth image", empty_image_data.data( ), draw_image_extent,
                                                     VK_FORMAT_D32_SFLOAT, depth_image_usages, false );
         std::vector<unsigned char> empty_data;
         empty_data.resize( extent.width * extent.height * 4 * 2, 0 );
 
-        frame.gBuffer.position = imageCodex.LoadImageFromData( "gbuffer.position", empty_data.data( ), extent,
+        frame.gBuffer.position = ImageCodex.LoadImageFromData( "gbuffer.position", empty_data.data( ), extent,
                                                                VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
-        frame.gBuffer.normal   = imageCodex.LoadImageFromData( "gbuffer.normal", empty_data.data( ), extent,
+        frame.gBuffer.normal   = ImageCodex.LoadImageFromData( "gbuffer.normal", empty_data.data( ), extent,
                                                                VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
-        frame.gBuffer.pbr      = imageCodex.LoadImageFromData( "gbuffer.pbr", empty_data.data( ), extent,
+        frame.gBuffer.pbr      = ImageCodex.LoadImageFromData( "gbuffer.pbr", empty_data.data( ), extent,
                                                                VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
-        frame.gBuffer.albedo   = imageCodex.LoadImageFromData( "gbuffer.albedo", empty_data.data( ), extent,
+        frame.gBuffer.albedo   = ImageCodex.LoadImageFromData( "gbuffer.albedo", empty_data.data( ), extent,
                                                                VK_FORMAT_R16G16B16A16_SFLOAT, usages, false );
 
         // Query Pool
@@ -715,13 +713,13 @@ void TL_VkContext::CleanupSwapchain( ) {
 
         frame.deletionQueue.PushFunction( [&, oldDepth, oldHdr, oldPPI, oldAlbedo, oldNormal, oldPbr, oldPosition] {
             // destroy the images
-            imageCodex.UnloadIamge( oldDepth );
-            imageCodex.UnloadIamge( oldHdr );
-            imageCodex.UnloadIamge( oldPPI );
-            imageCodex.UnloadIamge( oldAlbedo );
-            imageCodex.UnloadIamge( oldNormal );
-            imageCodex.UnloadIamge( oldPbr );
-            imageCodex.UnloadIamge( oldPosition );
+            ImageCodex.UnloadIamge( oldDepth );
+            ImageCodex.UnloadIamge( oldHdr );
+            ImageCodex.UnloadIamge( oldPPI );
+            ImageCodex.UnloadIamge( oldAlbedo );
+            ImageCodex.UnloadIamge( oldNormal );
+            ImageCodex.UnloadIamge( oldPbr );
+            ImageCodex.UnloadIamge( oldPosition );
         } );
 
         vkDestroyCommandPool( device, frames[i].pool, nullptr );

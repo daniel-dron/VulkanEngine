@@ -17,12 +17,12 @@
 #include <mutex>
 #include <vk_types.h>
 
-#include "descriptors.h"
-#include "gbuffer.h"
-#include "image_codex.h"
-#include "shader_storage.h"
+#include <graphics/resources/r_buffer.h>
+#include <graphics/resources/r_image.h>
 
-#include <graphics/resources/tl_buffer.h>
+#include "../descriptors.h"
+#include "../gbuffer.h"
+#include "../shader_storage.h"
 
 
 struct Material;
@@ -292,8 +292,7 @@ public:
     // Resources
     TL::renderer::MaterialPool MaterialPool;
     TL::renderer::MeshPool     MeshPool;
-
-    ImageCodex imageCodex;
+    TL::renderer::ImageCodex   ImageCodex;
 
     std::unique_ptr<ShaderStorage> shaderStorage;
 

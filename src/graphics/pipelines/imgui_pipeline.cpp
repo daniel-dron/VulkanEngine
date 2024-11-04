@@ -19,7 +19,7 @@
 #include <vk_initializers.h>
 #include <vk_pipelines.h>
 
-#include "graphics/r_resources.h"
+#include "../resources/r_resources.h"
 #include "vk_engine.h"
 
 using namespace vk_init;
@@ -39,7 +39,7 @@ ImGuiPipeline::Result<> ImGuiPipeline::Init( TL_VkContext &gfx ) {
         int      width  = 0;
         int      height = 0;
         io.Fonts->GetTexDataAsRGBA32( &data, &width, &height );
-        m_fontTextureId = ( ImTextureID ) static_cast<uintptr_t>( gfx.imageCodex.LoadImageFromData(
+        m_fontTextureId = ( ImTextureID ) static_cast<uintptr_t>( gfx.ImageCodex.LoadImageFromData(
                 "ImGui Font", data,
                 VkExtent3D{ .width  = static_cast<uint32_t>( width ),
                             .height = static_cast<uint32_t>( height ),
@@ -150,7 +150,7 @@ void ImGuiPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImDrawData *dr
     auto bindless_set = gfx.GetBindlessSet( );
     vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &bindless_set, 0, nullptr );
 
-    auto      &target_image = gfx.imageCodex.GetImage( gfx.GetCurrentFrame( ).hdrColor );
+    auto      &target_image = gfx.ImageCodex.GetImage( gfx.GetCurrentFrame( ).hdrColor );
     VkViewport viewport     = {
                 .x        = 0,
                 .y        = 0,
@@ -195,13 +195,13 @@ void ImGuiPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImDrawData *dr
                 continue;
             }
 
-            auto texture_id = gfx.imageCodex.GetWhiteImageId( );
+            auto texture_id = gfx.ImageCodex.GetWhiteImageId( );
             if ( im_cmd.TextureId != 0 ) {
                 texture_id = static_cast<ImageId>( reinterpret_cast<uint64_t>( im_cmd.TextureId ) );
             }
 
             bool        is_srgb = true;
-            const auto &texture = gfx.imageCodex.GetImage( texture_id );
+            const auto &texture = gfx.ImageCodex.GetImage( texture_id );
             if ( texture.GetFormat( ) == VK_FORMAT_R8G8B8A8_SRGB ||
                  texture.GetFormat( ) == VK_FORMAT_R16G16B16A16_SFLOAT ) {
                 is_srgb = false;

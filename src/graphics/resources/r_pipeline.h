@@ -13,8 +13,6 @@
 
 #pragma once
 
-#include <graphics/tl_renderer.h>
-
 namespace TL {
     struct PipelineConfig {
         const char *const name = nullptr;

@@ -20,7 +20,7 @@
 
 #include <memory>
 
-#include "graphics/r_resources.h"
+#include "../graphics/resources/r_resources.h"
 
 struct PointLight;
 

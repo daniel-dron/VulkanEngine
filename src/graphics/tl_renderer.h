@@ -13,8 +13,8 @@
 #pragma once
 
 #include <graphics/ibl.h>
-#include <graphics/r_resources.h>
-#include <graphics/resources/tl_buffer.h>
+#include <graphics/resources/r_buffer.h>
+#include <graphics/resources/r_resources.h>
 #include <vk_types.h>
 
 #include "draw_command.h"

@@ -17,9 +17,12 @@
 
 #include <graphics/ibl.h>
 #include <vk_initializers.h>
-#include "resources/tl_pipeline.h"
+#include "resources/r_pipeline.h"
 
 using namespace vk_init;
+using namespace utils;
+using namespace utils;
+using namespace utils;
 using namespace utils;
 
 namespace TL {
@@ -80,7 +83,7 @@ namespace TL {
 
         OnFrameBoundary( );
 
-        const auto& depth = vkctx->imageCodex.GetImage( frame.depth );
+        const auto& depth = vkctx->ImageCodex.GetImage( frame.depth );
         depth.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, true );
     }
 
@@ -365,11 +368,11 @@ namespace TL {
         auto        cmd   = frame.commandBuffer;
 
         auto& gbuffer  = vkctx->GetCurrentFrame( ).gBuffer;
-        auto& albedo   = vkctx->imageCodex.GetImage( gbuffer.albedo );
-        auto& normal   = vkctx->imageCodex.GetImage( gbuffer.normal );
-        auto& position = vkctx->imageCodex.GetImage( gbuffer.position );
-        auto& pbr      = vkctx->imageCodex.GetImage( gbuffer.pbr );
-        auto& depth    = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
+        auto& albedo   = vkctx->ImageCodex.GetImage( gbuffer.albedo );
+        auto& normal   = vkctx->ImageCodex.GetImage( gbuffer.normal );
+        auto& position = vkctx->ImageCodex.GetImage( gbuffer.position );
+        auto& pbr      = vkctx->ImageCodex.GetImage( gbuffer.pbr );
+        auto& depth    = vkctx->ImageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
 
         auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
                 .name               = "gbuffer",
@@ -460,7 +463,7 @@ namespace TL {
         } );
 
         for ( const auto& light : m_directionalLights ) {
-            auto& target_image = vkctx->imageCodex.GetImage( light.shadowMap );
+            auto& target_image = vkctx->ImageCodex.GetImage( light.shadowMap );
 
             VkRenderingAttachmentInfo depth_attachment =
                     DepthAttachmentInfo( target_image.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
@@ -518,7 +521,7 @@ namespace TL {
         const auto& frame   = vkctx->GetCurrentFrame( );
         auto        cmd     = frame.commandBuffer;
         const auto& gbuffer = frame.gBuffer;
-        auto&       hdr     = vkctx->imageCodex.GetImage( frame.hdrColor );
+        auto&       hdr     = vkctx->ImageCodex.GetImage( frame.hdrColor );
 
         auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
                 .name                 = "pbr",
@@ -587,8 +590,8 @@ namespace TL {
     void Renderer::SkyboxPass( ) {
         auto& frame = vkctx->GetCurrentFrame( );
         auto  cmd   = frame.commandBuffer;
-        auto& hdr   = vkctx->imageCodex.GetImage( frame.hdrColor );
-        auto& depth = vkctx->imageCodex.GetImage( frame.depth );
+        auto& hdr   = vkctx->ImageCodex.GetImage( frame.hdrColor );
+        auto& depth = vkctx->ImageCodex.GetImage( frame.depth );
 
         auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
                 .name                 = "skybox",
@@ -660,7 +663,7 @@ namespace TL {
 
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 8 );
 
-        auto& output = vkctx->imageCodex.GetImage( frame.postProcessImage );
+        auto& output = vkctx->ImageCodex.GetImage( frame.postProcessImage );
         output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
 
         vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->GetVkResource( ) );

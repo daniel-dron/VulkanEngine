@@ -20,8 +20,8 @@ class TL_VkContext;
 namespace TL {
     class Ibl {
     public:
-        void Init( TL_VkContext &gfx, const std::string &path );
-        void Clean( const TL_VkContext &gfx );
+        void Init( TL_VkContext& gfx, const std::string& path );
+        void Clean( const TL_VkContext& gfx );
 
         ImageId GetSkybox( ) const { return m_skybox; }
         ImageId GetIrradiance( ) const { return m_irradiance; }
@@ -29,23 +29,23 @@ namespace TL {
         ImageId GetBrdf( ) const { return m_brdf; }
 
     private:
-        void InitComputes( TL_VkContext &gfx );
-        void InitTextures( TL_VkContext &gfx );
+        void InitComputes( TL_VkContext& gfx );
+        void InitTextures( TL_VkContext& gfx );
 
-        void GenerateSkybox( TL_VkContext &gfx, VkCommandBuffer cmd ) const;
-        void GenerateIrradiance( TL_VkContext &gfx, VkCommandBuffer cmd ) const;
-        void GenerateRadiance( TL_VkContext &gfx, VkCommandBuffer cmd ) const;
-        void GenerateBrdf( TL_VkContext &gfx, VkCommandBuffer cmd ) const;
+        void GenerateSkybox( TL_VkContext& gfx, VkCommandBuffer cmd ) const;
+        void GenerateIrradiance( TL_VkContext& gfx, VkCommandBuffer cmd ) const;
+        void GenerateRadiance( TL_VkContext& gfx, VkCommandBuffer cmd ) const;
+        void GenerateBrdf( TL_VkContext& gfx, VkCommandBuffer cmd ) const;
 
         VkCommandBuffer m_computeCommand = nullptr;
         VkFence         m_computeFence   = nullptr;
 
-        ImageId m_hdrTexture = ImageCodex::InvalidImageId; // 2D
+        ImageId m_hdrTexture = renderer::ImageCodex::InvalidImageId; // 2D
 
-        ImageId m_skybox     = ImageCodex::InvalidImageId; // Cubemap
-        ImageId m_irradiance = ImageCodex::InvalidImageId; // Cubemap
-        ImageId m_radiance   = ImageCodex::InvalidImageId; // Cubemap
-        ImageId m_brdf       = ImageCodex::InvalidImageId; // 2D
+        ImageId m_skybox     = renderer::ImageCodex::InvalidImageId; // Cubemap
+        ImageId m_irradiance = renderer::ImageCodex::InvalidImageId; // Cubemap
+        ImageId m_radiance   = renderer::ImageCodex::InvalidImageId; // Cubemap
+        ImageId m_brdf       = renderer::ImageCodex::InvalidImageId; // 2D
 
         BindlessCompute m_irradiancePipeline = { };
         VkDescriptorSet m_irradianceSet      = nullptr;

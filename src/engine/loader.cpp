@@ -21,9 +21,9 @@
 #include <utils/workers.h>
 #include "loader.h"
 
-#include <graphics/image_codex.h>
 #include <graphics/light.h>
-#include <graphics/r_resources.h>
+#include <graphics/resources/r_image.h>
+#include <graphics/resources/r_resources.h>
 
 #include <meshoptimizer.h>
 
@@ -140,7 +140,7 @@ static std::vector<ImageId> LoadImages( TL_VkContext& gfx, const aiScene* scene,
 
                     {
                         std::lock_guard<std::mutex> lock( gfxMutex );
-                        images[i] = gfx.imageCodex.LoadImageFromData( name, data, extent_3d, VK_FORMAT_R8G8B8A8_UNORM,
+                        images[i] = gfx.ImageCodex.LoadImageFromData( name, data, extent_3d, VK_FORMAT_R8G8B8A8_UNORM,
                                                                       VK_IMAGE_USAGE_SAMPLED_BIT, true );
                     }
 
@@ -186,7 +186,7 @@ static std::vector<ImageId> LoadExternalImages( TL_VkContext& gfx, const std::ve
 
                     {
                         std::lock_guard<std::mutex> lock( gfxMutex );
-                        images[i] = gfx.imageCodex.LoadImageFromData(
+                        images[i] = gfx.ImageCodex.LoadImageFromData(
                                 fullPath, data, extent_3d, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true );
                     }
 
@@ -211,7 +211,7 @@ void ProcessMaterials( std::vector<Material>& preprocessedMaterials, const std::
           preprocessedMaterials ) {
         if ( color_id != ImageCodex::InvalidImageId ) {
             const auto texture = aiScene->mTextures[color_id];
-            auto&      t       = gfx.imageCodex.GetImage( images.at( color_id ) );
+            auto&      t       = gfx.ImageCodex.GetImage( images.at( color_id ) );
             assert( strcmp( texture->mFilename.C_Str( ), t.GetName( ).c_str( ) ) == 0 && "missmatched texture" );
 
             color_id = images.at( color_id );
@@ -219,7 +219,7 @@ void ProcessMaterials( std::vector<Material>& preprocessedMaterials, const std::
 
         if ( metal_roughness_id != ImageCodex::InvalidImageId ) {
             const auto texture = aiScene->mTextures[metal_roughness_id];
-            auto&      t       = gfx.imageCodex.GetImage( images.at( metal_roughness_id ) );
+            auto&      t       = gfx.ImageCodex.GetImage( images.at( metal_roughness_id ) );
             assert( strcmp( texture->mFilename.C_Str( ), t.GetName( ).c_str( ) ) == 0 && "missmatched texture" );
 
             metal_roughness_id = images.at( metal_roughness_id );
@@ -227,7 +227,7 @@ void ProcessMaterials( std::vector<Material>& preprocessedMaterials, const std::
 
         if ( normal_id != ImageCodex::InvalidImageId ) {
             const auto texture = aiScene->mTextures[normal_id];
-            auto&      t       = gfx.imageCodex.GetImage( images.at( normal_id ) );
+            auto&      t       = gfx.ImageCodex.GetImage( images.at( normal_id ) );
             assert( strcmp( texture->mFilename.C_Str( ), t.GetName( ).c_str( ) ) == 0 && "missmatched texture" );
 
             normal_id = images.at( normal_id );
@@ -501,7 +501,7 @@ static void LoadLights( TL_VkContext& gfx, const aiScene* aiScene, Scene& scene 
             ConvertHsvToImGui( light.hsv.hue, light.hsv.saturation, light.hsv.value );
             light.power = ( ai_light->mPower / 683.0f );
 
-            light.shadowMap = gfx.imageCodex.CreateEmptyImage(
+            light.shadowMap = gfx.ImageCodex.CreateEmptyImage(
                     "shadowmap", VkExtent3D{ 2048, 2048, 1 }, VK_FORMAT_D32_SFLOAT,
                     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false );
 

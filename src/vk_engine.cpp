@@ -37,12 +37,13 @@
 #include "imguizmo/ImGuizmo.h"
 #include "vk_mem_alloc.h"
 
-TL_Engine            *g_TL             = nullptr;
+TL_Engine*            g_TL             = nullptr;
 utils::VisualProfiler g_visualProfiler = utils::VisualProfiler( 300 );
-TL_Engine            &TL_Engine::Get( ) { return *g_TL; }
+TL_Engine&            TL_Engine::Get( ) { return *g_TL; }
 static ImageId        selected_set = 0;
 
 using namespace TL;
+using namespace TL::renderer;
 
 void TL_Engine::Init( ) {
     assert( g_TL == nullptr );
@@ -119,7 +120,7 @@ void TL_Engine::InitImGui( ) {
             .UseDynamicRendering = true,
     };
 
-    init_info.PipelineRenderingCreateInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
+    init_info.PipelineRenderingCreateInfo                         = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
     init_info.PipelineRenderingCreateInfo.colorAttachmentCount    = 1;
     init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &vkctx->format;
     init_info.MSAASamples                                         = VK_SAMPLE_COUNT_1_BIT;
@@ -127,13 +128,13 @@ void TL_Engine::InitImGui( ) {
     ImGui_ImplVulkan_Init( &init_info );
     ImGui_ImplVulkan_CreateFontsTexture( );
 
-    auto &io = ImGui::GetIO( );
+    auto& io = ImGui::GetIO( );
     io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     ImGui::StyleColorsDark( );
 
-    ImGuiStyle &style  = ImGui::GetStyle( );
-    ImVec4     *colors = style.Colors;
+    ImGuiStyle& style  = ImGui::GetStyle( );
+    ImVec4*     colors = style.Colors;
 
     colors[ImGuiCol_Text]                      = ImVec4( 0.80f, 0.80f, 0.80f, 1.00f );
     colors[ImGuiCol_TextDisabled]              = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
@@ -266,7 +267,7 @@ void TL_Engine::Draw( ) {
     m_stats.drawcallCount = 0;
     m_stats.triangleCount = 0;
 
-    auto &frame = vkctx->GetCurrentFrame( );
+    auto& frame = vkctx->GetCurrentFrame( );
 
     renderer->StartFrame( );
     renderer->Frame( );
@@ -280,7 +281,7 @@ void TL_Engine::Draw( ) {
                                      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
         }
         else {
-            auto &ppi = vkctx->imageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
+            auto& ppi = vkctx->ImageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
             ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 
             image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
@@ -307,15 +308,15 @@ void TL_Engine::InitDefaultData( ) { InitImages( ); }
 void TL_Engine::InitImages( ) {
     // 3 default textures, white, grey, black. 1 pixel each
     uint32_t white = glm::packUnorm4x8( glm::vec4( 1, 1, 1, 1 ) );
-    m_whiteImage   = vkctx->imageCodex.LoadImageFromData( "debug_white_img", ( void   *)&white, VkExtent3D{ 1, 1, 1 },
+    m_whiteImage   = vkctx->ImageCodex.LoadImageFromData( "debug_white_img", ( void* )&white, VkExtent3D{ 1, 1, 1 },
                                                           VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     uint32_t grey = glm::packUnorm4x8( glm::vec4( 0.66f, 0.66f, 0.66f, 1 ) );
-    m_greyImage   = vkctx->imageCodex.LoadImageFromData( "debug_grey_img", ( void   *)&grey, VkExtent3D{ 1, 1, 1 },
+    m_greyImage   = vkctx->ImageCodex.LoadImageFromData( "debug_grey_img", ( void* )&grey, VkExtent3D{ 1, 1, 1 },
                                                          VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     uint32_t black = glm::packUnorm4x8( glm::vec4( 0, 0, 0, 0 ) );
-    m_blackImage   = vkctx->imageCodex.LoadImageFromData( "debug_black_img", ( void   *)&white, VkExtent3D{ 1, 1, 1 },
+    m_blackImage   = vkctx->ImageCodex.LoadImageFromData( "debug_black_img", ( void* )&white, VkExtent3D{ 1, 1, 1 },
                                                           VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
     // checkerboard image
@@ -327,7 +328,7 @@ void TL_Engine::InitImages( ) {
         }
     }
     m_errorCheckerboardImage =
-            vkctx->imageCodex.LoadImageFromData( "debug_checkboard_img", ( void * )&white, VkExtent3D{ 16, 16, 1 },
+            vkctx->ImageCodex.LoadImageFromData( "debug_checkboard_img", ( void* )&white, VkExtent3D{ 16, 16, 1 },
                                                  VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false );
 }
 
@@ -341,7 +342,7 @@ void TL_Engine::InitScene( ) {
     m_cameraController = m_fpsController.get( );
 
     if ( m_scene->DirectionalLights.size( ) != 0 ) {
-        auto &light    = m_scene->DirectionalLights.at( 0 );
+        auto& light    = m_scene->DirectionalLights.at( 0 );
         light.power    = 30.0f;
         light.distance = 100.0f;
         light.right    = 115.0f;
@@ -350,7 +351,7 @@ void TL_Engine::InitScene( ) {
     }
 }
 
-void TL_Engine::DrawNodeHierarchy( const std::shared_ptr<Node> &node ) {
+void TL_Engine::DrawNodeHierarchy( const std::shared_ptr<Node>& node ) {
     if ( !node )
         return;
 
@@ -373,7 +374,7 @@ void TL_Engine::DrawNodeHierarchy( const std::shared_ptr<Node> &node ) {
         }
 
         if ( node_open ) {
-            for ( const auto &child : node->Children ) {
+            for ( const auto& child : node->Children ) {
                 DrawNodeHierarchy( child );
             }
             ImGui::TreePop( );
@@ -387,10 +388,10 @@ void TL_Engine::DrawNodeHierarchy( const std::shared_ptr<Node> &node ) {
     }
 }
 
-static void drawSceneHierarchy( Node &node ) {
+static void drawSceneHierarchy( Node& node ) {
     node.Transform.DrawDebug( node.Name );
 
-    for ( auto &n : node.Children ) {
+    for ( auto& n : node.Children ) {
         drawSceneHierarchy( *n.get( ) );
     }
 }
@@ -528,8 +529,8 @@ void TL_Engine::Run( ) {
                             text_pos.y += 20;
                             ImGui::SetCursorPos( text_pos );
                             ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "Image Codex: %d/%d",
-                                                vkctx->imageCodex.GetImages( ).size( ),
-                                                vkctx->imageCodex.bindlessRegistry.MaxBindlessImages );
+                                                vkctx->ImageCodex.GetImages( ).size( ),
+                                                vkctx->ImageCodex.bindlessRegistry.MaxBindlessImages );
 
                             text_pos.y += 20;
                             ImGui::SetCursorPos( text_pos );
@@ -572,7 +573,7 @@ void TL_Engine::Run( ) {
                 }
 
                 if ( ImGui::Begin( "Scene" ) ) {
-                    for ( auto &node : m_scene->TopNodes ) {
+                    for ( auto& node : m_scene->TopNodes ) {
                         DrawNodeHierarchy( node );
                     }
                 }
@@ -627,7 +628,7 @@ void TL_Engine::Run( ) {
                                 m_selectedNode->Transform.DrawDebug( m_selectedNode->Name );
                             }
 
-                            for ( auto &light : m_scene->PointLights ) {
+                            for ( auto& light : m_scene->PointLights ) {
                                 if ( light.node == m_selectedNode.get( ) ) {
                                     light.DrawDebug( );
                                 }
@@ -668,7 +669,7 @@ void TL_Engine::Run( ) {
 
                     if ( ImGui::CollapsingHeader( "Image Codex" ) ) {
                         ImGui::Indent( );
-                        vkctx->imageCodex.DrawDebug( );
+                        vkctx->ImageCodex.DrawDebug( );
                         ImGui::Unindent( );
                     }
 
@@ -678,7 +679,7 @@ void TL_Engine::Run( ) {
                             if ( ImGui::CollapsingHeader( std::format( "Sun {}", i ).c_str( ) ) ) {
                                 ImGui::PushID( i );
 
-                                auto &light = m_scene->DirectionalLights.at( i );
+                                auto& light = m_scene->DirectionalLights.at( i );
                                 ImGui::ColorEdit3( "Color HSV", &light.hsv.hue,
                                                    ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV |
                                                            ImGuiColorEditFlags_PickerHueWheel );

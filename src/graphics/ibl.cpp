@@ -15,19 +15,19 @@
 
 #include "ibl.h"
 
-#include <graphics/image_codex.h>
-#include <graphics/r_resources.h>
-
 #include <graphics/pipelines/compute_pipeline.h>
+#include <graphics/resources/r_image.h>
+#include <graphics/resources/r_resources.h>
 #include <imgui.h>
-#include <vk_pipelines.h>
 
 #include "vk_engine.h"
 #include "vk_initializers.h"
 
+using namespace TL::renderer;
+
 namespace TL {
-    void Ibl::Init( TL_VkContext &gfx, const std::string &path ) {
-        m_hdrTexture = gfx.imageCodex.LoadHdrFromFile( path, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT,
+    void Ibl::Init( TL_VkContext& gfx, const std::string& path ) {
+        m_hdrTexture = gfx.ImageCodex.LoadHdrFromFile( path, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT,
                                                        false );
 
         const VkCommandBufferAllocateInfo cmd_alloc_info =
@@ -60,7 +60,7 @@ namespace TL {
         }
     }
 
-    void Ibl::Clean( const TL_VkContext &gfx ) {
+    void Ibl::Clean( const TL_VkContext& gfx ) {
         vkFreeCommandBuffers( gfx.device, gfx.computeCommandPool, 1, &m_computeCommand );
         vkDestroyFence( gfx.device, m_computeFence, nullptr );
 
@@ -70,11 +70,11 @@ namespace TL {
         m_brdfPipeline.Cleanup( gfx );
     }
 
-    void Ibl::InitComputes( TL_VkContext &gfx ) {
-        auto &equirectangular_shader = gfx.shaderStorage->Get( "equirectangular_map", TCompute );
-        auto &irradiance_shader      = gfx.shaderStorage->Get( "irradiance", TCompute );
-        auto &radiance_shader        = gfx.shaderStorage->Get( "radiance", TCompute );
-        auto &brdf_shader            = gfx.shaderStorage->Get( "brdf", TCompute );
+    void Ibl::InitComputes( TL_VkContext& gfx ) {
+        auto& equirectangular_shader = gfx.shaderStorage->Get( "equirectangular_map", TCompute );
+        auto& irradiance_shader      = gfx.shaderStorage->Get( "irradiance", TCompute );
+        auto& radiance_shader        = gfx.shaderStorage->Get( "radiance", TCompute );
+        auto& brdf_shader            = gfx.shaderStorage->Get( "brdf", TCompute );
 
         // Equirectangular to Cubemap
         {
@@ -85,7 +85,7 @@ namespace TL {
             m_equiSet = gfx.AllocateSet( m_equirectangularPipeline.GetLayout( ) );
 
             DescriptorWriter writer;
-            auto            &skybox_image = gfx.imageCodex.GetImage( m_skybox );
+            auto&            skybox_image = gfx.ImageCodex.GetImage( m_skybox );
             writer.WriteImage( 0, skybox_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
                                VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
             writer.UpdateSet( gfx.device, m_equiSet );
@@ -100,7 +100,7 @@ namespace TL {
             m_irradianceSet = gfx.AllocateSet( m_irradiancePipeline.GetLayout( ) );
 
             DescriptorWriter writer;
-            auto            &irradiance_image = gfx.imageCodex.GetImage( m_irradiance );
+            auto&            irradiance_image = gfx.ImageCodex.GetImage( m_irradiance );
             writer.WriteImage( 0, irradiance_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
                                VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
             writer.UpdateSet( gfx.device, m_irradianceSet );
@@ -113,7 +113,7 @@ namespace TL {
             m_radiancePipeline.AddPushConstantRange( sizeof( RadiancePushConstants ) );
             m_radiancePipeline.Build( gfx, radiance_shader.handle, "Radiance Compute" );
 
-            auto &radiance_image = gfx.imageCodex.GetImage( m_radiance );
+            auto& radiance_image = gfx.ImageCodex.GetImage( m_radiance );
 
             for ( auto i = 0; i < 6; i++ ) {
                 m_radianceSets[i] = gfx.AllocateSet( m_radiancePipeline.GetLayout( ) );
@@ -133,34 +133,30 @@ namespace TL {
             m_brdfSet = gfx.AllocateSet( m_brdfPipeline.GetLayout( ) );
 
             DescriptorWriter writer;
-            auto            &brdf_image = gfx.imageCodex.GetImage( m_brdf );
+            auto&            brdf_image = gfx.ImageCodex.GetImage( m_brdf );
             writer.WriteImage( 0, brdf_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
                                VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
             writer.UpdateSet( gfx.device, m_brdfSet );
         }
     }
 
-    void Ibl::InitTextures( TL_VkContext &gfx ) {
+    void Ibl::InitTextures( TL_VkContext& gfx ) {
         VkImageUsageFlags usages{ };
         usages |= VK_IMAGE_USAGE_SAMPLED_BIT;
         usages |= VK_IMAGE_USAGE_STORAGE_BIT;
 
-        m_skybox = gfx.imageCodex.CreateCubemap( "Skybox", VkExtent3D{ 2048, 2048, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT,
-                                                 usages );
-        m_irradiance = gfx.imageCodex.CreateCubemap( "Irradiance", VkExtent3D{ 32, 32, 1 },
-                                                     VK_FORMAT_R32G32B32A32_SFLOAT, usages );
-        m_radiance = gfx.imageCodex.CreateCubemap( "Radiance", VkExtent3D{ 128, 128, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT,
-                                                   usages, 6 );
-        m_brdf     = gfx.imageCodex.CreateEmptyImage( "BRDF", VkExtent3D{ 512, 512, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT,
-                                                      usages );
+        m_skybox     = gfx.ImageCodex.CreateCubemap( "Skybox", VkExtent3D{ 2048, 2048, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, usages );
+        m_irradiance = gfx.ImageCodex.CreateCubemap( "Irradiance", VkExtent3D{ 32, 32, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, usages );
+        m_radiance   = gfx.ImageCodex.CreateCubemap( "Radiance", VkExtent3D{ 128, 128, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, usages, 6 );
+        m_brdf       = gfx.ImageCodex.CreateEmptyImage( "BRDF", VkExtent3D{ 512, 512, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, usages );
     }
 
-    void Ibl::GenerateSkybox( TL_VkContext &gfx, const VkCommandBuffer cmd ) const {
+    void Ibl::GenerateSkybox( TL_VkContext& gfx, const VkCommandBuffer cmd ) const {
         const auto bindless = gfx.GetBindlessSet( );
         const auto input    = m_hdrTexture;
         const auto output   = m_skybox;
 
-        auto &output_image = gfx.imageCodex.GetImage( output );
+        auto& output_image = gfx.ImageCodex.GetImage( output );
 
         m_equirectangularPipeline.Bind( cmd );
         m_equirectangularPipeline.BindDescriptorSet( cmd, bindless, 0 );
@@ -170,12 +166,12 @@ namespace TL {
                                             ( output_image.GetExtent( ).height + 15 ) / 16, 6 );
     }
 
-    void Ibl::GenerateIrradiance( TL_VkContext &gfx, const VkCommandBuffer cmd ) const {
+    void Ibl::GenerateIrradiance( TL_VkContext& gfx, const VkCommandBuffer cmd ) const {
         const auto bindless = gfx.GetBindlessSet( );
         const auto input    = m_skybox;
         const auto output   = m_irradiance;
 
-        auto &output_image = gfx.imageCodex.GetImage( output );
+        auto& output_image = gfx.ImageCodex.GetImage( output );
         m_irradiancePipeline.Bind( cmd );
         m_irradiancePipeline.BindDescriptorSet( cmd, bindless, 0 );
         m_irradiancePipeline.BindDescriptorSet( cmd, m_irradianceSet, 1 );
@@ -184,12 +180,12 @@ namespace TL {
                                        ( output_image.GetExtent( ).height + 15 ) / 16, 6 );
     }
 
-    void Ibl::GenerateRadiance( TL_VkContext &gfx, const VkCommandBuffer cmd ) const {
+    void Ibl::GenerateRadiance( TL_VkContext& gfx, const VkCommandBuffer cmd ) const {
         const auto bindless = gfx.GetBindlessSet( );
         const auto input    = m_skybox;
         const auto output   = m_radiance;
 
-        auto &output_image = gfx.imageCodex.GetImage( output );
+        auto& output_image = gfx.ImageCodex.GetImage( output );
 
         RadiancePushConstants pc = {
                 .input     = input,
@@ -215,13 +211,12 @@ namespace TL {
         }
     }
 
-    void Ibl::GenerateBrdf( TL_VkContext &gfx, const VkCommandBuffer cmd ) const {
+    void Ibl::GenerateBrdf( TL_VkContext& gfx, const VkCommandBuffer cmd ) const {
         const auto bindless     = gfx.GetBindlessSet( );
         const auto output       = m_brdf;
-        auto      &output_image = gfx.imageCodex.GetImage( output );
+        auto&      output_image = gfx.ImageCodex.GetImage( output );
 
-        image::TransitionLayout( cmd, output_image.GetImage( ), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                 VK_IMAGE_LAYOUT_GENERAL );
+        image::TransitionLayout( cmd, output_image.GetImage( ), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
 
         m_brdfPipeline.Bind( cmd );
         m_brdfPipeline.BindDescriptorSet( cmd, bindless, 0 );
