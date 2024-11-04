@@ -23,7 +23,6 @@ using namespace vk_init;
 using namespace utils;
 
 namespace TL {
-
     void Renderer::Init( SDL_Window* window, Vec2 extent ) {
         m_extent = extent;
 
@@ -136,30 +135,30 @@ namespace TL {
         // TODO: is this performant ?
         std::function<void( const std::shared_ptr<Node>& )> parse_node =
                 [&]( const std::shared_ptr<Node>& node ) -> void {
-            if ( !node->meshAssets.empty( ) ) {
+            if ( !node->MeshAssets.empty( ) ) {
                 u32 i = 0;
-                for ( auto& mesh_asset : node->meshAssets ) {
+                for ( auto& mesh_asset : node->MeshAssets ) {
                     Renderable renderable = {
-                            .meshId         = scene.meshes[mesh_asset.meshIndex],
-                            .materialHandle = scene.materials[mesh_asset.materialIndex],
-                            .transform      = node->GetTransformMatrix( ),
-                            .aabb           = node->boundingBoxes[i++] };
+                            .MeshHandle     = scene.Meshes[mesh_asset.MeshIndex],
+                            .MaterialHandle = scene.Materials[mesh_asset.MaterialIndex],
+                            .Transform      = node->GetTransformMatrix( ),
+                            .Aabb           = node->BoundingBoxes[i++] };
                     m_renderables.push_back( renderable );
                 }
             }
 
-            for ( const auto& child : node->children ) {
+            for ( const auto& child : node->Children ) {
                 parse_node( child );
             }
         };
-        for ( const auto& top_node : scene.topNodes ) {
+        for ( const auto& top_node : scene.TopNodes ) {
             parse_node( top_node );
         }
 
         // 2. Parse directional lights
-        m_directionalLights.resize( scene.directionalLights.size( ) );
+        m_directionalLights.resize( scene.DirectionalLights.size( ) );
         std::ranges::transform(
-                scene.directionalLights, m_directionalLights.begin( ), []( const DirectionalLight& dir_light ) {
+                scene.DirectionalLights, m_directionalLights.begin( ), []( const DirectionalLight& dir_light ) {
                     GpuDirectionalLight light = { };
 
                     // Convert HSV to RGB and power
@@ -184,8 +183,8 @@ namespace TL {
 
 
         // 3. Parse point lights
-        m_pointLights.resize( scene.pointLights.size( ) );
-        std::ranges::transform( scene.pointLights, m_pointLights.begin( ), []( const PointLight& point_light ) {
+        m_pointLights.resize( scene.PointLights.size( ) );
+        std::ranges::transform( scene.PointLights, m_pointLights.begin( ), []( const PointLight& point_light ) {
             GpuPointLight light = { };
 
             // Convert HSV to RGB and power
@@ -193,7 +192,7 @@ namespace TL {
                                          light.color.r, light.color.g, light.color.b );
             light.color *= point_light.power;
 
-            light.position = point_light.node->transform.position;
+            light.position = point_light.node->Transform.position;
 
             light.quadratic = point_light.quadratic;
             light.linear    = point_light.linear;
@@ -235,7 +234,7 @@ namespace TL {
                                               sizeof( GpuDirectionalLight ) * m_directionalLights.size( ) );
         m_gpuPointLightsBuffer->Upload( m_pointLights.data( ), sizeof( GpuPointLight ) * m_pointLights.size( ) );
 
-        m_sceneData.materials = vkctx->materialPool.m_materialsGpuBuffer->GetDeviceAddress( );
+        m_sceneData.materials = vkctx->MaterialPool.m_materialsGpuBuffer->GetDeviceAddress( );
         m_sceneBufferGpu->Upload( &m_sceneData, sizeof( GpuSceneData ) );
 
 
@@ -295,73 +294,48 @@ namespace TL {
     }
 
     void Renderer::PrepareSkyboxPass( ) {
-        const std::vector<Mesh::Vertex> vertices = { // Front face
-                                                     { { -1.0f, 1.0f, 1.0f },
-                                                       0.0f,
-                                                       { 0.0f, 0.0f, 1.0f },
-                                                       0.0f,
-                                                       { 1.0f, 2.0f, 3.0f },
-                                                       0.0f,
-                                                       { 4.0f, 5.0f, 6.0f },
-                                                       0.0f },
-                                                     { { 1.0f, 1.0f, 1.0f },
-                                                       1.0f,
-                                                       { 0.0f, 0.0f, 1.0f },
-                                                       0.0f,
-                                                       { 1.0f, 0.0f, 0.0f },
-                                                       0.0f,
-                                                       { 0.0f, 0.0f, 0.0f },
-                                                       0.0f },
-                                                     { { 1.0f, -1.0f, 1.0f },
-                                                       1.0f,
-                                                       { 0.0f, 0.0f, 1.0f },
-                                                       1.0f,
-                                                       { 1.0f, 0.0f, 0.0f },
-                                                       0.0f,
-                                                       { 0.0f, 0.0f, 0.0f },
-                                                       0.0f },
-                                                     { { -1.0f, -1.0f, 1.0f },
-                                                       0.0f,
-                                                       { 0.0f, 0.0f, 1.0f },
-                                                       1.0f,
-                                                       { 1.0f, 0.0f, 0.0f },
-                                                       0.0f,
-                                                       { 0.0f, 0.0f, 0.0f },
-                                                       0.0f },
+        const std::vector<renderer::Vertex> vertices = {
+                // Front face
+                { { -1.0f, 1.0f, 1.0f, 0.0f },
+                  { 0.0f, 0.0f, 1.0f, 0.0f },
+                  { 1.0f, 2.0f, 3.0f, 0.0f },
+                  { 4.0f, 5.0f, 6.0f, 0.0f } },
 
-                                                     // Back face
-                                                     { { -1.0f, 1.0f, -1.0f },
-                                                       1.0f,
-                                                       { 0.0f, 0.0f, -1.0f },
-                                                       0.0f,
-                                                       { -1.0f, 0.0f, 0.0f },
-                                                       0.0f,
-                                                       { 0.0f, 0.0f, 0.0f },
-                                                       0.0f },
-                                                     { { 1.0f, 1.0f, -1.0f },
-                                                       0.0f,
-                                                       { 0.0f, 0.0f, -1.0f },
-                                                       0.0f,
-                                                       { -1.0f, 0.0f, 0.0f },
-                                                       0.0f,
-                                                       { 0.0f, 0.0f, 0.0f },
-                                                       0.0f },
-                                                     { { 1.0f, -1.0f, -1.0f },
-                                                       0.0f,
-                                                       { 0.0f, 0.0f, -1.0f },
-                                                       1.0f,
-                                                       { -1.0f, 0.0f, 0.0f },
-                                                       0.0f,
-                                                       { 0.0f, 0.0f, 0.0f },
-                                                       0.0f },
-                                                     { { -1.0f, -1.0f, -1.0f },
-                                                       1.0f,
-                                                       { 0.0f, 0.0f, -1.0f },
-                                                       1.0f,
-                                                       { -1.0f, 0.0f, 0.0f },
-                                                       0.0f,
-                                                       { 0.0f, 0.0f, 0.0f },
-                                                       0.0f } };
+                { { 1.0f, 1.0f, 1.0f, 1.0f },
+                  { 0.0f, 0.0f, 1.0f, 0.0f },
+                  { 1.0f, 0.0f, 0.0f, 0.0f },
+                  { 0.0f, 0.0f, 0.0f, 0.0f } },
+
+                { { 1.0f, -1.0f, 1.0f, 1.0f },
+                  { 0.0f, 0.0f, 1.0f, 1.0f },
+                  { 1.0f, 0.0f, 0.0f, 0.0f },
+                  { 0.0f, 0.0f, 0.0f, 0.0f } },
+
+                { { -1.0f, -1.0f, 1.0f, 0.0f },
+                  { 0.0f, 0.0f, 1.0f, 1.0f },
+                  { 1.0f, 0.0f, 0.0f, 0.0f },
+                  { 0.0f, 0.0f, 0.0f, 0.0f } },
+
+                // Back face
+                { { -1.0f, 1.0f, -1.0f, 1.0f },
+                  { 0.0f, 0.0f, -1.0f, 0.0f },
+                  { -1.0f, 0.0f, 0.0f, 0.0f },
+                  { 0.0f, 0.0f, 0.0f, 0.0f } },
+
+                { { 1.0f, 1.0f, -1.0f, 0.0f },
+                  { 0.0f, 0.0f, -1.0f, 0.0f },
+                  { -1.0f, 0.0f, 0.0f, 0.0f },
+                  { 0.0f, 0.0f, 0.0f, 0.0f } },
+
+                { { 1.0f, -1.0f, -1.0f, 0.0f },
+                  { 0.0f, 0.0f, -1.0f, 1.0f },
+                  { -1.0f, 0.0f, 0.0f, 0.0f },
+                  { 0.0f, 0.0f, 0.0f, 0.0f } },
+
+                { { -1.0f, -1.0f, -1.0f, 1.0f },
+                  { 0.0f, 0.0f, -1.0f, 1.0f },
+                  { -1.0f, 0.0f, 0.0f, 0.0f },
+                  { 0.0f, 0.0f, 0.0f, 0.0f } } };
 
         const std::vector<uint32_t> indices = { // Front face
                                                 0, 1, 2, 2, 3, 0,
@@ -381,11 +355,9 @@ namespace TL {
                                                 // Bottom face
                                                 3, 2, 6, 6, 7, 3 };
 
-        const Mesh mesh = {
-                .vertices = vertices,
-                .indices  = { indices },
-        };
-        m_skyboxMesh = vkctx->meshCodex.AddMesh( *vkctx, mesh );
+        const renderer::MeshContent mesh = { .Vertices = vertices, .Indices = indices };
+
+        m_skyboxMesh = vkctx->MeshPool.CreateMesh( mesh );
     }
 
     void Renderer::GBufferPass( ) {
@@ -657,16 +629,16 @@ namespace TL {
         vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0,
                                  nullptr );
 
-        auto& mesh = vkctx->meshCodex.GetMesh( m_skyboxMesh );
-        vkCmdBindIndexBuffer( cmd, mesh.indexBuffer->GetVkResource( ), 0, VK_INDEX_TYPE_UINT32 );
+        auto& mesh = vkctx->MeshPool.GetMesh( m_skyboxMesh );
+        vkCmdBindIndexBuffer( cmd, mesh.IndexBuffer->GetVkResource( ), 0, VK_INDEX_TYPE_UINT32 );
 
         const SkyboxPushConstants push_constants = { .sceneDataAddress    = m_sceneBufferGpu->GetDeviceAddress( ),
-                                                     .vertexBufferAddress = mesh.vertexBufferAddress,
+                                                     .vertexBufferAddress = mesh.VertexBuffer->GetDeviceAddress( ),
                                                      .textureId           = m_ibl->GetSkybox( ) };
         vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                             sizeof( SkyboxPushConstants ), &push_constants );
 
-        vkCmdDrawIndexed( cmd, mesh.indexCount, 1, 0, 0, 0 );
+        vkCmdDrawIndexed( cmd, mesh.IndexCount, 1, 0, 0, 0 );
 
         vkCmdEndRendering( cmd );
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 7 );
@@ -764,28 +736,29 @@ namespace TL {
         m_drawCommands.clear( );
 
         for ( const auto& renderable : m_renderables ) {
-            auto&           mesh = vkctx->meshCodex.GetMesh( renderable.meshId );
+            const auto&     mesh = vkctx->MeshPool.GetMesh( renderable.MeshHandle );
             MeshDrawCommand mdc  = {
-                     .indexBuffer         = mesh.indexBuffer->GetVkResource( ),
-                     .indexCount          = mesh.indexCount,
-                     .vertexBufferAddress = mesh.vertexBufferAddress,
-                     .worldFromLocal      = renderable.transform,
-                     .materialId          = renderable.materialHandle.index,
+                     .indexBuffer         = mesh.IndexBuffer->GetVkResource( ),
+                     .indexCount          = mesh.IndexCount,
+                     .vertexBufferAddress = mesh.VertexBuffer->GetDeviceAddress( ),
+                     .worldFromLocal      = renderable.Transform,
+                     .materialId          = renderable.MaterialHandle.index,
             };
 
             // TODO: dont rerender static
             m_shadowMapCommands.push_back( mdc );
 
             if ( settings.frustumCulling ) {
-                auto visibility = VisibilityCheckWithLOD( renderable.transform, &renderable.aabb,
+                auto visibility = VisibilityCheckWithLOD( renderable.Transform, &renderable.Aabb,
                                                           settings.useFrozenFrustum ? settings.lastSavedFrustum
                                                                                     : m_camera->GetFrustum( ) );
                 if ( !visibility.isVisible ) {
                     continue;
                 }
 
-                mdc.indexBuffer = mesh.indexBuffer->GetVkResource( );
-                mdc.indexCount  = mesh.indexCount;
+                // TODO: Remove
+                mdc.indexBuffer = mesh.IndexBuffer->GetVkResource( );
+                mdc.indexCount  = mesh.IndexCount;
                 m_drawCommands.push_back( mdc );
             }
             else {

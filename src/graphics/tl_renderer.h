@@ -138,10 +138,10 @@ namespace TL {
     };
 
     struct Renderable {
-        MeshId                   meshId;
-        renderer::MaterialHandle materialHandle;
-        Mat4                     transform;
-        AABoundingBox            aabb;
+        renderer::MeshHandle     MeshHandle;
+        renderer::MaterialHandle MaterialHandle;
+        Mat4                     Transform;
+        AABoundingBox            Aabb;
     };
 
     class Renderer {
@@ -233,6 +233,6 @@ namespace TL {
         std::shared_ptr<Buffer> m_gpuPointLightsBuffer       = nullptr;
 
         // Skybox
-        MeshId m_skyboxMesh = -1;
+        renderer::MeshHandle m_skyboxMesh = { };
     };
 } // namespace TL

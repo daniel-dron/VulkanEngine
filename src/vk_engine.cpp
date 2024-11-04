@@ -340,8 +340,8 @@ void TL_Engine::InitScene( ) {
     m_fpsController    = std::make_unique<FirstPersonFlyingController>( m_camera.get( ), 0.1f, 5.0f );
     m_cameraController = m_fpsController.get( );
 
-    if ( m_scene->directionalLights.size( ) != 0 ) {
-        auto &light    = m_scene->directionalLights.at( 0 );
+    if ( m_scene->DirectionalLights.size( ) != 0 ) {
+        auto &light    = m_scene->DirectionalLights.at( 0 );
         light.power    = 30.0f;
         light.distance = 100.0f;
         light.right    = 115.0f;
@@ -354,10 +354,10 @@ void TL_Engine::DrawNodeHierarchy( const std::shared_ptr<Node> &node ) {
     if ( !node )
         return;
 
-    std::string label = node->name.empty( ) ? "Unnamed Node" : node->name;
+    std::string label = node->Name.empty( ) ? "Unnamed Node" : node->Name;
     label += "##" + std::to_string( reinterpret_cast<uintptr_t>( node.get( ) ) );
 
-    if ( !node->children.empty( ) ) {
+    if ( !node->Children.empty( ) ) {
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
         if ( m_selectedNode == node ) {
             flags |= ImGuiTreeNodeFlags_Selected;
@@ -373,7 +373,7 @@ void TL_Engine::DrawNodeHierarchy( const std::shared_ptr<Node> &node ) {
         }
 
         if ( node_open ) {
-            for ( const auto &child : node->children ) {
+            for ( const auto &child : node->Children ) {
                 DrawNodeHierarchy( child );
             }
             ImGui::TreePop( );
@@ -388,9 +388,9 @@ void TL_Engine::DrawNodeHierarchy( const std::shared_ptr<Node> &node ) {
 }
 
 static void drawSceneHierarchy( Node &node ) {
-    node.transform.DrawDebug( node.name );
+    node.Transform.DrawDebug( node.Name );
 
-    for ( auto &n : node.children ) {
+    for ( auto &n : node.Children ) {
         drawSceneHierarchy( *n.get( ) );
     }
 }
@@ -559,7 +559,7 @@ void TL_Engine::Run( ) {
                                         ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::WORLD, value_ptr( tc ) );
 
                             Mat4 local_transform = tc;
-                            if ( const auto parent = m_selectedNode->parent.lock( ) ) {
+                            if ( const auto parent = m_selectedNode->Parent.lock( ) ) {
                                 Mat4 parent_world_inverse = glm::inverse( parent->GetTransformMatrix( ) );
                                 local_transform           = parent_world_inverse * tc;
                             }
@@ -572,7 +572,7 @@ void TL_Engine::Run( ) {
                 }
 
                 if ( ImGui::Begin( "Scene" ) ) {
-                    for ( auto &node : m_scene->topNodes ) {
+                    for ( auto &node : m_scene->TopNodes ) {
                         DrawNodeHierarchy( node );
                     }
                 }
@@ -602,7 +602,7 @@ void TL_Engine::Run( ) {
                         selected_set = vkctx->GetCurrentFrame( ).hdrColor;
                     }
                     if ( ImGui::RadioButton( "ShadowMap", &selected_set_n, 6 ) ) {
-                        selected_set = m_scene->directionalLights.at( 0 ).shadowMap;
+                        selected_set = m_scene->DirectionalLights.at( 0 ).shadowMap;
                     }
                     if ( ImGui::RadioButton( "Depth", &selected_set_n, 7 ) ) {
                         selected_set = vkctx->GetCurrentFrame( ).depth;
@@ -624,10 +624,10 @@ void TL_Engine::Run( ) {
                             }
 
                             if ( m_selectedNode ) {
-                                m_selectedNode->transform.DrawDebug( m_selectedNode->name );
+                                m_selectedNode->Transform.DrawDebug( m_selectedNode->Name );
                             }
 
-                            for ( auto &light : m_scene->pointLights ) {
+                            for ( auto &light : m_scene->PointLights ) {
                                 if ( light.node == m_selectedNode.get( ) ) {
                                     light.DrawDebug( );
                                 }
@@ -674,25 +674,25 @@ void TL_Engine::Run( ) {
 
                     if ( ImGui::CollapsingHeader( "Directional Lights" ) ) {
                         ImGui::Indent( );
-                        for ( auto i = 0; i < m_scene->directionalLights.size( ); i++ ) {
+                        for ( auto i = 0; i < m_scene->DirectionalLights.size( ); i++ ) {
                             if ( ImGui::CollapsingHeader( std::format( "Sun {}", i ).c_str( ) ) ) {
                                 ImGui::PushID( i );
 
-                                auto &light = m_scene->directionalLights.at( i );
+                                auto &light = m_scene->DirectionalLights.at( i );
                                 ImGui::ColorEdit3( "Color HSV", &light.hsv.hue,
                                                    ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV |
                                                            ImGuiColorEditFlags_PickerHueWheel );
                                 ImGui::DragFloat( "Power", &light.power, 0.1f );
 
-                                auto euler = glm::degrees( light.node->transform.euler );
+                                auto euler = glm::degrees( light.node->Transform.euler );
 
                                 if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
                                     renderer->settings.reRenderShadowMaps = true;
-                                    light.node->transform.euler           = glm::radians( euler );
+                                    light.node->Transform.euler           = glm::radians( euler );
                                 }
 
                                 auto shadow_map_pos =
-                                        glm::normalize( light.node->transform.AsMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) *
+                                        glm::normalize( light.node->Transform.AsMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) *
                                         light.distance;
                                 ImGui::DragFloat3( "Pos", glm::value_ptr( shadow_map_pos ) );
 

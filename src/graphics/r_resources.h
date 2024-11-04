@@ -20,9 +20,9 @@
 #include "descriptors.h"
 #include "gbuffer.h"
 #include "image_codex.h"
-#include "mesh_codex.h"
-
 #include "shader_storage.h"
+
+#include <graphics/resources/tl_buffer.h>
 
 
 struct Material;
@@ -136,6 +136,72 @@ namespace TL::renderer {
 
 
 //==============================================================================//
+//                                 Meshes                                       //
+//==============================================================================//
+
+namespace TL::renderer {
+
+    struct MeshHandle {
+        u16 index;      // Index into mesh data array
+        u16 generation; // Generation counter for lifetime validation
+    };
+
+    struct AABB {
+        Vec3 min;
+        Vec3 max;
+    };
+
+    struct Vertex {
+        Vec4 Position;  // 16 bytes (Vec3 position | z = float UV_X)
+        Vec4 Normal;    // 16 bytes (Vec3 normal | z = float UV_Y)
+        Vec4 Tangent;   // 16 bytes (Vec3 tangent)
+        Vec4 Bitangent; // 16 bytes (Vec3 bitangeng)
+    };
+
+    // Contents of a mesh includign vertex data and indices
+    struct MeshContent {
+        std::vector<Vertex> Vertices; // Vertices for generic meshes with position, uvs, normal and tangent data.
+        std::vector<u32>    Indices;  // Indices of the mesh in a triangle strip.
+        AABB                Aabb;     // Axis-Aligned Bunding Box for the mesh. Used in frustum culling.
+    };
+
+    // Data needed for every frame rendering. Contains index and vertex buffers and its index count. Also AABB for frustum culling calculations.
+    struct MeshData {
+        std::unique_ptr<Buffer> IndexBuffer  = nullptr;
+        std::unique_ptr<Buffer> VertexBuffer = nullptr;
+        AABB                    Aabb;
+        u32                     IndexCount;
+    };
+
+    constexpr u32 MAX_MESHES = 1024;
+
+    class MeshPool {
+    public:
+        void Init( );
+        void Shutdown( );
+
+        MeshHandle               CreateMesh( const MeshContent& content );
+        void                     DestroyMesh( MeshHandle handle );
+        MeshData&                GetMesh( MeshHandle handle );       // Asserted fetch. Recommended only for pre validated and hot paths (renderer code)
+        std::optional<MeshData*> GetMeshSafe( MeshHandle handle );   // Returns possible material if present. Not recommended for hot paths.
+        bool                     IsValid( MeshHandle handle ) const; // Check if the index is valid and it matches its current generation
+    private:
+        std::array<MeshData, MAX_MESHES> m_meshDatas   = { };
+        std::array<u16, MAX_MESHES>      m_generations = { }; // This indicates how many times the given handle was allocated.
+                                                              // The same handle ID but different generation means the older one is invalid.
+        u32                              m_meshCount   = 0;   // Keeps track of the number of meshes in the pool for stats.
+        std::vector<u16>                 m_freeIndices = { }; // Filled with free indices. At the start, it contains all indices into m_meshDatas backwards
+
+        friend class Renderer;
+    };
+
+} // namespace TL::renderer
+
+//==============================================================================//
+//==============================================================================//
+
+
+//==============================================================================//
 //                             VK CONTEXT                                       //
 //==============================================================================//
 
@@ -224,11 +290,10 @@ public:
     VkSurfaceKHR surface;
 
     // Resources
-    TL::renderer::MaterialPool materialPool;
+    TL::renderer::MaterialPool MaterialPool;
+    TL::renderer::MeshPool     MeshPool;
 
     ImageCodex imageCodex;
-    // TL::MaterialCodex materialCodex;
-    MeshCodex  meshCodex;
 
     std::unique_ptr<ShaderStorage> shaderStorage;
 

@@ -133,15 +133,15 @@ TL::renderer::MaterialHandle TL::renderer::MaterialPool::CreateMaterial( const M
     MaterialData material_data = { };
 
     // Fill gpu data
-    material_data.BaseColor     = material.baseColor;
+    material_data.BaseColor     = material.BaseColor;
     material_data.EmissiveColor = Vec4( 0.0f, 0.0f, 0.0f, 0.0f ); // TODO: add emissiveness
 
-    material_data.TextureIndices[0] = material.colorId;
-    material_data.TextureIndices[1] = material.metalRoughnessId;
-    material_data.TextureIndices[2] = material.normalId;
+    material_data.TextureIndices[0] = material.ColorId;
+    material_data.TextureIndices[1] = material.MetalRoughnessId;
+    material_data.TextureIndices[2] = material.NormalId;
     material_data.TextureIndices[3] = 0; // Unused
 
-    material_data.Factors[0] = material.metalnessFactor;
+    material_data.Factors[0] = material.MetalnessFactor;
     material_data.Factors[1] = material.roughnessFactor;
     material_data.Factors[2] = 0; // Unused
     material_data.Factors[3] = 0; // Unused
@@ -199,6 +199,110 @@ bool TL::renderer::MaterialPool::IsValid( MaterialHandle handle ) const {
 //==============================================================================//
 //==============================================================================//
 
+//==============================================================================//
+//                               Meshes                                         //
+//==============================================================================//
+
+void TL::renderer::MeshPool::Init( ) {
+    // Fill free list backwards
+    m_freeIndices.reserve( MAX_MATERIALS );
+    for ( uint16_t i = 0; i < MAX_MATERIALS; i++ ) {
+        m_freeIndices.push_back( MAX_MATERIALS - 1 - i );
+    }
+
+    // Initialize generations to 0
+    m_generations.fill( 0 );
+}
+
+void TL::renderer::MeshPool::Shutdown( ) {
+    for ( auto& mesh : m_meshDatas ) {
+        // Guaranteed safe call to reset by the standard even if they have not been allocated (no-op in that case)
+        mesh.IndexBuffer.reset( );
+        mesh.VertexBuffer.reset( );
+    }
+}
+TL::renderer::MeshHandle TL::renderer::MeshPool::CreateMesh( const MeshContent& content ) {
+    // Get available index and get reference to MeshData
+    const u16 index = m_freeIndices.back( );
+    m_freeIndices.pop_back( );
+    auto& mesh_data = m_meshDatas[index];
+
+    // Create handle
+    MeshHandle handle = { index, m_generations[index] };
+
+    mesh_data.Aabb = content.Aabb;
+
+    // Calculate buffer sizes
+    const size_t vertex_buffer_size = content.Vertices.size( ) * sizeof( Vertex );
+    const size_t index_buffer_size  = content.Indices.size( ) * sizeof( u32 );
+
+    std::string name_vertex = std::format( "{}{}.(vtx)", index, handle.generation );
+    std::string name_index  = std::format( "{}{}.(idx)", index, handle.generation );
+
+    // Staging buffer to copy to the buffers.
+    // The vertex and index buffers are GPU only for performance reasons.
+    mesh_data.VertexBuffer = std::make_unique<Buffer>( BufferType::TVertex, vertex_buffer_size, 1, nullptr, name_vertex.c_str( ) );
+    mesh_data.IndexBuffer  = std::make_unique<Buffer>( BufferType::TIndex, index_buffer_size, 1, nullptr, name_index.c_str( ) );
+    const auto staging     = Buffer( BufferType::TStaging, vertex_buffer_size + index_buffer_size, 1, nullptr, "Staging" );
+
+    staging.Upload( content.Vertices.data( ), vertex_buffer_size );
+    staging.Upload( content.Indices.data( ), vertex_buffer_size, index_buffer_size );
+
+    vkctx->Execute( [&]( const VkCommandBuffer cmd ) {
+        const VkBufferCopy vertex_copy = {
+                .srcOffset = 0,
+                .dstOffset = 0,
+                .size      = vertex_buffer_size };
+        vkCmdCopyBuffer( cmd, staging.GetVkResource( ), mesh_data.VertexBuffer->GetVkResource( ), 1, &vertex_copy );
+
+        const VkBufferCopy index_copy = {
+                .srcOffset = vertex_buffer_size, .dstOffset = 0, .size = index_buffer_size };
+        vkCmdCopyBuffer( cmd, staging.GetVkResource( ), mesh_data.IndexBuffer->GetVkResource( ), 1, &index_copy );
+    } );
+
+    mesh_data.IndexCount = static_cast<u32>( content.Indices.size( ) );
+
+    return handle;
+}
+
+void TL::renderer::MeshPool::DestroyMesh( const MeshHandle handle ) {
+    if ( IsValid( handle ) ) {
+        // Free buffers as they are no longer needed
+        auto& mesh_data = m_meshDatas[handle.index];
+        mesh_data.VertexBuffer.reset( );
+        mesh_data.IndexBuffer.reset( );
+
+        // Increase generation to invalidate existing handles
+        m_generations[handle.index]++;
+
+        // Register index as available
+        m_freeIndices.push_back( handle.index );
+    }
+}
+
+TL::renderer::MeshData& TL::renderer::MeshPool::GetMesh( const MeshHandle handle ) {
+    return m_meshDatas[handle.index];
+}
+
+std::optional<TL::renderer::MeshData*> TL::renderer::MeshPool::GetMeshSafe( MeshHandle handle ) {
+    if ( IsValid( handle ) ) {
+        return &m_meshDatas[handle.index];
+    }
+
+    return std::nullopt;
+}
+
+bool TL::renderer::MeshPool::IsValid( MeshHandle handle ) const {
+    if ( handle.index > MAX_MESHES ) {
+        return false;
+    }
+
+    return m_generations[handle.index] == handle.generation;
+}
+
+
+//==============================================================================//
+//==============================================================================//
 
 //==============================================================================//
 //                             VK CONTEXT                                       //
@@ -221,10 +325,10 @@ TL_VkContext::Result<> TL_VkContext::Init( ) {
     executor.Init( this );
 
     // Resource
-    materialPool.Init( );
+    MaterialPool.Init( );
+    MeshPool.Init( );
 
     imageCodex.Init( this );
-    // materialCodex.Init( );
 
     InitSwapchain( WIDTH, HEIGHT );
 
@@ -240,11 +344,11 @@ void TL_VkContext::Cleanup( ) {
 
     m_pipelines.clear( );
 
-    materialPool.Shutdown( );
+    MeshPool.Shutdown( );
+    MaterialPool.Shutdown( );
 
     // materialCodex.Cleanup( );
     imageCodex.Cleanup( );
-    meshCodex.Cleanup( *this );
     executor.Cleanup( );
     setPool.DestroyPools( device );
     shaderStorage->Cleanup( );

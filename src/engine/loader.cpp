@@ -47,15 +47,15 @@ static std::vector<Material> LoadMaterials( const aiScene* scene, const std::str
         Material   material;
         const auto ai_material = scene->mMaterials[i];
 
-        material.name = ai_material->GetName( ).C_Str( );
+        material.Name = ai_material->GetName( ).C_Str( );
 
         aiColor4D base_diffuse_color{ };
         ai_material->Get( AI_MATKEY_COLOR_DIFFUSE, base_diffuse_color );
-        material.baseColor = { base_diffuse_color.r, base_diffuse_color.g, base_diffuse_color.b, base_diffuse_color.a };
+        material.BaseColor = { base_diffuse_color.r, base_diffuse_color.g, base_diffuse_color.b, base_diffuse_color.a };
 
         float metalness_factor;
         ai_material->Get( AI_MATKEY_METALLIC_FACTOR, metalness_factor );
-        material.metalnessFactor = metalness_factor;
+        material.MetalnessFactor = metalness_factor;
 
         float roughness_factor;
         ai_material->Get( AI_MATKEY_ROUGHNESS_FACTOR, roughness_factor );
@@ -88,17 +88,17 @@ static std::vector<Material> LoadMaterials( const aiScene* scene, const std::str
         };
 
         // Load different texture types
-        loadTexture( aiTextureType_DIFFUSE, material.colorId );
-        if ( material.colorId == ImageCodex::InvalidImageId ) {
-            loadTexture( aiTextureType_BASE_COLOR, material.colorId );
+        loadTexture( aiTextureType_DIFFUSE, material.ColorId );
+        if ( material.ColorId == ImageCodex::InvalidImageId ) {
+            loadTexture( aiTextureType_BASE_COLOR, material.ColorId );
         }
 
-        loadTexture( aiTextureType_METALNESS, material.metalRoughnessId );
-        if ( material.metalRoughnessId == ImageCodex::InvalidImageId ) {
-            loadTexture( aiTextureType_SPECULAR, material.metalRoughnessId );
+        loadTexture( aiTextureType_METALNESS, material.MetalRoughnessId );
+        if ( material.MetalRoughnessId == ImageCodex::InvalidImageId ) {
+            loadTexture( aiTextureType_SPECULAR, material.MetalRoughnessId );
         }
 
-        loadTexture( aiTextureType_NORMALS, material.normalId );
+        loadTexture( aiTextureType_NORMALS, material.NormalId );
 
         materials.push_back( material );
     }
@@ -235,32 +235,29 @@ void ProcessMaterials( std::vector<Material>& preprocessedMaterials, const std::
     }
 }
 
-static MeshId LoadMesh( TL_VkContext& gfx, aiMesh* aiMesh ) {
-    Mesh mesh;
-    mesh.vertices.clear( );
-    mesh.indices.clear( );
+static MeshHandle LoadMesh( TL_VkContext& gfx, aiMesh* aiMesh ) {
+    MeshContent mesh;
+    mesh.Vertices.clear( );
+    mesh.Indices.clear( );
 
-    mesh.vertices.reserve( aiMesh->mNumVertices );
+    mesh.Vertices.reserve( aiMesh->mNumVertices );
     for ( u32 i = 0; i < aiMesh->mNumVertices; i++ ) {
-        Mesh::Vertex vertex{ };
-        vertex.position = { aiMesh->mVertices[i].x, aiMesh->mVertices[i].y, aiMesh->mVertices[i].z };
+        Vertex vertex{ };
 
-        vertex.normal = { aiMesh->mNormals[i].x, aiMesh->mNormals[i].y, aiMesh->mNormals[i].z };
+        Vec2 uvs = { };
+        if ( aiMesh->mTextureCoords[0] ) {
+            uvs.x = aiMesh->mTextureCoords[0][i].x;
+            uvs.y = aiMesh->mTextureCoords[0][i].y;
+        }
 
-        if ( !aiMesh->mTextureCoords[0] ) {
-            vertex.uvX = 0.0f;
-            vertex.uvY = 0.0f;
-        }
-        else {
-            vertex.uvX = aiMesh->mTextureCoords[0][i].x;
-            vertex.uvY = aiMesh->mTextureCoords[0][i].y;
-        }
+        vertex.Position = { aiMesh->mVertices[i].x, aiMesh->mVertices[i].y, aiMesh->mVertices[i].z, uvs.x };
+        vertex.Normal   = { aiMesh->mNormals[i].x, aiMesh->mNormals[i].y, aiMesh->mNormals[i].z, uvs.y };
 
         if ( aiMesh->mTangents != nullptr && aiMesh->mBitangents != nullptr ) {
-            vertex.tangent   = { aiMesh->mTangents[i].x, -aiMesh->mTangents[i].y, aiMesh->mTangents[i].z };
-            vertex.biTangent = { aiMesh->mBitangents[i].x, -aiMesh->mBitangents[i].y, aiMesh->mBitangents[i].z };
+            vertex.Tangent   = { aiMesh->mTangents[i].x, -aiMesh->mTangents[i].y, aiMesh->mTangents[i].z, 0.0f };
+            vertex.Bitangent = { aiMesh->mBitangents[i].x, -aiMesh->mBitangents[i].y, aiMesh->mBitangents[i].z, 0.0f };
         }
-        mesh.vertices.push_back( vertex );
+        mesh.Vertices.push_back( vertex );
     }
 
     std::vector<uint32_t> indices;
@@ -271,18 +268,17 @@ static MeshId LoadMesh( TL_VkContext& gfx, aiMesh* aiMesh ) {
         indices.push_back( face.mIndices[1] );
         indices.push_back( face.mIndices[2] );
     }
-    mesh.indices = indices;
+    mesh.Indices = indices;
 
-    mesh.aabb = {
+    mesh.Aabb = {
             .min = Vec3{ aiMesh->mAABB.mMin.x, aiMesh->mAABB.mMin.y, aiMesh->mAABB.mMin.z },
-            .max = Vec3{ aiMesh->mAABB.mMax.x, aiMesh->mAABB.mMax.y, aiMesh->mAABB.mMax.z },
-    };
+            .max = Vec3{ aiMesh->mAABB.mMax.x, aiMesh->mAABB.mMax.y, aiMesh->mAABB.mMax.z } };
 
-    return gfx.meshCodex.AddMesh( gfx, mesh );
+    return vkctx->MeshPool.CreateMesh( mesh );
 }
 
-static std::vector<MeshId> LoadMeshes( TL_VkContext& gfx, const aiScene* scene ) {
-    std::vector<MeshId> mesh_assets;
+static std::vector<MeshHandle> LoadMeshes( TL_VkContext& gfx, const aiScene* scene ) {
+    std::vector<MeshHandle> mesh_assets;
 
     for ( u32 i = 0; i < scene->mNumMeshes; i++ ) {
         auto mesh = LoadMesh( gfx, scene->mMeshes[i] );
@@ -297,7 +293,7 @@ static std::vector<MaterialHandle> UploadMaterials( TL_VkContext& gfx, const std
 
     gpu_materials.reserve( materials.size( ) );
     for ( auto& material : materials ) {
-        gpu_materials.push_back( gfx.materialPool.CreateMaterial( material ) );
+        gpu_materials.push_back( gfx.MaterialPool.CreateMaterial( material ) );
     }
 
     return gpu_materials;
@@ -339,8 +335,8 @@ inline glm::mat4 AssimpToGlm( const aiMatrix4x4& from ) {
 static std::shared_ptr<Node> LoadNode( Scene& scene, const aiScene* ai_scene, const aiNode* node ) {
     auto sceneNode = std::make_shared<Node>( );
 
-    sceneNode->name = node->mName.C_Str( );
-    TL_Engine::Get( ).console.AddLog( "{}", sceneNode->name.c_str( ) );
+    sceneNode->Name = node->mName.C_Str( );
+    TL_Engine::Get( ).console.AddLog( "{}", sceneNode->Name.c_str( ) );
 
     auto transform = AssimpToGlm( node->mTransformation );
     if ( node->mTransformation == aiMatrix4x4( ) ) {
@@ -350,7 +346,7 @@ static std::shared_ptr<Node> LoadNode( Scene& scene, const aiScene* ai_scene, co
     sceneNode->SetTransform( transform );
 
     if ( node->mNumMeshes == 0 ) {
-        sceneNode->meshAssets.clear( );
+        sceneNode->MeshAssets.clear( );
     }
     else {
         for ( u32 i = 0; i < node->mNumMeshes; i++ ) {
@@ -362,21 +358,21 @@ static std::shared_ptr<Node> LoadNode( Scene& scene, const aiScene* ai_scene, co
                     .max = { aabb.mMax.x, aabb.mMax.y, aabb.mMax.z },
             };
 
-            sceneNode->boundingBoxes.push_back( std::move( bounding_box ) );
+            sceneNode->BoundingBoxes.push_back( std::move( bounding_box ) );
 
             MeshAsset mesh_asset;
-            mesh_asset.materialIndex = ai_scene->mMeshes[mesh]->mMaterialIndex;
-            mesh_asset.meshIndex     = mesh;
+            mesh_asset.MaterialIndex = ai_scene->mMeshes[mesh]->mMaterialIndex;
+            mesh_asset.MeshIndex     = mesh;
 
-            sceneNode->meshAssets.push_back( mesh_asset );
+            sceneNode->MeshAssets.push_back( mesh_asset );
         }
     }
 
     for ( u32 i = 0; i < node->mNumChildren; i++ ) {
         auto child    = LoadNode( scene, ai_scene, node->mChildren[i] );
-        child->parent = sceneNode;
-        sceneNode->children.push_back( child );
-        scene.allNodes.push_back( child );
+        child->Parent = sceneNode;
+        sceneNode->Children.push_back( child );
+        scene.AllNodes.push_back( child );
     }
 
     return sceneNode;
@@ -386,8 +382,8 @@ static void LoadHierarchy( const aiScene* ai_scene, Scene& scene ) {
     const auto root_node = ai_scene->mRootNode;
 
     auto node = LoadNode( scene, ai_scene, root_node );
-    scene.topNodes.push_back( node );
-    scene.allNodes.push_back( node );
+    scene.TopNodes.push_back( node );
+    scene.AllNodes.push_back( node );
 }
 
 static void LoadCameras( const aiScene* aiScene, Scene& scene ) {
@@ -416,7 +412,7 @@ static void LoadCameras( const aiScene* aiScene, Scene& scene ) {
             pitch       = glm::degrees( pitch );
 
             Camera camera = { position, yaw, pitch, WIDTH, HEIGHT };
-            scene.cameras.push_back( camera );
+            scene.Cameras.push_back( camera );
         }
     }
 }
@@ -494,7 +490,7 @@ static void LoadLights( TL_VkContext& gfx, const aiScene* aiScene, Scene& scene 
             light.linear    = ai_light->mAttenuationLinear;
             light.quadratic = ai_light->mAttenuationQuadratic;
 
-            scene.pointLights.emplace_back( light );
+            scene.PointLights.emplace_back( light );
         }
         else if ( ai_light->mType == aiLightSource_DIRECTIONAL ) {
             DirectionalLight light;
@@ -509,7 +505,7 @@ static void LoadLights( TL_VkContext& gfx, const aiScene* aiScene, Scene& scene 
                     "shadowmap", VkExtent3D{ 2048, 2048, 1 }, VK_FORMAT_D32_SFLOAT,
                     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false );
 
-            scene.directionalLights.emplace_back( light );
+            scene.DirectionalLights.emplace_back( light );
         }
     }
 }
@@ -527,7 +523,7 @@ std::unique_ptr<Scene> GltfLoader::Load( TL_VkContext& gfx, const std::string& p
                                              aiProcess_FlipWindingOrder | aiProcess_GenBoundingBoxes );
 
     TL_Engine::Get( ).console.AddLog( "Loading meshes..." );
-    const std::vector<MeshId> meshes = LoadMeshes( gfx, ai_scene );
+    const std::vector<MeshHandle> meshes = LoadMeshes( gfx, ai_scene );
 
     TL_Engine::Get( ).console.AddLog( "Loading materials..." );
     std::vector<std::string> externalTexturePaths;
@@ -540,26 +536,26 @@ std::unique_ptr<Scene> GltfLoader::Load( TL_VkContext& gfx, const std::string& p
     TL_Engine::Get( ).console.AddLog( "Processing materials..." );
     // Update material IDs based on whether they were embedded or external
     for ( auto& material : materials ) {
-        if ( material.colorId != ImageCodex::InvalidImageId ) {
-            material.colorId = material.colorId < embeddedImages.size( )
-                                     ? embeddedImages[material.colorId]
-                                     : externalImages[material.colorId - embeddedImages.size( )];
+        if ( material.ColorId != ImageCodex::InvalidImageId ) {
+            material.ColorId = material.ColorId < embeddedImages.size( )
+                                     ? embeddedImages[material.ColorId]
+                                     : externalImages[material.ColorId - embeddedImages.size( )];
         }
-        if ( material.metalRoughnessId != ImageCodex::InvalidImageId ) {
-            material.metalRoughnessId = material.metalRoughnessId < embeddedImages.size( )
-                                              ? embeddedImages[material.metalRoughnessId]
-                                              : externalImages[material.metalRoughnessId - embeddedImages.size( )];
+        if ( material.MetalRoughnessId != ImageCodex::InvalidImageId ) {
+            material.MetalRoughnessId = material.MetalRoughnessId < embeddedImages.size( )
+                                              ? embeddedImages[material.MetalRoughnessId]
+                                              : externalImages[material.MetalRoughnessId - embeddedImages.size( )];
         }
-        if ( material.normalId != ImageCodex::InvalidImageId ) {
-            material.normalId = material.normalId < embeddedImages.size( )
-                                      ? embeddedImages[material.normalId]
-                                      : externalImages[material.normalId - embeddedImages.size( )];
+        if ( material.NormalId != ImageCodex::InvalidImageId ) {
+            material.NormalId = material.NormalId < embeddedImages.size( )
+                                      ? embeddedImages[material.NormalId]
+                                      : externalImages[material.NormalId - embeddedImages.size( )];
         }
     }
 
     const auto gpu_materials = UploadMaterials( gfx, materials );
-    scene.materials          = gpu_materials;
-    scene.meshes             = meshes;
+    scene.Materials          = gpu_materials;
+    scene.Meshes             = meshes;
 
     LoadHierarchy( ai_scene, scene );
     LoadCameras( ai_scene, scene );

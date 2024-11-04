@@ -30,32 +30,32 @@ struct AABoundingBox {
 };
 
 struct MeshAsset {
-    u32 meshIndex;
-    u32 materialIndex;
+    u32 MeshIndex;
+    u32 MaterialIndex;
 };
 
 struct Material {
-    Vec4  baseColor;
-    float metalnessFactor;
-    float roughnessFactor;
+    Vec4 BaseColor;
+    f32  MetalnessFactor;
+    f32  roughnessFactor;
 
-    ImageId colorId;
-    ImageId metalRoughnessId;
-    ImageId normalId;
+    ImageId ColorId;
+    ImageId MetalRoughnessId;
+    ImageId NormalId;
 
-    std::string name;
+    std::string Name;
 };
 
 struct Node {
-    std::vector<MeshAsset>     meshAssets;
-    std::vector<AABoundingBox> boundingBoxes;
+    std::vector<MeshAsset>     MeshAssets;
+    std::vector<AABoundingBox> BoundingBoxes;
 
-    std::string name;
+    std::string Name;
 
-    Transform transform;
+    Transform Transform;
 
-    std::weak_ptr<Node>                parent;
-    std::vector<std::shared_ptr<Node>> children;
+    std::weak_ptr<Node>                Parent;
+    std::vector<std::shared_ptr<Node>> Children;
 
     void SetTransform( const Mat4& newTransform );
     Mat4 GetTransformMatrix( ) const;
@@ -64,13 +64,13 @@ struct Node {
 struct Scene {
     std::shared_ptr<Node> FindNodeByName( const std::string& name ) const;
 
-    std::vector<TL::renderer::MaterialHandle> materials;
-    std::vector<MeshId>                       meshes;
-    std::vector<std::shared_ptr<Node>>        topNodes;
-    std::vector<std::shared_ptr<Node>>        allNodes;
-    std::vector<Camera>                       cameras;
-    std::vector<PointLight>                   pointLights;
-    std::vector<DirectionalLight>             directionalLights;
+    std::vector<TL::renderer::MaterialHandle> Materials;
+    std::vector<TL::renderer::MeshHandle>     Meshes;
+    std::vector<std::shared_ptr<Node>>        TopNodes;
+    std::vector<std::shared_ptr<Node>>        AllNodes;
+    std::vector<Camera>                       Cameras;
+    std::vector<PointLight>                   PointLights;
+    std::vector<DirectionalLight>             DirectionalLights;
 
     std::string name;
 };

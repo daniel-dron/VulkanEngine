@@ -22,17 +22,17 @@ void Node::SetTransform( const Mat4 &newTransform ) {
     glm::vec4 perspective{ };
     glm::quat rotation{ };
 
-    decompose( newTransform, transform.scale, rotation, transform.position, skew, perspective );
+    decompose( newTransform, Transform.scale, rotation, Transform.position, skew, perspective );
 
-    extractEulerAngleXYZ( glm::mat4_cast( rotation ), transform.euler.x, transform.euler.y, transform.euler.z );
+    extractEulerAngleXYZ( glm::mat4_cast( rotation ), Transform.euler.x, Transform.euler.y, Transform.euler.z );
 
-    transform.model = newTransform;
+    Transform.model = newTransform;
 }
 
 Mat4 Node::GetTransformMatrix( ) const {
-    const Mat4 local_transform = transform.AsMatrix( );
+    const Mat4 local_transform = Transform.AsMatrix( );
 
-    if ( const auto parent_node = parent.lock( ) ) {
+    if ( const auto parent_node = Parent.lock( ) ) {
         return parent_node->GetTransformMatrix( ) * local_transform;
     }
 
@@ -41,10 +41,10 @@ Mat4 Node::GetTransformMatrix( ) const {
 
 std::shared_ptr<Node> Scene::FindNodeByName( const std::string &name ) const {
     std::function<std::shared_ptr<Node>( const std::shared_ptr<Node> & )> search_node = [&name, &search_node]( const std::shared_ptr<Node> &node ) -> std::shared_ptr<Node> {
-        if ( node->name == name ) {
+        if ( node->Name == name ) {
             return node;
         }
-        for ( const auto &child : node->children ) {
+        for ( const auto &child : node->Children ) {
             auto result = search_node( child );
             if ( result ) {
                 return result;
@@ -53,7 +53,7 @@ std::shared_ptr<Node> Scene::FindNodeByName( const std::string &name ) const {
         return nullptr;
     };
 
-    for ( const auto &node : topNodes ) {
+    for ( const auto &node : TopNodes ) {
         auto result = search_node( node );
         if ( result ) {
             return result;
