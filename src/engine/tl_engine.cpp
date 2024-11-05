@@ -21,7 +21,6 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 #include <tracy/Tracy.hpp>
-#include <graphics/pipelines/compute_pipeline.h>
 #include <graphics/tl_renderer.h>
 #include <graphics/utils/vk_initializers.h>
 #include <graphics/utils/vk_types.h>
@@ -31,7 +30,6 @@
 #include "SDL2/SDL_events.h"
 #include "SDL2/SDL_stdinc.h"
 #include "SDL2/SDL_video.h"
-#include "glm/ext/matrix_clip_space.hpp"
 #include "glm/packing.hpp"
 #include "vma/vk_mem_alloc.h"
 #include "../imguizmo/ImGuizmo.h"

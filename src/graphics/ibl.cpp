@@ -15,7 +15,6 @@
 
 #include "ibl.h"
 
-#include <graphics/pipelines/compute_pipeline.h>
 #include <graphics/resources/r_image.h>
 #include <graphics/resources/r_resources.h>
 #include <imgui.h>

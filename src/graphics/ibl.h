@@ -13,8 +13,6 @@
 
 #pragma once
 
-#include <graphics/pipelines/compute_pipeline.h>
-
 class TL_VkContext;
 
 namespace TL {
