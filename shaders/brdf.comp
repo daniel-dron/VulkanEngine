@@ -6,7 +6,9 @@
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 // Output texture, 2D LUT for BRDF (typically size 512x512)
-layout(set = 1, binding = 0, rgba32f) uniform image2D outputBRDFLUT;
+layout (push_constant) uniform PushConstant {
+    int outputTextureID;
+} pc;
 
 const float PI = 3.14159265359;
 
@@ -118,10 +120,10 @@ vec2 IntegrateBRDF(float NdotV, float roughness)
 // Pre-integrated BRDF LUT generation
 void main() {
     ivec2 texCoords = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 dims = imageSize(outputBRDFLUT);
+    ivec2 dims = GetStorageImageSize(pc.outputTextureID);
     vec2 uv = vec2(texCoords) / vec2(dims);
 
     vec2 brdf = IntegrateBRDF(uv.x, uv.y);
 
-    imageStore(outputBRDFLUT, ivec2(gl_GlobalInvocationID), vec4(brdf, 0.0f, 1.0f));
+    StoragePixelAt(pc.outputTextureID, ivec2(gl_GlobalInvocationID), vec4(brdf, 0.0f, 1.0f));
 }

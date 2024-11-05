@@ -23,7 +23,7 @@ layout (set = 1, binding = 2) uniform PointLights {
     PointLight lights[10];
 } pointLights;
 
-layout( push_constant ) uniform constants {
+layout(push_constant) uniform constants {
     SceneBuffer scene;
     uint albedo_tex;
     uint normal_tex;
@@ -46,11 +46,11 @@ float DistributionGGX(vec3 N, vec3 H, float roughness)
     float a2     = a*a;
     float NdotH  = max(dot(N, H), 0.0);
     float NdotH2 = NdotH*NdotH;
-	
+
     float num   = a2;
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
-	
+
     return num / denom;
 }
 
@@ -61,7 +61,7 @@ float GeometrySchlickGGX(float NdotV, float roughness)
 
     float num   = NdotV;
     float denom = NdotV * (1.0 - k) + k;
-	
+
     return num / denom;
 }
 float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
@@ -70,7 +70,7 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     float NdotL = max(dot(N, L), 0.0);
     float ggx2  = GeometrySchlickGGX(NdotV, roughness);
     float ggx1  = GeometrySchlickGGX(NdotL, roughness);
-	
+
     return ggx1 * ggx2;
 }
 
@@ -100,9 +100,9 @@ float CalculateShadowForDirectionalLight(DirectionalLight light, vec3 position_w
 
     float shadow = 0.0f;
     vec2 texelSize = vec2(1.0 / 2048.0f);
-    for(int x = -2; x <= 2; ++x)
+    for (int x = -2; x <= 2; ++x)
     {
-        for(int y = -2; y <= 2; ++y)
+        for (int y = -2; y <= 2; ++y)
         {
             float closest_depth = sampleTexture2DLinear(light.shadowmap, projCoords.xy + vec2(x, y) * texelSize).r + bias;
             shadow += current_depth > closest_depth ? 1.0f : 0.0f;
@@ -117,19 +117,19 @@ float CalculateShadowForDirectionalLight(DirectionalLight light, vec3 position_w
 vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, vec3 normal, vec3 view_dir) {
     vec3 N = normal;
     vec3 V = view_dir;
-    vec3 R = reflect(-V, N); 
+    vec3 R = reflect(-V, N);
 
     vec3 position = sampleTexture2DLinear(pc.position_tex, in_uvs).rgb;
 
-	// interpolate surface reflection between 0.04 (minimum) and the albedo value
-	// in relation to the metallic factor of the material
-	vec3 F0 = vec3(0.04); 
-	F0      = mix(F0, albedo, metallic);
+    // interpolate surface reflection between 0.04 (minimum) and the albedo value
+    // in relation to the metallic factor of the material
+    vec3 F0 = vec3(0.04);
+    F0      = mix(F0, albedo, metallic);
 
     vec3 Lo = vec3(0.0f);
     for (int i = 0; i < pc.scene.number_of_directional_lights; i++) {
         DirectionalLight light = directionalLights.lights[i];
-        vec3 L = normalize(light.direction);  // Note the negative sign
+        vec3 L = normalize(light.direction);// Note the negative sign
         vec3 H = normalize(V + L);
 
         // No attenuation for directional lights
@@ -150,7 +150,7 @@ vec3 pbr(vec3 albedo, vec3 emissive, float metallic, float roughness, float ao, 
         kD *= 1.0f - metallic;
 
         float NdotL = max(dot(N, L), 0.0f);
-        float theta_max = 0.5 * 3.14159 / 180.0; // 0.5 degrees in radians
+        float theta_max = 0.5 * 3.14159 / 180.0;// 0.5 degrees in radians
         float pdf = 1.0 / (2.0 * 3.14159 * (1.0 - cos(theta_max)));
 
         // Divide by PDF
@@ -215,7 +215,7 @@ vec4 reconstructWorldPosition(vec2 screenPos, float depth, mat4 invView, mat4 in
     vec4 viewSpacePos = invProj * clipSpacePos;
     viewSpacePos /= viewSpacePos.w;
     vec4 worldSpacePos = invView * viewSpacePos;
-    
+
     return worldSpacePos;
 }
 
@@ -224,7 +224,7 @@ void main() {
     vec3 normal = sampleTexture2DLinear(pc.normal_tex, in_uvs).rgb;
     vec4 position = sampleTexture2DLinear(pc.position_tex, in_uvs).xyzw;
     vec4 pbr_values = sampleTexture2DLinear(pc.pbr_tex, in_uvs);
-    
+
     vec3 view_dir = normalize(pc.scene.camera_position.xyz - position.xyz);
 
     float roughness = pbr_values.g;

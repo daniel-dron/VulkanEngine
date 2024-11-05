@@ -40,8 +40,6 @@ namespace TL {
 
         InitTextures( gfx );
 
-        InitComputes( gfx );
-
         TL_Engine::Get( ).console.AddLog( "Dispatching IBL computes!" );
         // dispatch computes
         {
@@ -64,64 +62,6 @@ namespace TL {
     void Ibl::Clean( const TL_VkContext& gfx ) {
         vkFreeCommandBuffers( gfx.device, gfx.computeCommandPool, 1, &m_computeCommand );
         vkDestroyFence( gfx.device, m_computeFence, nullptr );
-
-        m_irradiancePipeline.Cleanup( gfx );
-        m_radiancePipeline.Cleanup( gfx );
-        m_brdfPipeline.Cleanup( gfx );
-    }
-
-    void Ibl::InitComputes( TL_VkContext& gfx ) {
-        auto& irradiance_shader = gfx.shaderStorage->Get( "irradiance", TCompute );
-        auto& radiance_shader   = gfx.shaderStorage->Get( "radiance", TCompute );
-        auto& brdf_shader       = gfx.shaderStorage->Get( "brdf", TCompute );
-
-        // ----------
-        // Irradiance
-        {
-            m_irradiancePipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-            m_irradiancePipeline.AddPushConstantRange( sizeof( ImageId ) );
-            m_irradiancePipeline.Build( gfx, irradiance_shader.handle, "Irradiance Compute" );
-            m_irradianceSet = gfx.AllocateSet( m_irradiancePipeline.GetLayout( ) );
-
-            DescriptorWriter writer;
-            auto&            irradiance_image = gfx.ImageCodex.GetImage( m_irradiance );
-            writer.WriteImage( 0, irradiance_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
-                               VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-            writer.UpdateSet( gfx.device, m_irradianceSet );
-        }
-
-        // ----------
-        // Radiance
-        {
-            m_radiancePipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-            m_radiancePipeline.AddPushConstantRange( sizeof( RadiancePushConstants ) );
-            m_radiancePipeline.Build( gfx, radiance_shader.handle, "Radiance Compute" );
-
-            auto& radiance_image = gfx.ImageCodex.GetImage( m_radiance );
-
-            for ( auto i = 0; i < 6; i++ ) {
-                m_radianceSets[i] = gfx.AllocateSet( m_radiancePipeline.GetLayout( ) );
-
-                DescriptorWriter writer;
-                writer.WriteImage( 0, radiance_image.GetMipView( i ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
-                                   VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-                writer.UpdateSet( gfx.device, m_radianceSets[i] );
-            }
-        }
-
-        // ----------
-        // BRDF
-        {
-            m_brdfPipeline.AddDescriptorSetLayout( 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-            m_brdfPipeline.Build( gfx, brdf_shader.handle, "BRDF Compute" );
-            m_brdfSet = gfx.AllocateSet( m_brdfPipeline.GetLayout( ) );
-
-            DescriptorWriter writer;
-            auto&            brdf_image = gfx.ImageCodex.GetImage( m_brdf );
-            writer.WriteImage( 0, brdf_image.GetBaseView( ), nullptr, VK_IMAGE_LAYOUT_GENERAL,
-                               VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-            writer.UpdateSet( gfx.device, m_brdfSet );
-        }
     }
 
     void Ibl::InitTextures( TL_VkContext& gfx ) {
@@ -150,18 +90,17 @@ namespace TL {
         const struct PushConstants {
             ImageId Input;
             ImageId Output;
-        } pc = {
-                .Input  = m_hdrTexture,
-                .Output = m_skybox };
+        } pc = { .Input  = m_hdrTexture,
+                 .Output = m_skybox };
 
-        auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
+        static auto pipeline_config = PipelineConfig{
                 .name                 = "equirectangular",
                 .compute              = "../shaders/equirectangular_map.comp.spv",
                 .pushConstantRanges   = { { .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
                                             .offset     = 0,
                                             .size       = sizeof( PushConstants ) } },
-                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
-        } );
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) } };
+        const auto pipeline = vkctx->GetOrCreatePipeline( pipeline_config );
 
         const auto& output = vkctx->ImageCodex.GetImage( m_skybox );
         output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
@@ -176,62 +115,97 @@ namespace TL {
     }
 
     void Ibl::GenerateIrradiance( TL_VkContext& gfx, const VkCommandBuffer cmd ) const {
-        const auto bindless = gfx.GetBindlessSet( );
-        const auto input    = m_skybox;
-        const auto output   = m_irradiance;
+        const struct PushConstants {
+            ImageId Input;
+            ImageId Output;
+        } pc = { .Input  = m_skybox,
+                 .Output = m_irradiance };
 
-        auto& output_image = gfx.ImageCodex.GetImage( output );
-        m_irradiancePipeline.Bind( cmd );
-        m_irradiancePipeline.BindDescriptorSet( cmd, bindless, 0 );
-        m_irradiancePipeline.BindDescriptorSet( cmd, m_irradianceSet, 1 );
-        m_irradiancePipeline.PushConstants( cmd, sizeof( ImageId ), &input );
-        m_irradiancePipeline.Dispatch( cmd, ( output_image.GetExtent( ).width + 15 ) / 16,
-                                       ( output_image.GetExtent( ).height + 15 ) / 16, 6 );
+        static auto pipeline_config = PipelineConfig{
+                .name                 = "irradiance",
+                .compute              = "../shaders/irradiance.comp.spv",
+                .pushConstantRanges   = { { .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+                                            .offset     = 0,
+                                            .size       = sizeof( PushConstants ) } },
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) } };
+        const auto pipeline = vkctx->GetOrCreatePipeline( pipeline_config );
+
+        const auto& output = vkctx->ImageCodex.GetImage( m_irradiance );
+        output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
+
+        vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->GetVkResource( ) );
+
+        const auto bindless_set = vkctx->GetBindlessSet( );
+        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->GetLayout( ), 0, 1, &bindless_set, 0, nullptr );
+
+        vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( PushConstants ), &pc );
+        vkCmdDispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16, 6 );
     }
 
     void Ibl::GenerateRadiance( TL_VkContext& gfx, const VkCommandBuffer cmd ) const {
-        const auto bindless = gfx.GetBindlessSet( );
-        const auto input    = m_skybox;
-        const auto output   = m_radiance;
+        struct PushConstants {
+            ImageId Input;
+            ImageId Output;
+            i32     Mipmap;
+            f32     Roughness;
+        } pc = {
+                .Input     = m_skybox,
+                .Output    = m_radiance,
+                .Mipmap    = 0,
+                .Roughness = 0.0f };
 
-        auto& output_image = gfx.ImageCodex.GetImage( output );
+        static auto pipeline_config = PipelineConfig{
+                .name                 = "radiance",
+                .compute              = "../shaders/radiance.comp.spv",
+                .pushConstantRanges   = { { .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+                                            .offset     = 0,
+                                            .size       = sizeof( PushConstants ) } },
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) } };
+        const auto pipeline = vkctx->GetOrCreatePipeline( pipeline_config );
 
-        RadiancePushConstants pc = {
-                .input     = input,
-                .mipmap    = 0,
-                .roughness = 0,
-        };
+        const auto& output = vkctx->ImageCodex.GetImage( m_radiance );
+        output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
 
-        m_radiancePipeline.Bind( cmd );
-        m_radiancePipeline.BindDescriptorSet( cmd, bindless, 0 );
+        vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->GetVkResource( ) );
+
+        const auto bindless_set = vkctx->GetBindlessSet( );
+        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->GetLayout( ), 0, 1, &bindless_set, 0, nullptr );
 
         for ( auto mip = 0; mip < 6; mip++ ) {
             const float roughness = static_cast<float>( mip ) / static_cast<float>( 6 - 1 );
 
-            pc.mipmap    = mip;
-            pc.roughness = roughness;
+            pc.Mipmap    = mip;
+            pc.Roughness = roughness;
 
-            const auto set = m_radianceSets[mip];
-
-            m_radiancePipeline.BindDescriptorSet( cmd, set, 1 );
-            m_radiancePipeline.PushConstants( cmd, sizeof( RadiancePushConstants ), &pc );
-            m_radiancePipeline.Dispatch( cmd, ( output_image.GetExtent( ).width + 15 ) / 16,
-                                         ( output_image.GetExtent( ).height + 15 ) / 16, 6 );
+            vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( PushConstants ), &pc );
+            vkCmdDispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16, 6 );
         }
     }
 
     void Ibl::GenerateBrdf( TL_VkContext& gfx, const VkCommandBuffer cmd ) const {
-        const auto bindless     = gfx.GetBindlessSet( );
-        const auto output       = m_brdf;
-        auto&      output_image = gfx.ImageCodex.GetImage( output );
+        const struct PushConstants {
+            ImageId Output;
+        } pc = { .Output = m_brdf };
 
-        image::TransitionLayout( cmd, output_image.GetImage( ), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL );
+        static auto pipeline_config = PipelineConfig{
+                .name                 = "brdf",
+                .compute              = "../shaders/brdf.comp.spv",
+                .pushConstantRanges   = { { .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+                                            .offset     = 0,
+                                            .size       = sizeof( PushConstants ) } },
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) } };
+        const auto pipeline = vkctx->GetOrCreatePipeline( pipeline_config );
 
-        m_brdfPipeline.Bind( cmd );
-        m_brdfPipeline.BindDescriptorSet( cmd, bindless, 0 );
-        m_brdfPipeline.BindDescriptorSet( cmd, m_brdfSet, 1 );
-        m_brdfPipeline.Dispatch( cmd, ( output_image.GetExtent( ).width + 15 ) / 16,
-                                 ( output_image.GetExtent( ).height + 15 ) / 16, 1 );
+        const auto& output = vkctx->ImageCodex.GetImage( m_brdf );
+        output.TransitionLayout( cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL );
+
+        vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->GetVkResource( ) );
+
+        const auto bindless_set = vkctx->GetBindlessSet( );
+        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->GetLayout( ), 0, 1, &bindless_set, 0, nullptr );
+
+        vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( PushConstants ), &pc );
+        vkCmdDispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16, 6 );
     }
 
 } // namespace TL

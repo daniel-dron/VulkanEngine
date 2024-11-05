@@ -374,7 +374,7 @@ namespace TL {
         auto& pbr      = vkctx->ImageCodex.GetImage( gbuffer.pbr );
         auto& depth    = vkctx->ImageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
 
-        auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
+        static auto pipeline_config = PipelineConfig{
                 .name               = "gbuffer",
                 .vertex             = "../shaders/gbuffer.vert.spv",
                 .pixel              = "../shaders/gbuffer.frag.spv",
@@ -387,8 +387,8 @@ namespace TL {
                                           .offset     = 0,
                                           .size       = sizeof( MeshPushConstants ) } },
 
-                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
-        } );
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) } };
+        const auto pipeline = vkctx->GetOrCreatePipeline( pipeline_config );
 
         VkClearValue clear_color       = { 0.0f, 0.0f, 0.0f, 1.0f };
         std::array   color_attachments = {
@@ -450,7 +450,7 @@ namespace TL {
             return;
         }
 
-        auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
+        static auto pipeline_config = PipelineConfig{
                 .name               = "shadowmap",
                 .vertex             = "../shaders/shadowmap.vert.spv",
                 .pixel              = "../shaders/shadowmap.frag.spv",
@@ -459,8 +459,8 @@ namespace TL {
                                           .offset     = 0,
                                           .size       = sizeof( ShadowMapPushConstants ) } },
 
-                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
-        } );
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) } };
+        auto pipeline = vkctx->GetOrCreatePipeline( pipeline_config );
 
         for ( const auto& light : m_directionalLights ) {
             auto& target_image = vkctx->ImageCodex.GetImage( light.shadowMap );
@@ -523,7 +523,7 @@ namespace TL {
         const auto& gbuffer = frame.gBuffer;
         auto&       hdr     = vkctx->ImageCodex.GetImage( frame.hdrColor );
 
-        auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
+        static auto pipeline_config = PipelineConfig{
                 .name                 = "pbr",
                 .vertex               = "../shaders/fullscreen_tri.vert.spv",
                 .pixel                = "../shaders/pbr.frag.spv",
@@ -534,7 +534,8 @@ namespace TL {
                 .pushConstantRanges   = { { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                                             .offset     = 0,
                                             .size       = sizeof( PbrPushConstants ) } },
-                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ), m_pbrSetLayout } } );
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ), m_pbrSetLayout } };
+        auto pipeline = vkctx->GetOrCreatePipeline( pipeline_config );
 
         VkClearValue              clear_color      = { 0.0f, 0.0f, 0.0f, 0.0f };
         VkRenderingAttachmentInfo color_attachment = AttachmentInfo( hdr.GetBaseView( ), &clear_color );
@@ -593,7 +594,7 @@ namespace TL {
         auto& hdr   = vkctx->ImageCodex.GetImage( frame.hdrColor );
         auto& depth = vkctx->ImageCodex.GetImage( frame.depth );
 
-        auto pipeline = vkctx->GetOrCreatePipeline( PipelineConfig{
+        static auto pipeline_config = PipelineConfig{
                 .name                 = "skybox",
                 .vertex               = "../shaders/skybox.vert.spv",
                 .pixel                = "../shaders/skybox.frag.spv",
@@ -603,7 +604,8 @@ namespace TL {
                 .pushConstantRanges   = { { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                                             .offset     = 0,
                                             .size       = sizeof( SkyboxPushConstants ) } },
-                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) } } );
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) } };
+        auto pipeline = vkctx->GetOrCreatePipeline( pipeline_config );
 
         START_LABEL( cmd, "Skybox Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 6 );
@@ -652,14 +654,14 @@ namespace TL {
         auto& frame = vkctx->GetCurrentFrame( );
         auto  cmd   = frame.commandBuffer;
 
-        auto pipeline = vkctx->GetOrCreatePipeline( TL::PipelineConfig{
+        static auto pipeline_config = PipelineConfig{
                 .name                 = "posprocess",
                 .compute              = "../shaders/post_process.comp.spv",
                 .pushConstantRanges   = { { .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
                                             .offset     = 0,
                                             .size       = sizeof( PostProcessPushConstants ) } },
-                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) },
-        } );
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) } };
+        auto pipeline = vkctx->GetOrCreatePipeline( pipeline_config );
 
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 8 );
 

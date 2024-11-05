@@ -29,7 +29,6 @@ namespace TL {
         ImageId GetBrdf( ) const { return m_brdf; }
 
     private:
-        void InitComputes( TL_VkContext& gfx );
         void InitTextures( TL_VkContext& gfx );
 
         void GenerateSkybox( TL_VkContext& gfx, VkCommandBuffer cmd ) const;
@@ -46,20 +45,6 @@ namespace TL {
         ImageId m_irradiance = renderer::ImageCodex::InvalidImageId; // Cubemap
         ImageId m_radiance   = renderer::ImageCodex::InvalidImageId; // Cubemap
         ImageId m_brdf       = renderer::ImageCodex::InvalidImageId; // 2D
-
-        BindlessCompute m_irradiancePipeline = { };
-        VkDescriptorSet m_irradianceSet      = nullptr;
-
-        struct RadiancePushConstants {
-            ImageId input;
-            int     mipmap;
-            float   roughness;
-        };
-        BindlessCompute                m_radiancePipeline = { };
-        std::array<VkDescriptorSet, 6> m_radianceSets     = { };
-
-        BindlessCompute m_brdfPipeline = { };
-        VkDescriptorSet m_brdfSet      = nullptr;
     };
 
 } // namespace TL
