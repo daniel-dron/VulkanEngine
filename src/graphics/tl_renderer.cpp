@@ -16,7 +16,7 @@
 #include "tl_renderer.h"
 
 #include <graphics/ibl.h>
-#include <vk_initializers.h>
+#include <graphics/utils/vk_initializers.h>
 #include "resources/r_pipeline.h"
 
 using namespace vk_init;

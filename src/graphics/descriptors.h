@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include <vk_types.h>
+#include <graphics/utils/vk_types.h>
 
 #include <span>
 

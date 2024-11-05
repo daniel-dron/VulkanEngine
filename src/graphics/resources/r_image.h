@@ -14,7 +14,7 @@
 #pragma once
 
 #include <memory>
-#include <vk_types.h>
+#include <graphics/utils/vk_types.h>
 
 #include <graphics/bindless.h>
 

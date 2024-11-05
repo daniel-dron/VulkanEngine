@@ -13,8 +13,8 @@
 
 #include <pch.h>
 
-#include <vk_initializers.h>
-#include <vk_pipelines.h>
+#include <graphics/utils/vk_initializers.h>
+#include <graphics/utils/vk_pipelines.h>
 
 void PipelineBuilder::Clear( ) {
     m_inputAssembly = { .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };

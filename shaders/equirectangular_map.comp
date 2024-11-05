@@ -5,10 +5,9 @@
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
-layout (set = 1, binding = 0, rgba32f) uniform imageCube outputCubemap;
-
 layout (push_constant) uniform PushConstant {
     int inputTextureID;
+    int outputTextureID;
 } pc;
 
 const float PI = 3.14159265359;
@@ -20,7 +19,7 @@ vec3 getSampleDirection(ivec3 cubeCoord, ivec2 cubeSize) {
     switch(cubeCoord.z) {
         case 0: dir = vec3(1.0, uv.y, -uv.x); break;  // Positive X
         case 1: dir = vec3(-1.0, uv.y, uv.x); break;  // Negative X
-        case 2: dir = vec3(uv.x, -1.0, uv.y); break;    // Positive Y
+        case 2: dir = vec3(uv.x, -1.0, uv.y); break;  // Positive Y
         case 3: dir = vec3(uv.x, 1.0, -uv.y); break;  // Negative Y
         case 4: dir = vec3(uv.x, uv.y, 1.0); break;   // Positive Z
         case 5: dir = vec3(-uv.x, uv.y, -1.0); break; // Negative Z
@@ -38,8 +37,8 @@ vec2 sampleSphericalMap(vec3 dir) {
 
 void main() {
     ivec3 outputCoord = ivec3(gl_GlobalInvocationID.xyz);
-    ivec2 outputSize = imageSize(outputCubemap).xy;
-    
+    ivec2 outputSize = GetStorageImageSize(pc.outputTextureID);
+
     if (outputCoord.x >= outputSize.x || outputCoord.y >= outputSize.y || outputCoord.z >= 6) {
         return;
     }
@@ -49,5 +48,5 @@ void main() {
     
     vec4 color = sampleTexture2DNearest(pc.inputTextureID, uv);
     
-    imageStore(outputCubemap, outputCoord, color);
+    StorageCubemapPixelAt(pc.outputTextureID, outputCoord, color);
 }

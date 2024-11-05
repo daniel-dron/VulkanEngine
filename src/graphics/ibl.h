@@ -50,9 +50,6 @@ namespace TL {
         BindlessCompute m_irradiancePipeline = { };
         VkDescriptorSet m_irradianceSet      = nullptr;
 
-        BindlessCompute m_equirectangularPipeline = { };
-        VkDescriptorSet m_equiSet                 = nullptr;
-
         struct RadiancePushConstants {
             ImageId input;
             int     mipmap;

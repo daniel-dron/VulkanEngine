@@ -13,29 +13,29 @@
 
 #include <pch.h>
 
-#include "vk_engine.h"
+#include <engine/tl_engine.h>
 
-#include <SDL.h>
-#include <engine/loader.h>
+#include <SDL2/SDL.h>
 #include <glm/gtc/type_ptr.hpp>
-#include <graphics/pipelines/compute_pipeline.h>
-#include <graphics/tl_renderer.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 #include <tracy/Tracy.hpp>
+#include <graphics/pipelines/compute_pipeline.h>
+#include <graphics/tl_renderer.h>
+#include <graphics/utils/vk_initializers.h>
+#include <graphics/utils/vk_types.h>
 #include <utils/ImGuiProfilerRenderer.h>
-#include <vk_initializers.h>
-#include <vk_types.h>
+#include <engine/loader.h>
 #include <vulkan/vulkan_core.h>
-#include "SDL_events.h"
-#include "SDL_stdinc.h"
-#include "SDL_video.h"
-#include "engine/input.h"
+#include "SDL2/SDL_events.h"
+#include "SDL2/SDL_stdinc.h"
+#include "SDL2/SDL_video.h"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/packing.hpp"
-#include "imguizmo/ImGuizmo.h"
-#include "vk_mem_alloc.h"
+#include "vma/vk_mem_alloc.h"
+#include "../imguizmo/ImGuizmo.h"
+#include "input.h"
 
 TL_Engine*            g_TL             = nullptr;
 utils::VisualProfiler g_visualProfiler = utils::VisualProfiler( 300 );

@@ -16,7 +16,7 @@
 #include <camera/camera.h>
 #include <graphics/light.h>
 #include <math/transform.h>
-#include <vk_types.h>
+#include <graphics/utils/vk_types.h>
 
 #include <memory>
 

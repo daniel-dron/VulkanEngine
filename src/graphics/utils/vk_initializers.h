@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <vk_types.h>
+#include <graphics/utils/vk_types.h>
 
 namespace vk_init {
 	VkCommandPoolCreateInfo CommandPoolCreateInfo(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags = 0 );

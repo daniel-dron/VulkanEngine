@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include <vk_types.h>
+#include <graphics/utils/vk_types.h>
 
 struct Frustum {
     enum side { LEFT = 0, RIGHT = 1, TOP = 2, BOTTOM = 3, BACK = 4, FRONT = 5 };

@@ -18,7 +18,7 @@
 #include <SDL2/SDL_vulkan.h>
 #include <VkBootstrap.h>
 #include <imgui.h>
-#include <vk_initializers.h>
+#include <graphics/utils/vk_initializers.h>
 
 #include "r_pipeline.h"
 

@@ -1,11 +1,13 @@
 #extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_shader_image_load_formatted : require
 
 layout (set = 0, binding = 0) uniform texture2D textures[];
 layout (set = 0, binding = 0) uniform texture2DMS texturesMS[];
 layout (set = 0, binding = 0) uniform textureCube textureCubes[];
 layout (set = 0, binding = 0) uniform texture2DArray textureArrays[];
 layout (set = 0, binding = 1) uniform sampler samplers[];
-layout (set = 0, binding = 2, rgba8) uniform image2D storageImages[];
+layout (set = 0, binding = 2) uniform image2D storageImages[];
+layout (set = 0, binding = 2) uniform imageCube storageCubemapImages[];
 
 #define NEAREST_SAMPLER_ID 0
 #define LINEAR_SAMPLER_ID  1
@@ -41,4 +43,8 @@ ivec2 GetStorageImageSize(uint tex_id) {
 
 void StoragePixelAt(uint tex_id, ivec2 pos, vec4 color) {
     imageStore(nonuniformEXT(storageImages[tex_id]), pos, color);
+}
+
+void StorageCubemapPixelAt(uint tex_id, ivec3 pos, vec4 color) {
+    imageStore(nonuniformEXT(storageCubemapImages[tex_id]), pos, color);
 }

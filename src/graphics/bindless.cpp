@@ -16,7 +16,7 @@
 #include <graphics/resources/r_resources.h>
 #include "bindless.h"
 
-#include "vk_engine.h"
+#include "../engine/tl_engine.h"
 
 void BindlessRegistry::Init( TL_VkContext& gfx ) {
     // Create descriptor pool

@@ -15,14 +15,14 @@
 
 #include <engine/scene.h>
 #include <graphics/pipelines/imgui_pipeline.h>
+#include <graphics/utils/vk_types.h>
 #include <utils/ImGuiProfilerRenderer.h>
 #include <utils/imgui_console.h>
-#include <vk_types.h>
 #include <vulkan/vulkan_core.h>
-#include "camera/camera.h"
-#include "graphics/resources/r_resources.h"
-#include "graphics/tl_renderer.h"
-#include "utils/profiler.h"
+#include "../camera/camera.h"
+#include "../graphics/resources/r_resources.h"
+#include "../graphics/tl_renderer.h"
+#include "../utils/profiler.h"
 
 class TL_Engine;
 

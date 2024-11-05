@@ -12,7 +12,7 @@
 ******************************************************************************/
 
 #include <pch.h>
-#include <vk_initializers.h>
+#include <graphics/utils/vk_initializers.h>
 
 VkCommandPoolCreateInfo vk_init::CommandPoolCreateInfo( const uint32_t queueFamilyIndex, const VkCommandPoolCreateFlags flags ) {
     const VkCommandPoolCreateInfo info = {

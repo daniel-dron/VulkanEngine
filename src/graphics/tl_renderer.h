@@ -15,7 +15,7 @@
 #include <graphics/ibl.h>
 #include <graphics/resources/r_buffer.h>
 #include <graphics/resources/r_resources.h>
-#include <vk_types.h>
+#include <graphics/utils/vk_types.h>
 
 #include "draw_command.h"
 

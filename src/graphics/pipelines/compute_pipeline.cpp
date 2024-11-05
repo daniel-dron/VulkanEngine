@@ -15,8 +15,8 @@
 
 #include "compute_pipeline.h"
 
-#include "vk_engine.h"
-#include "vk_initializers.h"
+#include <graphics/utils/vk_initializers.h>
+#include "../../engine/tl_engine.h"
 
 void BindlessCompute::AddDescriptorSetLayout( uint32_t binding, VkDescriptorType type ) {
     m_layoutBuilder.AddBinding( binding, type );

@@ -14,7 +14,7 @@
 #pragma once
 
 #include <expected>
-#include <vk_types.h>
+#include <graphics/utils/vk_types.h>
 
 class TL_VkContext;
 

@@ -16,7 +16,7 @@
 #include "r_image.h"
 
 #include <graphics/resources/r_resources.h>
-#include <vk_types.h>
+#include <graphics/utils/vk_types.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>

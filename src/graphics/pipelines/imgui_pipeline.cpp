@@ -16,26 +16,26 @@
 #include "imgui_pipeline.h"
 
 #include <algorithm>
-#include <vk_initializers.h>
-#include <vk_pipelines.h>
+#include <graphics/utils/vk_initializers.h>
+#include <graphics/utils/vk_pipelines.h>
 
+#include "../../engine/tl_engine.h"
 #include "../resources/r_resources.h"
-#include "vk_engine.h"
 
 using namespace vk_init;
 
 static constexpr int MAX_IDX_COUNT = 1000000;
 static constexpr int MAX_VTX_COUNT = 1000000;
 
-ImGuiPipeline::Result<> ImGuiPipeline::Init( TL_VkContext &gfx ) {
+ImGuiPipeline::Result<> ImGuiPipeline::Init( TL_VkContext& gfx ) {
     // Setup imgui resources in our engine
-    auto &io               = ImGui::GetIO( );
+    auto& io               = ImGui::GetIO( );
     io.BackendRendererName = "Vulkan Bindless Backend";
     io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
 
     // font
     {
-        uint8_t *data   = nullptr;
+        uint8_t* data   = nullptr;
         int      width  = 0;
         int      height = 0;
         io.Fonts->GetTexDataAsRGBA32( &data, &width, &height );
@@ -58,8 +58,8 @@ ImGuiPipeline::Result<> ImGuiPipeline::Init( TL_VkContext &gfx ) {
                                               TL_VkContext::FrameOverlap, nullptr, "[TL] ImGui Vertex Buffer" );
     }
 
-    auto &frag_shader = gfx.shaderStorage->Get( "imgui", TFragment );
-    auto &vert_shader = gfx.shaderStorage->Get( "imgui", TVertex );
+    auto& frag_shader = gfx.shaderStorage->Get( "imgui", TFragment );
+    auto& vert_shader = gfx.shaderStorage->Get( "imgui", TVertex );
 
     VkPushConstantRange range = {
             .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -107,7 +107,7 @@ ImGuiPipeline::Result<> ImGuiPipeline::Init( TL_VkContext &gfx ) {
     return { };
 }
 
-void ImGuiPipeline::Cleanup( TL_VkContext &gfx ) {
+void ImGuiPipeline::Cleanup( TL_VkContext& gfx ) {
     vkDestroyPipelineLayout( gfx.device, m_layout, nullptr );
     vkDestroyPipeline( gfx.device, m_pipeline, nullptr );
 
@@ -115,7 +115,7 @@ void ImGuiPipeline::Cleanup( TL_VkContext &gfx ) {
     m_vertexBuffer.reset( );
 }
 
-void ImGuiPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImDrawData *drawData ) {
+void ImGuiPipeline::Draw( TL_VkContext& gfx, VkCommandBuffer cmd, ImDrawData* drawData ) {
     assert( drawData );
     if ( drawData->TotalVtxCount == 0 ) {
         return;
@@ -130,7 +130,7 @@ void ImGuiPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImDrawData *dr
     size_t     index_offset        = 0;
     size_t     vertex_offset       = 0;
     for ( i32 i = 0; i < drawData->CmdListsCount; i++ ) {
-        const auto &cmd_list = *drawData->CmdLists[i];
+        const auto& cmd_list = *drawData->CmdLists[i];
 
         // index
         m_indexBuffer->Upload( cmd_list.IdxBuffer.Data, sizeof( ImDrawIdx ) * index_offset,
@@ -150,7 +150,7 @@ void ImGuiPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImDrawData *dr
     auto bindless_set = gfx.GetBindlessSet( );
     vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &bindless_set, 0, nullptr );
 
-    auto      &target_image = gfx.ImageCodex.GetImage( gfx.GetCurrentFrame( ).hdrColor );
+    auto&      target_image = gfx.ImageCodex.GetImage( gfx.GetCurrentFrame( ).hdrColor );
     VkViewport viewport     = {
                 .x        = 0,
                 .y        = 0,
@@ -171,9 +171,9 @@ void ImGuiPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImDrawData *dr
                           VK_INDEX_TYPE_UINT16 );
 
     for ( int cmd_list_id = 0; cmd_list_id < drawData->CmdListsCount; cmd_list_id++ ) {
-        const auto &cmd_list = *drawData->CmdLists[cmd_list_id];
+        const auto& cmd_list = *drawData->CmdLists[cmd_list_id];
         for ( int cmd_id = 0; cmd_id < cmd_list.CmdBuffer.Size; cmd_id++ ) {
-            const auto &im_cmd = cmd_list.CmdBuffer[cmd_id];
+            const auto& im_cmd = cmd_list.CmdBuffer[cmd_id];
             if ( im_cmd.UserCallback && im_cmd.UserCallback != ImDrawCallback_ResetRenderState ) {
                 im_cmd.UserCallback( &cmd_list, &im_cmd );
                 continue;
@@ -201,7 +201,7 @@ void ImGuiPipeline::Draw( TL_VkContext &gfx, VkCommandBuffer cmd, ImDrawData *dr
             }
 
             bool        is_srgb = true;
-            const auto &texture = gfx.ImageCodex.GetImage( texture_id );
+            const auto& texture = gfx.ImageCodex.GetImage( texture_id );
             if ( texture.GetFormat( ) == VK_FORMAT_R8G8B8A8_SRGB ||
                  texture.GetFormat( ) == VK_FORMAT_R16G16B16A16_SFLOAT ) {
                 is_srgb = false;
