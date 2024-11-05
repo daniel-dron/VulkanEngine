@@ -46,10 +46,10 @@ namespace TL {
             const auto cmd_begin_info = vk_init::CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
             VKCALL( vkBeginCommandBuffer( m_computeCommand, &cmd_begin_info ) );
 
-            GenerateSkybox( gfx, m_computeCommand );
-            GenerateIrradiance( gfx, m_computeCommand );
-            GenerateRadiance( gfx, m_computeCommand );
-            GenerateBrdf( gfx, m_computeCommand );
+            GenerateSkybox( m_computeCommand );
+            GenerateIrradiance( m_computeCommand );
+            GenerateRadiance( m_computeCommand );
+            GenerateBrdf( m_computeCommand );
 
             VKCALL( vkEndCommandBuffer( m_computeCommand ) );
             auto cmd_info        = vk_init::CommandBufferSubmitInfo( m_computeCommand );
@@ -85,7 +85,7 @@ namespace TL {
         vkctx->ImageCodex.bindlessRegistry.AddStorageImage( *vkctx, m_brdf, brdf.GetBaseView( ) );
     }
 
-    void Ibl::GenerateSkybox( TL_VkContext& gfx, const VkCommandBuffer cmd ) const {
+    void Ibl::GenerateSkybox( const VkCommandBuffer cmd ) const {
         const struct PushConstants {
             ImageId Input;
             ImageId Output;
@@ -113,7 +113,7 @@ namespace TL {
         vkCmdDispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16, 6 );
     }
 
-    void Ibl::GenerateIrradiance( TL_VkContext& gfx, const VkCommandBuffer cmd ) const {
+    void Ibl::GenerateIrradiance( const VkCommandBuffer cmd ) const {
         const struct PushConstants {
             ImageId Input;
             ImageId Output;
@@ -141,7 +141,7 @@ namespace TL {
         vkCmdDispatch( cmd, ( output.GetExtent( ).width + 15 ) / 16, ( output.GetExtent( ).height + 15 ) / 16, 6 );
     }
 
-    void Ibl::GenerateRadiance( TL_VkContext& gfx, const VkCommandBuffer cmd ) const {
+    void Ibl::GenerateRadiance( const VkCommandBuffer cmd ) const {
         struct PushConstants {
             ImageId Input;
             ImageId Output;
@@ -181,7 +181,7 @@ namespace TL {
         }
     }
 
-    void Ibl::GenerateBrdf( TL_VkContext& gfx, const VkCommandBuffer cmd ) const {
+    void Ibl::GenerateBrdf( const VkCommandBuffer cmd ) const {
         const struct PushConstants {
             ImageId Output;
         } pc = { .Output = m_brdf };

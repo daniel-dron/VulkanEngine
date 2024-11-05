@@ -29,10 +29,10 @@ namespace TL {
     private:
         void InitTextures( TL_VkContext& gfx );
 
-        void GenerateSkybox( TL_VkContext& gfx, VkCommandBuffer cmd ) const;
-        void GenerateIrradiance( TL_VkContext& gfx, VkCommandBuffer cmd ) const;
-        void GenerateRadiance( TL_VkContext& gfx, VkCommandBuffer cmd ) const;
-        void GenerateBrdf( TL_VkContext& gfx, VkCommandBuffer cmd ) const;
+        void GenerateSkybox( VkCommandBuffer cmd ) const;
+        void GenerateIrradiance( VkCommandBuffer cmd ) const;
+        void GenerateRadiance( VkCommandBuffer cmd ) const;
+        void GenerateBrdf( VkCommandBuffer cmd ) const;
 
         VkCommandBuffer m_computeCommand = nullptr;
         VkFence         m_computeFence   = nullptr;

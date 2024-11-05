@@ -554,17 +554,13 @@ namespace TL {
         vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
 
         auto bindless_set = vkctx->GetBindlessSet( );
-        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0,
-                                 nullptr );
+        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0, nullptr );
 
         // Update all lights and ibl descriptor set to the current frame offset
         DescriptorWriter writer;
-        writer.WriteBuffer( 0, m_gpuIbl->GetVkResource( ), sizeof( IblSettings ), m_gpuIbl->GetCurrentOffset( ),
-                            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-        writer.WriteBuffer( 1, m_gpuDirectionalLightsBuffer->GetVkResource( ), sizeof( GpuDirectionalLight ) * 10,
-                            m_gpuDirectionalLightsBuffer->GetCurrentOffset( ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-        writer.WriteBuffer( 2, m_gpuPointLightsBuffer->GetVkResource( ), sizeof( GpuPointLight ) * 10,
-                            m_gpuPointLightsBuffer->GetCurrentOffset( ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+        writer.WriteBuffer( 0, m_gpuIbl->GetVkResource( ), sizeof( IblSettings ), m_gpuIbl->GetCurrentOffset( ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+        writer.WriteBuffer( 1, m_gpuDirectionalLightsBuffer->GetVkResource( ), sizeof( GpuDirectionalLight ) * 10, m_gpuDirectionalLightsBuffer->GetCurrentOffset( ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+        writer.WriteBuffer( 2, m_gpuPointLightsBuffer->GetVkResource( ), sizeof( GpuPointLight ) * 10, m_gpuPointLightsBuffer->GetCurrentOffset( ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
         writer.UpdateSet( vkctx->device, m_pbrSet.GetCurrentFrame( ) );
 
         auto set = m_pbrSet.GetCurrentFrame( );
@@ -578,8 +574,7 @@ namespace TL {
                                             .irradianceTex    = m_ibl->GetIrradiance( ),
                                             .radianceTex      = m_ibl->GetRadiance( ),
                                             .brdfLut          = m_ibl->GetBrdf( ) };
-        vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                            sizeof( PbrPushConstants ), &push_constants );
+        vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( PbrPushConstants ), &push_constants );
 
         vkCmdDraw( cmd, 3, 1, 0, 0 );
 
