@@ -50,9 +50,6 @@
 // STB
 #include <stb_image.h>
 
-// Meshopt
-#include <meshoptimizer.h>
-
 // Vulkan
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>

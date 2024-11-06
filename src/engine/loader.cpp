@@ -25,8 +25,6 @@
 #include <graphics/resources/r_image.h>
 #include <graphics/resources/r_resources.h>
 
-#include <meshoptimizer.h>
-
 #include "tl_engine.h"
 
 #include <filesystem>
