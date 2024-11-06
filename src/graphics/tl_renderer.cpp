@@ -517,10 +517,10 @@ namespace TL {
 
         IndirectPushConstant push_constants = {
                 .WorldFromLocal          = m_renderables[0].Transform,
-                .TestVertexBufferAddress = vkctx->MeshPool.GetMesh( m_renderables[0].MeshHandle ).VertexBuffer->GetDeviceAddress( ), // m_perDrawDataBuffer->GetDeviceAddress( ),
+                .TestVertexBufferAddress = vkctx->MeshPool.GetMesh( m_renderables[0].MeshHandle ).VertexBuffer->GetDeviceAddress( ), // Here for test
                 .SceneDataAddress        = m_sceneBufferGpu->GetDeviceAddress( ),
                 .PerDrawDataAddress      = m_perDrawDataBuffer->GetDeviceAddress( ),
-                .pad                     = 0xbeef };
+        };
         vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( IndirectPushConstant ), &push_constants );
 
         vkCmdBindIndexBuffer( cmd, m_currentFrameIndexBlob->GetVkResource( ), 0, VK_INDEX_TYPE_UINT32 );
@@ -529,7 +529,7 @@ namespace TL {
                 cmd,
                 m_indirectBuffer->GetVkResource( ),
                 0,
-                m_indirectDrawCount,
+                1, //m_indirectDrawCount,
                 sizeof( VkDrawIndexedIndirectCommand ) );
 
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 3 );
@@ -931,7 +931,7 @@ namespace TL {
                     .WorldFromLocal      = renderable.Transform,
                     .VertexBufferAddress = mesh.VertexBuffer->GetDeviceAddress( ),
                     .MaterialId          = renderable.MaterialHandle.index,
-                    .pad01               = 1 };
+            };
 
             indirect_commands.push_back( draw_command );
             draw_datas.push_back( draw_data );

@@ -11,13 +11,13 @@
 #include "scene.glsl"
 
 struct Vertex {
-    vec4 Position;// 16 bytes (vec3 position + float uv_x)
-    vec4 Normal;// 16 bytes (vec3 normal + float uv_y)
-    vec4 Tangent;// 16 bytes (vec3 tangent + padding)
-    vec4 Bitangent;// 16 bytes (vec3 bitangent + padding)
+    vec4 Position;   // 16 bytes (vec3 position + float uv_x)
+    vec4 Normal;     // 16 bytes (vec3 normal + float uv_y)
+    vec4 Tangent;    // 16 bytes (vec3 tangent + padding)
+    vec4 Bitangent;  // 16 bytes (vec3 bitangent + padding)
 };
 
-layout(buffer_reference, scalar) readonly buffer VertexBuffer {
+layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer VertexBuffer {
     Vertex vertices[];
 };
 
@@ -26,26 +26,25 @@ layout(buffer_reference, scalar) readonly buffer IndexBuffer {
 };
 
 struct PerDrawData {
-    mat4            WorldFromLocal;
-    VertexBuffer    VertexBufferAddress;
+    mat4 			WorldFromLocal;
+    VertexBuffer	VertexBufferAddress;
     int             MaterialId;
-    int             pad01;
 };
 
-layout(buffer_reference, scalar) readonly buffer PerDrawDataList {
+layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer PerDrawDataList {
     PerDrawData datas[];
 };
 
-layout(set = 1, binding = 0) readonly buffer SBPerDrawDataBuffer {
-    PerDrawData datas[];
-} sbo;
-
-layout(push_constant) uniform constants {
+layout( push_constant, scalar, buffer_reference_align = 8) uniform constants {
     mat4 WorldFromLocal;
     VertexBuffer VertexBufferAddress;
     SceneBuffer scene;
     PerDrawDataList draw_data;
 } pc;
+
+layout(set = 1, binding = 0) readonly buffer SBPerDrawDataBuffer {
+    PerDrawData datas[];
+} sbo;
 
 layout (location = 0) in vec2 in_uvs;
 layout (location = 1) in vec3 in_frag_pos;

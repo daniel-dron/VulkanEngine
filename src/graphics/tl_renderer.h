@@ -54,7 +54,6 @@ namespace TL {
         int             numberOfPointLights;
     };
 
-    // TODO: move this
     struct MeshPushConstants {
         Mat4            worldFromLocal;
         VkDeviceAddress sceneDataAddress;
@@ -68,14 +67,12 @@ namespace TL {
         VkDeviceAddress TestVertexBufferAddress;
         VkDeviceAddress SceneDataAddress;
         VkDeviceAddress PerDrawDataAddress;
-        u64             pad;
     };
 
     struct PerDrawData {
         Mat4            WorldFromLocal;
         VkDeviceAddress VertexBufferAddress;
         u32             MaterialId;
-        u32             pad01;
     };
 
     struct ShadowMapPushConstants {

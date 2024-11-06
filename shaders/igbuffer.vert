@@ -5,6 +5,7 @@
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_ARB_shader_draw_parameters : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_buffer_reference2 : require
 
 #include "bindless.glsl"
 #include "input_structures.glsl"
@@ -15,33 +16,29 @@ struct Vertex {
     vec4 Normal;     // 16 bytes (vec3 normal + float uv_y)
     vec4 Tangent;    // 16 bytes (vec3 tangent + padding)
     vec4 Bitangent;  // 16 bytes (vec3 bitangent + padding)
-}; 
-
-layout(buffer_reference, scalar) readonly buffer VertexBuffer { 
-    Vertex vertices[];
 };
 
-layout(buffer_reference, scalar) readonly buffer IndexBuffer {
-	uint indices[];
+layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer VertexBuffer {
+    Vertex vertices[];
 };
 
 struct PerDrawData {
 	mat4 			WorldFromLocal;
 	VertexBuffer	VertexBufferAddress;
 	int             MaterialId;
-	int             pad01;
 };
 
-layout(buffer_reference, std430) readonly buffer PerDrawDataList {
+layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer PerDrawDataList {
 	PerDrawData datas[];
 };
 
-layout( push_constant ) uniform constants {
+layout( push_constant, scalar, buffer_reference_align = 8) uniform constants {
 	mat4 WorldFromLocal;
 	VertexBuffer VertexBufferAddress;
 	SceneBuffer scene;
 	PerDrawDataList draw_data;
 } pc;
+
 
 layout(set = 1, binding = 0) readonly buffer SBPerDrawDataBuffer {
 	PerDrawData datas[];
@@ -54,18 +51,19 @@ layout (location = 3) flat out int out_material_id;
 layout (location = 4) out mat3 out_tbn;
 
 void main()
-{	
+{
 	PerDrawData data = sbo.datas[gl_DrawIDARB];
-//	PerDrawData data = pc.draw_data.datas[gl_DrawIDARB];
+//    PerDrawData data = pc.draw_data.datas[gl_DrawIDARB];
+
     Vertex v = data.VertexBufferAddress.vertices[gl_VertexIndex];
 
 	vec4 position = vec4(v.Position.xyz, 1.0f);
 	gl_Position = pc.scene.viewproj * data.WorldFromLocal * position;
 
 	Material material = pc.scene.materials.mat[data.MaterialId];
+    out_material_id = data.MaterialId;
 
-	out_uvs.x = v.Position.z;
-	out_uvs.y = v.Normal.z;
+	out_uvs = vec2(v.Position.w, v.Normal.w);
 	out_frag_pos = (data.WorldFromLocal * position).xyz;
 
 	vec3 T = normalize(vec3(data.WorldFromLocal * vec4(v.Tangent.xyz, 0.0)));

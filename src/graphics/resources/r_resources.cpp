@@ -499,13 +499,16 @@ TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window* window ) {
             .descriptorBindingStorageImageUpdateAfterBind = true,
             .descriptorBindingPartiallyBound              = true,
             .runtimeDescriptorArray                       = true,
+            .scalarBlockLayout                            = true,
             .hostQueryReset                               = true,
             .bufferDeviceAddress                          = true,
     };
     VkPhysicalDeviceVulkan11Features features_11{
-            .sType                = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
-            .multiview            = true,
-            .shaderDrawParameters = true,
+            .sType                         = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+            .multiview                     = true,
+            .variablePointersStorageBuffer = true,
+            .variablePointers              = true,
+            .shaderDrawParameters          = true,
     };
     VkPhysicalDeviceFeatures features{
             .multiDrawIndirect = true,
