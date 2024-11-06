@@ -515,6 +515,8 @@ namespace TL {
         vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0, nullptr );
         vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 1, 1, &per_draw_data_set, 0, nullptr );
 
+
+
         IndirectPushConstant push_constants = {
                 .WorldFromLocal          = m_renderables[0].Transform,
                 .TestVertexBufferAddress = vkctx->MeshPool.GetMesh( m_renderables[0].MeshHandle ).VertexBuffer->GetDeviceAddress( ), // Here for test
