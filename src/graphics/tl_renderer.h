@@ -62,6 +62,22 @@ namespace TL {
         uint32_t        materialId;
     };
 
+    // Indirect stuff
+    struct IndirectPushConstant {
+        Mat4            WorldFromLocal;
+        VkDeviceAddress TestVertexBufferAddress;
+        VkDeviceAddress SceneDataAddress;
+        VkDeviceAddress PerDrawDataAddress;
+        u64             pad;
+    };
+
+    struct PerDrawData {
+        Mat4            WorldFromLocal;
+        VkDeviceAddress VertexBufferAddress;
+        u32             MaterialId;
+        u32             pad01;
+    };
+
     struct ShadowMapPushConstants {
         Mat4            projection;
         Mat4            view;
@@ -135,6 +151,8 @@ namespace TL {
         bool    useFrozenFrustum = false; // Toggle the usage of the last saved frustum
         Frustum lastSavedFrustum = { };   // The frustum to be used when frustum checks are frozen.
                                           // Used for debug purposes
+
+        bool UseIndirectDraw = true;
     };
 
     struct Renderable {
@@ -142,6 +160,7 @@ namespace TL {
         renderer::MaterialHandle MaterialHandle;
         Mat4                     Transform;
         AABoundingBox            Aabb;
+        u32                      FirstIndex;
     };
 
     class Renderer {
@@ -199,6 +218,7 @@ namespace TL {
         void PrepareSkyboxPass( );
 
         void GBufferPass( );
+        void IndirectGBufferPass( );
         void ShadowMapPass( );
         void PbrPass( );
         void SkyboxPass( );
@@ -218,12 +238,23 @@ namespace TL {
         std::vector<GpuPointLight>       m_pointLights;
 
         // Draw Commands
-
         VisibilityResult             VisibilityCheckWithLOD( const Mat4& transform, const AABoundingBox* aabb,
                                                              const Frustum& frustum ) const;
         void                         CreateDrawCommands( );
         std::vector<MeshDrawCommand> m_drawCommands;
         std::vector<MeshDrawCommand> m_shadowMapCommands;
+
+        // Indirect Draw Commands
+        void                    PrepareIndirectBuffers( );
+        void                    UpdateIndirectCommands( ); // Used to update the indirect draw command buffers if using indirect draw.
+        const u64               MAX_DRAWS = 10000;         // Max number of indirect draw calls.
+        std::unique_ptr<Buffer> m_indirectBuffer;          // Buffer containing all indexd indirect commands.
+        std::unique_ptr<Buffer> m_perDrawDataBuffer;       // List of per instance data used in indirect draw.
+        u64                     m_indirectDrawCount     = { };
+        Buffer*                 m_currentFrameIndexBlob = nullptr;
+        std::vector<u32>        m_firstIndices          = { };
+        VkDescriptorSetLayout   m_perDrawDataLayout     = { };
+        MultiDescriptorSet      m_perDrawDataMultiSet   = { };
 
         // PBR pipelin stuff (WIP)
         VkDescriptorSetLayout   m_pbrSetLayout               = VK_NULL_HANDLE;

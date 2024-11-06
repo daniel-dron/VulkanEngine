@@ -15,8 +15,8 @@
 
 #include <camera/camera.h>
 #include <graphics/light.h>
-#include <math/transform.h>
 #include <graphics/utils/vk_types.h>
+#include <math/transform.h>
 
 #include <memory>
 
@@ -66,6 +66,8 @@ struct Scene {
 
     std::vector<TL::renderer::MaterialHandle> Materials;
     std::vector<TL::renderer::MeshHandle>     Meshes;
+    std::vector<u32>                          FirstIndices;         // First index to be passed to the draw command.
+    std::unique_ptr<TL::Buffer>               SceneBlobIndexBuffer; // This buffer contains all index buffers merged into one, futurally used for indirect draw calls.
     std::vector<std::shared_ptr<Node>>        TopNodes;
     std::vector<std::shared_ptr<Node>>        AllNodes;
     std::vector<Camera>                       Cameras;

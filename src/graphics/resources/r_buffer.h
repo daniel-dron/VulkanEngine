@@ -14,18 +14,28 @@
 
 namespace TL {
 
-    enum class BufferType { TIndex, TVertex, TConstant, TStorage, TStaging, TImGuiIndex, TImGuiVertex, TMax };
+    enum class BufferType { TIndex,
+                            TVertex,
+                            TConstant,
+                            TStorage,
+                            TStaging,
+                            TImGuiIndex,
+                            TImGuiVertex,
+                            TIndirect,
+                            TMax };
 
     class Buffer {
     public:
          Buffer( ) = default;
-         Buffer( BufferType type, u64 size, u32 count, const void *data, const std::string &name );
+         Buffer( BufferType type, u64 size, u32 count, const void* data, const std::string& name );
         ~Buffer( );
 
         // If size is 0, it will default to the original size passed through the constructor
-        void Upload( const void *data, u32 size = 0 ) const;
+        void Upload( const void* data, u32 size = 0 ) const;
 
-        void Upload( const void *data, u64 offset, u32 size ) const;
+        void Upload( const void* data, u64 offset, u32 size ) const;
+
+        void UploadAt( const void* data, u32 size, u32 index ) const;
 
         // Call this at the end of the frame to prepare it for next frame usage
         void AdvanceFrame( );
@@ -33,7 +43,7 @@ namespace TL {
         VkBuffer        GetVkResource( ) const { return m_buffer; }
         VkDeviceAddress GetDeviceAddress( ) const {
             assert( m_type == BufferType::TConstant || m_type == BufferType::TStorage ||
-                    m_type == BufferType::TVertex ||
+                    m_type == BufferType::TVertex || m_type == BufferType::TIndex ||
                     m_type == BufferType::TImGuiVertex &&
                             "Device Address only allowed for constant and vertex buffers" );
             assert( m_deviceAddress != 0 && "Invalid device address" );
@@ -42,6 +52,7 @@ namespace TL {
 
         u64           GetCurrentOffset( ) const { return m_offset; }
         VmaAllocation GetAllocation( ) const { return m_allocation; }
+        u64           GetSize( ) const { return m_size; }
 
     private:
         VkBuffer m_buffer = VK_NULL_HANDLE;

@@ -42,6 +42,7 @@ namespace TL {
 
         PreparePbrPass( );
         PrepareSkyboxPass( );
+        PrepareIndirectBuffers( );
     }
 
     void Renderer::Cleanup( ) {
@@ -89,10 +90,17 @@ namespace TL {
 
     void Renderer::Frame( ) noexcept {
         auto& frame = vkctx->GetCurrentFrame( );
-        ShadowMapPass( );
 
-        SetViewportAndScissor( frame.commandBuffer );
-        GBufferPass( );
+        if ( settings.UseIndirectDraw ) {
+            // TODO: shadow map pass
+            SetViewportAndScissor( frame.commandBuffer );
+            IndirectGBufferPass( );
+        }
+        else {
+            ShadowMapPass( );
+            SetViewportAndScissor( frame.commandBuffer );
+            GBufferPass( );
+        }
         PbrPass( );
         SkyboxPass( );
 
@@ -145,7 +153,8 @@ namespace TL {
                             .MeshHandle     = scene.Meshes[mesh_asset.MeshIndex],
                             .MaterialHandle = scene.Materials[mesh_asset.MaterialIndex],
                             .Transform      = node->GetTransformMatrix( ),
-                            .Aabb           = node->BoundingBoxes[i++] };
+                            .Aabb           = node->BoundingBoxes[i++],
+                            .FirstIndex     = scene.FirstIndices[mesh_asset.MeshIndex] };
                     m_renderables.push_back( renderable );
                 }
             }
@@ -211,6 +220,10 @@ namespace TL {
         m_sceneData.cameraPosition            = Vec4( m_camera->GetPosition( ), 0.0f );
         m_sceneData.numberOfDirectionalLights = static_cast<int>( m_directionalLights.size( ) );
         m_sceneData.numberOfPointLights       = static_cast<int>( m_pointLights.size( ) );
+
+        // save blob index buffer
+        m_currentFrameIndexBlob = scene.SceneBlobIndexBuffer.get( );
+        m_firstIndices          = scene.FirstIndices;
     }
 
     void Renderer::OnResize( u32 width, u32 height ) {
@@ -224,12 +237,20 @@ namespace TL {
 
         frame.deletionQueue.Flush( );
 
-        CreateDrawCommands( );
+        if ( settings.UseIndirectDraw ) {
+            UpdateIndirectCommands( );
+        }
+        else {
+            CreateDrawCommands( );
+        }
 
         m_sceneBufferGpu->AdvanceFrame( );
         m_gpuIbl->AdvanceFrame( );
         m_gpuDirectionalLightsBuffer->AdvanceFrame( );
         m_gpuPointLightsBuffer->AdvanceFrame( );
+
+        m_indirectBuffer->AdvanceFrame( );
+        m_perDrawDataBuffer->AdvanceFrame( );
 
         // Upload scene information
         m_gpuIbl->Upload( &iblSettings, sizeof( IblSettings ) );
@@ -432,6 +453,84 @@ namespace TL {
 
             vkCmdDrawIndexed( cmd, draw_command.indexCount, 1, 0, 0, 0 );
         }
+
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 3 );
+        vkCmdEndRendering( cmd );
+        END_LABEL( cmd );
+    }
+
+    void Renderer::IndirectGBufferPass( ) {
+        const auto& frame = vkctx->GetCurrentFrame( );
+        auto        cmd   = frame.commandBuffer;
+
+        auto& gbuffer  = vkctx->GetCurrentFrame( ).gBuffer;
+        auto& albedo   = vkctx->ImageCodex.GetImage( gbuffer.albedo );
+        auto& normal   = vkctx->ImageCodex.GetImage( gbuffer.normal );
+        auto& position = vkctx->ImageCodex.GetImage( gbuffer.position );
+        auto& pbr      = vkctx->ImageCodex.GetImage( gbuffer.pbr );
+        auto& depth    = vkctx->ImageCodex.GetImage( vkctx->GetCurrentFrame( ).depth );
+
+        static auto pipeline_config = PipelineConfig{
+                .name               = "indirect_gbuffer",
+                .vertex             = "../shaders/igbuffer.vert.spv",
+                .pixel              = "../shaders/igbuffer.frag.spv",
+                .cullMode           = VK_CULL_MODE_NONE,
+                .colorTargets       = { { .format = albedo.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
+                                        { .format = normal.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
+                                        { .format = position.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF },
+                                        { .format = pbr.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF } },
+                .pushConstantRanges = { { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                          .offset     = 0,
+                                          .size       = sizeof( IndirectPushConstant ) } },
+
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ), m_perDrawDataLayout } };
+        const auto pipeline = vkctx->GetOrCreatePipeline( pipeline_config );
+
+        VkClearValue clear_color       = { 0.0f, 0.0f, 0.0f, 1.0f };
+        std::array   color_attachments = {
+                AttachmentInfo( albedo.GetBaseView( ), &clear_color ),
+                AttachmentInfo( normal.GetBaseView( ), &clear_color ),
+                AttachmentInfo( position.GetBaseView( ), &clear_color ),
+                AttachmentInfo( pbr.GetBaseView( ), &clear_color ),
+        };
+        VkRenderingAttachmentInfo depth_attachment =
+                DepthAttachmentInfo( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+
+        VkRenderingInfo render_info = { .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                        .pNext                = nullptr,
+                                        .renderArea           = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
+                                        .layerCount           = 1,
+                                        .colorAttachmentCount = static_cast<u32>( color_attachments.size( ) ),
+                                        .pColorAttachments    = color_attachments.data( ),
+                                        .pDepthAttachment     = &depth_attachment,
+                                        .pStencilAttachment   = nullptr };
+
+        START_LABEL( cmd, "GBuffer Pass", Vec4( 1.0f, 1.0f, 0.0f, 1.0 ) );
+        vkCmdBeginRendering( cmd, &render_info );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 2 );
+
+        vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
+        const auto bindless_set      = vkctx->GetBindlessSet( );
+        const auto per_draw_data_set = m_perDrawDataMultiSet.GetCurrentFrame( );
+        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0, nullptr );
+        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 1, 1, &per_draw_data_set, 0, nullptr );
+
+        IndirectPushConstant push_constants = {
+                .WorldFromLocal          = m_renderables[0].Transform,
+                .TestVertexBufferAddress = vkctx->MeshPool.GetMesh( m_renderables[0].MeshHandle ).VertexBuffer->GetDeviceAddress( ), // m_perDrawDataBuffer->GetDeviceAddress( ),
+                .SceneDataAddress        = m_sceneBufferGpu->GetDeviceAddress( ),
+                .PerDrawDataAddress      = m_perDrawDataBuffer->GetDeviceAddress( ),
+                .pad                     = 0xbeef };
+        vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( IndirectPushConstant ), &push_constants );
+
+        vkCmdBindIndexBuffer( cmd, m_currentFrameIndexBlob->GetVkResource( ), 0, VK_INDEX_TYPE_UINT32 );
+
+        vkCmdDrawIndexedIndirect(
+                cmd,
+                m_indirectBuffer->GetVkResource( ),
+                0,
+                m_indirectDrawCount,
+                sizeof( VkDrawIndexedIndirectCommand ) );
 
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 3 );
         vkCmdEndRendering( cmd );
@@ -765,5 +864,83 @@ namespace TL {
                 m_drawCommands.push_back( mdc );
             }
         }
+    }
+
+    void Renderer::PrepareIndirectBuffers( ) {
+        // Indirect commands must be aligned to 4 bytes (32 bits)
+        // VkDrawIndexedIndirectCommand is already properly aligned by default
+        // as all its members are 32-bit values:
+        static_assert( sizeof( VkDrawIndexedIndirectCommand ) % 4 == 0, "Indirect command size must be aligned to 4 bytes" );
+
+        // For draw data, we need 16-byte alignment for mat4 and 8-byte for device addresses
+        static_assert( sizeof( PerDrawData ) % 16 == 0, "Draw data size must be aligned to 16 bytes" );
+
+        m_indirectBuffer    = std::make_unique<Buffer>( BufferType::TIndirect, sizeof( VkDrawIndexedIndirectCommand ) * MAX_DRAWS, TL_VkContext::FrameOverlap, nullptr, "[TL] Draw Indirect" );
+        m_perDrawDataBuffer = std::make_unique<Buffer>( BufferType::TStorage, sizeof( PerDrawData ) * MAX_DRAWS, TL_VkContext::FrameOverlap, nullptr, "[TL]Indirect Per Draw" );
+
+        // Create descriptor set and layout to bind perDrawDataBuffer
+        std::array bindings = {
+                VkDescriptorSetLayoutBinding{
+                        .binding         = 0,
+                        .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                        .descriptorCount = 1,
+                        .stageFlags      = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT } };
+        const VkDescriptorSetLayoutCreateInfo create_info = {
+                .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                .pNext        = nullptr,
+                .flags        = 0,
+                .bindingCount = bindings.size( ),
+                .pBindings    = bindings.data( ) };
+        VKCALL( vkCreateDescriptorSetLayout( vkctx->device, &create_info, nullptr, &m_perDrawDataLayout ) );
+
+        m_perDrawDataMultiSet = vkctx->AllocateMultiSet( m_perDrawDataLayout );
+        DescriptorWriter writer;
+        writer.WriteBuffer( 0, m_perDrawDataBuffer->GetVkResource( ), sizeof( PerDrawData ) * MAX_DRAWS, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER );
+        writer.UpdateSet( vkctx->device, m_perDrawDataMultiSet.m_sets[0] );
+
+        writer = DescriptorWriter( );
+        writer.WriteBuffer( 0, m_perDrawDataBuffer->GetVkResource( ), sizeof( PerDrawData ) * MAX_DRAWS, m_perDrawDataBuffer->GetSize( ), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER );
+        writer.UpdateSet( vkctx->device, m_perDrawDataMultiSet.m_sets[1] );
+    }
+
+    void Renderer::UpdateIndirectCommands( ) {
+        ScopedProfiler commands_task( "Indirect Commands", Cpu );
+
+        std::vector<VkDrawIndexedIndirectCommand> indirect_commands;
+        std::vector<PerDrawData>                  draw_datas;
+
+        m_indirectDrawCount = 0;
+
+        for ( u32 i = 0; i < m_renderables.size( ); i++ ) {
+            auto& renderable = m_renderables[i];
+
+            VkDrawIndexedIndirectCommand draw_command;
+            PerDrawData                  draw_data;
+
+            // TODO: no frustum culling for now
+
+            const auto& mesh = vkctx->MeshPool.GetMesh( renderable.MeshHandle );
+            draw_command     = {
+                        .indexCount    = mesh.IndexCount,
+                        .instanceCount = 1,
+                        .firstIndex    = renderable.FirstIndex,
+                        .vertexOffset  = 0,
+                        .firstInstance = i };
+
+            draw_data = {
+                    .WorldFromLocal      = renderable.Transform,
+                    .VertexBufferAddress = mesh.VertexBuffer->GetDeviceAddress( ),
+                    .MaterialId          = renderable.MaterialHandle.index,
+                    .pad01               = 1 };
+
+            indirect_commands.push_back( draw_command );
+            draw_datas.push_back( draw_data );
+
+            m_indirectDrawCount++;
+        }
+
+        // Update the buffers
+        m_indirectBuffer->Upload( indirect_commands.data( ), indirect_commands.size( ) * sizeof( VkDrawIndexedIndirectCommand ) );
+        m_perDrawDataBuffer->Upload( draw_datas.data( ), draw_datas.size( ) * sizeof( PerDrawData ) );
     }
 } // namespace TL

@@ -14,8 +14,8 @@
 #pragma once
 
 #include <expected>
-#include <mutex>
 #include <graphics/utils/vk_types.h>
+#include <mutex>
 
 #include <graphics/resources/r_buffer.h>
 #include <graphics/resources/r_image.h>
@@ -169,11 +169,12 @@ namespace TL::renderer {
     struct MeshData {
         std::unique_ptr<Buffer> IndexBuffer  = nullptr;
         std::unique_ptr<Buffer> VertexBuffer = nullptr;
+        MeshContent             Content;
         AABB                    Aabb;
         u32                     IndexCount;
     };
 
-    constexpr u32 MAX_MESHES = 1024;
+    constexpr u32 MAX_MESHES = 2048;
 
     class MeshPool {
     public:
@@ -204,7 +205,6 @@ namespace TL::renderer {
 //==============================================================================//
 //                             VK CONTEXT                                       //
 //==============================================================================//
-
 
 
 struct TL_FrameData {

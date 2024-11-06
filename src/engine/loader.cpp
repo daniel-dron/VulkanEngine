@@ -235,7 +235,7 @@ void ProcessMaterials( std::vector<Material>& preprocessedMaterials, const std::
     }
 }
 
-static MeshHandle LoadMesh( TL_VkContext& gfx, aiMesh* aiMesh ) {
+static MeshHandle LoadMesh( TL_VkContext& gfx, aiMesh* aiMesh, std::vector<u32>& blobIndices ) {
     MeshContent mesh;
     mesh.Vertices.clear( );
     mesh.Indices.clear( );
@@ -269,6 +269,7 @@ static MeshHandle LoadMesh( TL_VkContext& gfx, aiMesh* aiMesh ) {
         indices.push_back( face.mIndices[2] );
     }
     mesh.Indices = indices;
+    blobIndices.insert( blobIndices.end( ), indices.begin( ), indices.end( ) );
 
     mesh.Aabb = {
             .min = Vec3{ aiMesh->mAABB.mMin.x, aiMesh->mAABB.mMin.y, aiMesh->mAABB.mMin.z },
@@ -277,13 +278,29 @@ static MeshHandle LoadMesh( TL_VkContext& gfx, aiMesh* aiMesh ) {
     return vkctx->MeshPool.CreateMesh( mesh );
 }
 
-static std::vector<MeshHandle> LoadMeshes( TL_VkContext& gfx, const aiScene* scene ) {
+static std::vector<MeshHandle> LoadMeshes( TL_VkContext& gfx, const aiScene* aiScene, Scene& scene ) {
     std::vector<MeshHandle> mesh_assets;
 
-    for ( u32 i = 0; i < scene->mNumMeshes; i++ ) {
-        auto mesh = LoadMesh( gfx, scene->mMeshes[i] );
+    std::vector<u32> indices;
+    scene.FirstIndices.push_back( 0 ); // First is 0
+
+    for ( u32 i = 0; i < aiScene->mNumMeshes; i++ ) {
+        auto mesh = LoadMesh( gfx, aiScene->mMeshes[i], indices );
         mesh_assets.push_back( mesh );
+
+        scene.FirstIndices.push_back( indices.size( ) );
     }
+
+    scene.SceneBlobIndexBuffer = std::make_unique<Buffer>( BufferType::TIndex, sizeof( u32 ) * indices.size( ), 1, nullptr, "[TL] Index Buffer Blob Indirect" );
+
+    const auto staging = Buffer( BufferType::TStaging, sizeof( u32 ) * indices.size( ), 1, nullptr, "Stage" );
+    staging.Upload( indices.data( ) );
+
+    vkctx->Execute( [&]( const VkCommandBuffer cmd ) {
+        const VkBufferCopy index_copy = {
+                .srcOffset = 0, .dstOffset = 0, .size = sizeof( u32 ) * indices.size( ) };
+        vkCmdCopyBuffer( cmd, staging.GetVkResource( ), scene.SceneBlobIndexBuffer->GetVkResource( ), 1, &index_copy );
+    } );
 
     return mesh_assets;
 }
@@ -297,18 +314,6 @@ static std::vector<MaterialHandle> UploadMaterials( TL_VkContext& gfx, const std
     }
 
     return gpu_materials;
-}
-
-static std::vector<MeshAsset> MatchMaterialMeshes( const aiScene* ai_scene, const std::vector<MeshId>& meshes,
-                                                   const std::vector<MaterialHandle>& materials ) {
-    std::vector<MeshAsset> mesh_assets;
-
-    for ( u32 meshIndex = 0; meshIndex < ai_scene->mNumMeshes; meshIndex++ ) {
-        const auto mat_idx = ai_scene->mMeshes[meshIndex]->mMaterialIndex;
-        mesh_assets.push_back( { meshIndex, mat_idx } );
-    }
-
-    return mesh_assets;
 }
 
 inline glm::mat4 AssimpToGlm( const aiMatrix4x4& from ) {
@@ -523,7 +528,7 @@ std::unique_ptr<Scene> GltfLoader::Load( TL_VkContext& gfx, const std::string& p
                                              aiProcess_FlipWindingOrder | aiProcess_GenBoundingBoxes );
 
     TL_Engine::Get( ).console.AddLog( "Loading meshes..." );
-    const std::vector<MeshHandle> meshes = LoadMeshes( gfx, ai_scene );
+    const std::vector<MeshHandle> meshes = LoadMeshes( gfx, ai_scene, scene );
 
     TL_Engine::Get( ).console.AddLog( "Loading materials..." );
     std::vector<std::string> externalTexturePaths;

@@ -17,8 +17,8 @@
 
 #include <SDL2/SDL_vulkan.h>
 #include <VkBootstrap.h>
-#include <imgui.h>
 #include <graphics/utils/vk_initializers.h>
+#include <imgui.h>
 
 #include "r_pipeline.h"
 
@@ -203,9 +203,9 @@ bool TL::renderer::MaterialPool::IsValid( MaterialHandle handle ) const {
 
 void TL::renderer::MeshPool::Init( ) {
     // Fill free list backwards
-    m_freeIndices.reserve( MAX_MATERIALS );
-    for ( uint16_t i = 0; i < MAX_MATERIALS; i++ ) {
-        m_freeIndices.push_back( MAX_MATERIALS - 1 - i );
+    m_freeIndices.reserve( MAX_MESHES );
+    for ( uint16_t i = 0; i < MAX_MESHES; i++ ) {
+        m_freeIndices.push_back( MAX_MESHES - 1 - i );
     }
 
     // Initialize generations to 0
@@ -259,6 +259,7 @@ TL::renderer::MeshHandle TL::renderer::MeshPool::CreateMesh( const MeshContent& 
     } );
 
     mesh_data.IndexCount = static_cast<u32>( content.Indices.size( ) );
+    mesh_data.Content    = content;
 
     return handle;
 }
@@ -316,8 +317,11 @@ TL_VkContext::Result<> TL_VkContext::Init( ) {
     shaderStorage = std::make_unique<ShaderStorage>( this );
 
     // descriptor pool
-    std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> ratios = { { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1.0f },
-                                                                       { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1.0f } };
+    std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> ratios = {
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1.0f },
+            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1.0f },
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1.0f },
+    };
     setPool.Init( device, 100, ratios );
 
     executor.Init( this );
@@ -499,12 +503,15 @@ TL_VkContext::Result<> TL_VkContext::InitDevice( SDL_Window* window ) {
             .bufferDeviceAddress                          = true,
     };
     VkPhysicalDeviceVulkan11Features features_11{
-            .sType     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
-            .multiview = true,
+            .sType                = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+            .multiview            = true,
+            .shaderDrawParameters = true,
     };
     VkPhysicalDeviceFeatures features{
+            .multiDrawIndirect = true,
             .fillModeNonSolid  = true,
             .samplerAnisotropy = true,
+            .shaderInt64       = true,
     };
 
     PhysicalDeviceSelector selector{ bs_instance };
