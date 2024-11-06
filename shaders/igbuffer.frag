@@ -5,6 +5,7 @@
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_ARB_shader_draw_parameters : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_buffer_reference2 : require
 
 #include "bindless.glsl"
 #include "input_structures.glsl"
@@ -21,30 +22,20 @@ layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer Ver
     Vertex vertices[];
 };
 
-layout(buffer_reference, scalar) readonly buffer IndexBuffer {
-    uint indices[];
-};
-
 struct PerDrawData {
-    mat4 			WorldFromLocal;
-    VertexBuffer	VertexBufferAddress;
-    int             MaterialId;
+	mat4 			WorldFromLocal;
+	VertexBuffer	VertexBufferAddress;
+	int             MaterialId;
 };
 
 layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer PerDrawDataList {
-    PerDrawData datas[];
+	PerDrawData datas[];
 };
 
-layout( push_constant, scalar, buffer_reference_align = 8) uniform constants {
-    mat4 WorldFromLocal;
-    VertexBuffer VertexBufferAddress;
-    SceneBuffer scene;
-    PerDrawDataList draw_data;
+layout( push_constant, scalar ) uniform constants {
+	SceneBuffer scene;
+	PerDrawDataList draw_data;
 } pc;
-
-layout(set = 1, binding = 0) readonly buffer SBPerDrawDataBuffer {
-    PerDrawData datas[];
-} sbo;
 
 layout (location = 0) in vec2 in_uvs;
 layout (location = 1) in vec3 in_frag_pos;

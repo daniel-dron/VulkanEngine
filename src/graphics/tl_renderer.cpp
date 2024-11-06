@@ -17,6 +17,7 @@
 
 #include <graphics/ibl.h>
 #include <graphics/utils/vk_initializers.h>
+#include <stack>
 #include "resources/r_pipeline.h"
 
 using namespace vk_init;
@@ -45,13 +46,16 @@ namespace TL {
         PrepareIndirectBuffers( );
     }
 
-    void Renderer::Cleanup( ) {
+    void Renderer::Shutdown( ) {
         m_ibl->Clean( *vkctx );
 
         m_sceneBufferGpu.reset( );
         m_gpuIbl.reset( );
         m_gpuPointLightsBuffer.reset( );
         m_gpuDirectionalLightsBuffer.reset( );
+
+        m_indirectBuffer.reset( );
+        m_perDrawDataBuffer.reset( );
 
         vkDestroyDescriptorSetLayout( vkctx->device, m_pbrSetLayout, nullptr );
     }
@@ -120,6 +124,16 @@ namespace TL {
         VKCALL( vkQueueSubmit2( vkctx->graphicsQueue, 1, &submit, frame.fence ) );
     }
 
+    void Renderer::AdvanceFrameDependantBuffers( ) const {
+        m_sceneBufferGpu->AdvanceFrame( );
+        m_gpuIbl->AdvanceFrame( );
+        m_gpuDirectionalLightsBuffer->AdvanceFrame( );
+        m_gpuPointLightsBuffer->AdvanceFrame( );
+
+        m_indirectBuffer->AdvanceFrame( );
+        m_perDrawDataBuffer->AdvanceFrame( );
+    }
+
     void Renderer::Present( ) noexcept {
         const auto& frame = vkctx->GetCurrentFrame( );
 
@@ -136,6 +150,8 @@ namespace TL {
 
         VKCALL( vkQueuePresentKHR( vkctx->graphicsQueue, &presentInfo ) );
 
+        AdvanceFrameDependantBuffers( );
+
         // increase frame number for next loop
         vkctx->frameNumber++;
     }
@@ -143,28 +159,32 @@ namespace TL {
         // 1. Parse renderable entities (must have atleast 1 mesh)
         m_renderables.clear( );
 
-        // TODO: is this performant ?
-        std::function<void( const std::shared_ptr<Node>& )> parse_node =
-                [&]( const std::shared_ptr<Node>& node ) -> void {
-            if ( !node->MeshAssets.empty( ) ) {
-                u32 i = 0;
-                for ( auto& mesh_asset : node->MeshAssets ) {
-                    Renderable renderable = {
-                            .MeshHandle     = scene.Meshes[mesh_asset.MeshIndex],
-                            .MaterialHandle = scene.Materials[mesh_asset.MaterialIndex],
-                            .Transform      = node->GetTransformMatrix( ),
-                            .Aabb           = node->BoundingBoxes[i++],
-                            .FirstIndex     = scene.FirstIndices[mesh_asset.MeshIndex] };
-                    m_renderables.push_back( renderable );
-                }
-            }
+        {
+            ScopedProfiler task( "Parse Renderables", Cpu );
 
-            for ( const auto& child : node->Children ) {
-                parse_node( child );
+            // TODO: is this performant ?
+            std::function<void( const std::shared_ptr<Node>& )> parse_node =
+                    [&]( const std::shared_ptr<Node>& node ) -> void {
+                if ( !node->MeshAssets.empty( ) ) {
+                    u32 i = 0;
+                    for ( auto& mesh_asset : node->MeshAssets ) {
+                        Renderable renderable = {
+                                .MeshHandle     = scene.Meshes[mesh_asset.MeshIndex],
+                                .MaterialHandle = scene.Materials[mesh_asset.MaterialIndex],
+                                .Transform      = node->GetTransformMatrix( ),
+                                .Aabb           = node->BoundingBoxes[i++],
+                                .FirstIndex     = scene.FirstIndices[mesh_asset.MeshIndex] };
+                        m_renderables.push_back( renderable );
+                    }
+                }
+
+                for ( const auto& child : node->Children ) {
+                    parse_node( child );
+                }
+            };
+            for ( const auto& top_node : scene.TopNodes ) {
+                parse_node( top_node );
             }
-        };
-        for ( const auto& top_node : scene.TopNodes ) {
-            parse_node( top_node );
         }
 
         // 2. Parse directional lights
@@ -243,14 +263,6 @@ namespace TL {
         else {
             CreateDrawCommands( );
         }
-
-        m_sceneBufferGpu->AdvanceFrame( );
-        m_gpuIbl->AdvanceFrame( );
-        m_gpuDirectionalLightsBuffer->AdvanceFrame( );
-        m_gpuPointLightsBuffer->AdvanceFrame( );
-
-        m_indirectBuffer->AdvanceFrame( );
-        m_perDrawDataBuffer->AdvanceFrame( );
 
         // Upload scene information
         m_gpuIbl->Upload( &iblSettings, sizeof( IblSettings ) );
@@ -483,7 +495,7 @@ namespace TL {
                                           .offset     = 0,
                                           .size       = sizeof( IndirectPushConstant ) } },
 
-                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ), m_perDrawDataLayout } };
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) } };
         const auto pipeline = vkctx->GetOrCreatePipeline( pipeline_config );
 
         VkClearValue clear_color       = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -510,18 +522,12 @@ namespace TL {
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 2 );
 
         vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
-        const auto bindless_set      = vkctx->GetBindlessSet( );
-        const auto per_draw_data_set = m_perDrawDataMultiSet.GetCurrentFrame( );
+        const auto bindless_set = vkctx->GetBindlessSet( );
         vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0, nullptr );
-        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 1, 1, &per_draw_data_set, 0, nullptr );
-
-
 
         IndirectPushConstant push_constants = {
-                .WorldFromLocal          = m_renderables[0].Transform,
-                .TestVertexBufferAddress = vkctx->MeshPool.GetMesh( m_renderables[0].MeshHandle ).VertexBuffer->GetDeviceAddress( ), // Here for test
-                .SceneDataAddress        = m_sceneBufferGpu->GetDeviceAddress( ),
-                .PerDrawDataAddress      = m_perDrawDataBuffer->GetDeviceAddress( ),
+                .SceneDataAddress   = m_sceneBufferGpu->GetDeviceAddress( ),
+                .PerDrawDataAddress = m_perDrawDataBuffer->GetDeviceAddress( ),
         };
         vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( IndirectPushConstant ), &push_constants );
 
@@ -531,7 +537,7 @@ namespace TL {
                 cmd,
                 m_indirectBuffer->GetVkResource( ),
                 0,
-                1, //m_indirectDrawCount,
+                m_indirectDrawCount,
                 sizeof( VkDrawIndexedIndirectCommand ) );
 
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 3 );
@@ -847,7 +853,7 @@ namespace TL {
             };
 
             // TODO: dont rerender static
-            m_shadowMapCommands.push_back( mdc );
+            // m_shadowMapCommands.push_back( mdc );
 
             if ( settings.frustumCulling ) {
                 auto visibility = VisibilityCheckWithLOD( renderable.Transform, &renderable.Aabb,
@@ -879,30 +885,6 @@ namespace TL {
 
         m_indirectBuffer    = std::make_unique<Buffer>( BufferType::TIndirect, sizeof( VkDrawIndexedIndirectCommand ) * MAX_DRAWS, TL_VkContext::FrameOverlap, nullptr, "[TL] Draw Indirect" );
         m_perDrawDataBuffer = std::make_unique<Buffer>( BufferType::TStorage, sizeof( PerDrawData ) * MAX_DRAWS, TL_VkContext::FrameOverlap, nullptr, "[TL]Indirect Per Draw" );
-
-        // Create descriptor set and layout to bind perDrawDataBuffer
-        std::array bindings = {
-                VkDescriptorSetLayoutBinding{
-                        .binding         = 0,
-                        .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                        .descriptorCount = 1,
-                        .stageFlags      = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT } };
-        const VkDescriptorSetLayoutCreateInfo create_info = {
-                .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-                .pNext        = nullptr,
-                .flags        = 0,
-                .bindingCount = bindings.size( ),
-                .pBindings    = bindings.data( ) };
-        VKCALL( vkCreateDescriptorSetLayout( vkctx->device, &create_info, nullptr, &m_perDrawDataLayout ) );
-
-        m_perDrawDataMultiSet = vkctx->AllocateMultiSet( m_perDrawDataLayout );
-        DescriptorWriter writer;
-        writer.WriteBuffer( 0, m_perDrawDataBuffer->GetVkResource( ), sizeof( PerDrawData ) * MAX_DRAWS, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER );
-        writer.UpdateSet( vkctx->device, m_perDrawDataMultiSet.m_sets[0] );
-
-        writer = DescriptorWriter( );
-        writer.WriteBuffer( 0, m_perDrawDataBuffer->GetVkResource( ), sizeof( PerDrawData ) * MAX_DRAWS, m_perDrawDataBuffer->GetSize( ), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER );
-        writer.UpdateSet( vkctx->device, m_perDrawDataMultiSet.m_sets[1] );
     }
 
     void Renderer::UpdateIndirectCommands( ) {

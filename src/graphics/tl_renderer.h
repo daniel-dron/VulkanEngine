@@ -63,8 +63,6 @@ namespace TL {
 
     // Indirect stuff
     struct IndirectPushConstant {
-        Mat4            WorldFromLocal;
-        VkDeviceAddress TestVertexBufferAddress;
         VkDeviceAddress SceneDataAddress;
         VkDeviceAddress PerDrawDataAddress;
     };
@@ -163,7 +161,7 @@ namespace TL {
     class Renderer {
     public:
         void Init( struct SDL_Window* window, Vec2 extent );
-        void Cleanup( );
+        void Shutdown( );
 
         // This will setup the current frame.
         // Will wait for the frame rendering fence, free its arena/resources, acquire the next image
@@ -208,6 +206,7 @@ namespace TL {
     private:
         // This will be called after submitting a frame to the gpu, when its legal to start working on the next one
         void OnFrameBoundary( ) noexcept;
+        void AdvanceFrameDependantBuffers( ) const;
 
         void SetViewportAndScissor( VkCommandBuffer cmd ) noexcept;
 
@@ -250,8 +249,6 @@ namespace TL {
         u64                     m_indirectDrawCount     = { };
         Buffer*                 m_currentFrameIndexBlob = nullptr;
         std::vector<u32>        m_firstIndices          = { };
-        VkDescriptorSetLayout   m_perDrawDataLayout     = { };
-        MultiDescriptorSet      m_perDrawDataMultiSet   = { };
 
         // PBR pipelin stuff (WIP)
         VkDescriptorSetLayout   m_pbrSetLayout               = VK_NULL_HANDLE;

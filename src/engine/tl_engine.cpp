@@ -16,24 +16,24 @@
 #include <engine/tl_engine.h>
 
 #include <SDL2/SDL.h>
+#include <engine/loader.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <graphics/tl_renderer.h>
+#include <graphics/utils/vk_initializers.h>
+#include <graphics/utils/vk_types.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 #include <tracy/Tracy.hpp>
-#include <graphics/tl_renderer.h>
-#include <graphics/utils/vk_initializers.h>
-#include <graphics/utils/vk_types.h>
 #include <utils/ImGuiProfilerRenderer.h>
-#include <engine/loader.h>
 #include <vulkan/vulkan_core.h>
+#include "../imguizmo/ImGuizmo.h"
 #include "SDL2/SDL_events.h"
 #include "SDL2/SDL_stdinc.h"
 #include "SDL2/SDL_video.h"
 #include "glm/packing.hpp"
-#include "vma/vk_mem_alloc.h"
-#include "../imguizmo/ImGuizmo.h"
 #include "input.h"
+#include "vma/vk_mem_alloc.h"
 
 TL_Engine*            g_TL             = nullptr;
 utils::VisualProfiler g_visualProfiler = utils::VisualProfiler( 300 );
@@ -244,7 +244,7 @@ void TL_Engine::Cleanup( ) {
         // wait for gpu work to finish
         vkDeviceWaitIdle( vkctx->device );
 
-        renderer->Cleanup( );
+        renderer->Shutdown( );
 
         m_imGuiPipeline.Cleanup( *vkctx );
 
@@ -331,8 +331,12 @@ void TL_Engine::InitImages( ) {
 }
 
 void TL_Engine::InitScene( ) {
-    // m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
-    m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
+    m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
+    // m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
+
+    m_mainDeletionQueue.PushFunction( [&]( ) {
+        m_scene.reset( );
+    } );
 
     // Use camera from renderer
     m_camera           = renderer->GetCamera( );
@@ -651,6 +655,8 @@ void TL_Engine::Run( ) {
 
                     if ( ImGui::CollapsingHeader( "Renderer" ) ) {
                         ImGui::Indent( );
+
+                        ImGui::Checkbox( "Indirect Draw", &renderer->settings.UseIndirectDraw );
 
                         if ( ImGui::CollapsingHeader( "Frustum Culling" ) ) {
                             ImGui::Indent( );

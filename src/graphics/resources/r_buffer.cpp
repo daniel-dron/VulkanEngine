@@ -70,8 +70,7 @@ namespace TL {
             vma_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         }
         else if ( type == BufferType::TImGuiVertex ) {
-            usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                    VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+            usage     = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
             vma_flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
             vma_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         }

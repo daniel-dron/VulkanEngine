@@ -10,17 +10,7 @@
 #include "bindless.glsl"
 #include "input_structures.glsl"
 #include "scene.glsl"
-
-struct Vertex {
-    vec4 Position;   // 16 bytes (vec3 position + float uv_x)
-    vec4 Normal;     // 16 bytes (vec3 normal + float uv_y)
-    vec4 Tangent;    // 16 bytes (vec3 tangent + padding)
-    vec4 Bitangent;  // 16 bytes (vec3 bitangent + padding)
-};
-
-layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer VertexBuffer {
-    Vertex vertices[];
-};
+#include "vertex.glsl"
 
 struct PerDrawData {
 	mat4 			WorldFromLocal;
@@ -32,17 +22,10 @@ layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer Per
 	PerDrawData datas[];
 };
 
-layout( push_constant, scalar, buffer_reference_align = 8) uniform constants {
-	mat4 WorldFromLocal;
-	VertexBuffer VertexBufferAddress;
+layout( push_constant, scalar ) uniform constants {
 	SceneBuffer scene;
 	PerDrawDataList draw_data;
 } pc;
-
-
-layout(set = 1, binding = 0) readonly buffer SBPerDrawDataBuffer {
-	PerDrawData datas[];
-} sbo;
 
 layout (location = 0) out vec2 out_uvs;
 layout (location = 1) out vec3 out_frag_pos;
@@ -52,8 +35,7 @@ layout (location = 4) out mat3 out_tbn;
 
 void main()
 {
-	PerDrawData data = sbo.datas[gl_DrawIDARB];
-//    PerDrawData data = pc.draw_data.datas[gl_DrawIDARB];
+    PerDrawData data = pc.draw_data.datas[gl_DrawIDARB];
 
     Vertex v = data.VertexBufferAddress.vertices[gl_VertexIndex];
 

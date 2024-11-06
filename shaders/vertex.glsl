@@ -1,14 +1,10 @@
 struct Vertex {
-	vec3 position;
-	float uv_x;
-	vec3 normal;
-	float uv_y;
-	vec3 tangent;
-	float padding;
-	vec3 bitangent;
-	float padding2;
-}; 
+    vec4 Position;   // 16 bytes (vec3 position + float uv_x)
+    vec4 Normal;     // 16 bytes (vec3 normal + float uv_y)
+    vec4 Tangent;    // 16 bytes (vec3 tangent + padding)
+    vec4 Bitangent;  // 16 bytes (vec3 bitangent + padding)
+};
 
-layout(buffer_reference, std430) readonly buffer VertexBuffer{ 
-	Vertex vertices[];
+layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer VertexBuffer {
+    Vertex vertices[];
 };
