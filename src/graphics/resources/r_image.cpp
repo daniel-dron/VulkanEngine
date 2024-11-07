@@ -99,10 +99,10 @@ void TL::renderer::RImage::Resize( VkExtent3D size ) {
 
             if ( m_mipmapped ) {
                 GenerateMipmaps( cmd );
-                TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, depth );
+                TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, depth );
             }
             else {
-                TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, depth );
+                TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, depth );
             }
         } );
 
@@ -119,8 +119,7 @@ void TL::renderer::RImage::Resize( VkExtent3D size ) {
     vmaDestroyImage( m_gfx->allocator, original_image, original_allocation );
 }
 
-void TL::renderer::RImage::TransitionLayout( VkCommandBuffer cmd, VkImageLayout currentLayout, VkImageLayout newLayout,
-                                             bool depth ) const {
+void TL::renderer::RImage::TransitionLayout( VkCommandBuffer cmd, VkImageLayout currentLayout, VkImageLayout newLayout, bool depth ) const {
     image::TransitionLayout( cmd, m_image, currentLayout, newLayout, depth );
 }
 
@@ -194,10 +193,10 @@ void TL::renderer::RImage::ActuallyCreateImage2DFromData( const void* data ) {
 
         if ( m_mipmapped ) {
             GenerateMipmaps( cmd );
-            TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, depth );
+            TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, depth );
         }
         else {
-            TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, depth );
+            TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, depth );
         }
     } );
 
@@ -239,10 +238,10 @@ void TL::renderer::RImage::ActuallyCreateCubemapFromData( const void* data ) {
 
         if ( m_mipmapped ) {
             GenerateMipmaps( cmd );
-            TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, depth );
+            TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, depth );
         }
         else {
-            TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, depth );
+            TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, depth );
         }
     } );
 
@@ -277,10 +276,10 @@ void TL::renderer::RImage::ActuallyCreateEmptyCubemap( ) {
 
         if ( m_mipmapped ) {
             GenerateMipmaps( cmd );
-            TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, depth );
+            TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, depth );
         }
         else {
-            TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, depth );
+            TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, depth );
         }
     } );
 
@@ -673,8 +672,7 @@ VkImageView TL::renderer::image::CreateViewCubemap( VkDevice device, VkImage ima
     return view;
 }
 
-void TL::renderer::image::TransitionLayout( VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout,
-                                            bool depth ) {
+void TL::renderer::image::TransitionLayout( VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout, bool depth ) {
     assert( image != VK_NULL_HANDLE && "Transition on uninitialized image" );
 
     const VkImageMemoryBarrier2 image_barrier = {

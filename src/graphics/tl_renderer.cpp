@@ -97,6 +97,8 @@ namespace TL {
 
         if ( settings.UseIndirectDraw ) {
             // TODO: shadow map pass
+            ShadowMapPass( ); // We are calling this here because shadowmap layout transitions are being done here,
+                              // one of which needed for the PbrPass ahead since that pass always samples shadowmaps
             SetViewportAndScissor( frame.commandBuffer );
             IndirectGBufferPass( );
         }
@@ -266,8 +268,7 @@ namespace TL {
 
         // Upload scene information
         m_gpuIbl->Upload( &iblSettings, sizeof( IblSettings ) );
-        m_gpuDirectionalLightsBuffer->Upload( m_directionalLights.data( ),
-                                              sizeof( GpuDirectionalLight ) * m_directionalLights.size( ) );
+        m_gpuDirectionalLightsBuffer->Upload( m_directionalLights.data( ), sizeof( GpuDirectionalLight ) * m_directionalLights.size( ) );
         m_gpuPointLightsBuffer->Upload( m_pointLights.data( ), sizeof( GpuPointLight ) * m_pointLights.size( ) );
 
         m_sceneData.materials = vkctx->MaterialPool.m_materialsGpuBuffer->GetDeviceAddress( );
@@ -430,8 +431,7 @@ namespace TL {
                 AttachmentInfo( position.GetBaseView( ), &clear_color ),
                 AttachmentInfo( pbr.GetBaseView( ), &clear_color ),
         };
-        VkRenderingAttachmentInfo depth_attachment =
-                DepthAttachmentInfo( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+        VkRenderingAttachmentInfo depth_attachment = DepthAttachmentInfo( depth.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
 
         VkRenderingInfo render_info = { .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
                                         .pNext                = nullptr,
@@ -571,17 +571,17 @@ namespace TL {
 
         for ( const auto& light : m_directionalLights ) {
             auto& target_image = vkctx->ImageCodex.GetImage( light.shadowMap );
+            target_image.TransitionLayout( cmd, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, true );
 
-            VkRenderingAttachmentInfo depth_attachment =
-                    DepthAttachmentInfo( target_image.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
-            VkRenderingInfo render_info = { .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                                            .pNext                = nullptr,
-                                            .renderArea           = VkRect2D{ VkOffset2D{ 0, 0 }, VkExtent2D{ 2048, 2048 } },
-                                            .layerCount           = 1,
-                                            .colorAttachmentCount = 0,
-                                            .pColorAttachments    = nullptr,
-                                            .pDepthAttachment     = &depth_attachment,
-                                            .pStencilAttachment   = nullptr };
+            VkRenderingAttachmentInfo depth_attachment = DepthAttachmentInfo( target_image.GetBaseView( ), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL );
+            VkRenderingInfo           render_info      = { .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                                           .pNext                = nullptr,
+                                                           .renderArea           = VkRect2D{ VkOffset2D{ 0, 0 }, VkExtent2D{ 2048, 2048 } },
+                                                           .layerCount           = 1,
+                                                           .colorAttachmentCount = 0,
+                                                           .pColorAttachments    = nullptr,
+                                                           .pDepthAttachment     = &depth_attachment,
+                                                           .pStencilAttachment   = nullptr };
             vkCmdBeginRendering( cmd, &render_info );
 
             vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
@@ -618,6 +618,7 @@ namespace TL {
             }
 
             vkCmdEndRendering( cmd );
+            target_image.TransitionLayout( cmd, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, true );
         }
 
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 1 );
