@@ -28,7 +28,7 @@ namespace TL {
     std::unique_ptr<TL_VkContext> vkctx = nullptr;
 }
 
-constexpr bool B_USE_VALIDATION_LAYERS = true;
+constexpr bool B_USE_VALIDATION_LAYERS = false;
 
 ImmediateExecutor::Result<> ImmediateExecutor::Init( TL_VkContext* gfx ) {
     this->m_gfx = gfx;

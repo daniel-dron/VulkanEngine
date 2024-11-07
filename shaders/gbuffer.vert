@@ -21,8 +21,8 @@ void main()
 
 	gl_Position = pc.scene.viewproj * pc.model * position;
 
-	out_uvs.x = v.Position.z;
-	out_uvs.y = v.Normal.z;
+	out_uvs.x = v.Position.w;
+	out_uvs.y = v.Normal.w;
 	out_frag_pos = (pc.model * position).xyz;
 
 	vec3 T = normalize(vec3(pc.model * vec4(v.Tangent.xyz, 0.0)));

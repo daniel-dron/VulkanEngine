@@ -551,7 +551,7 @@ namespace TL {
         START_LABEL( cmd, "ShadowMap Pass", Vec4( 0.0f, 1.0f, 0.0f, 1.0f ) );
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 0 );
 
-        if ( vkctx->frameNumber != 0 ) {
+        if ( !settings.reRenderShadowMaps ) {
             vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 1 );
             END_LABEL( cmd );
             return;
@@ -856,7 +856,7 @@ namespace TL {
             };
 
             // TODO: dont rerender static
-            // m_shadowMapCommands.push_back( mdc );
+            m_shadowMapCommands.push_back( mdc );
 
             if ( settings.frustumCulling ) {
                 auto visibility = VisibilityCheckWithLOD( renderable.Transform, &renderable.Aabb,
