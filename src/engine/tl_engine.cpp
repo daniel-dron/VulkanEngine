@@ -275,15 +275,13 @@ void TL_Engine::Draw( ) {
         const auto cmd = frame.commandBuffer;
         if ( m_drawEditor ) {
             DrawImGui( cmd, vkctx->views[renderer->swapchainImageIndex] );
-            image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
-                                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
+            image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
         }
         else {
             auto& ppi = vkctx->ImageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
             ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 
-            image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
-                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
+            image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
 
             image::Blit( cmd, ppi.GetImage( ), { ppi.GetExtent( ).width, ppi.GetExtent( ).height },
                          vkctx->images[renderer->swapchainImageIndex], vkctx->extent );
@@ -291,8 +289,7 @@ void TL_Engine::Draw( ) {
                 DrawImGui( cmd, vkctx->views[renderer->swapchainImageIndex] );
             }
 
-            image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex],
-                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
+            image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
         }
     }
 

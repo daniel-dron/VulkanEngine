@@ -675,7 +675,7 @@ VkImageView TL::renderer::image::CreateViewCubemap( VkDevice device, VkImage ima
 void TL::renderer::image::TransitionLayout( VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout, bool depth ) {
     assert( image != VK_NULL_HANDLE && "Transition on uninitialized image" );
 
-    const VkImageMemoryBarrier2 image_barrier = {
+    VkImageMemoryBarrier2 image_barrier = {
             .sType         = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
             .pNext         = nullptr,
             .srcStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
@@ -696,6 +696,25 @@ void TL::renderer::image::TransitionLayout( VkCommandBuffer cmd, VkImage image, 
                     .baseArrayLayer = 0,
                     .layerCount     = VK_REMAINING_ARRAY_LAYERS },
     };
+
+    // Set the source and destination access masks based on the current and new layouts
+    if ( currentLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL ) {
+        image_barrier.srcAccessMask = 0;
+        image_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    }
+    else if ( currentLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+        image_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        image_barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    }
+    else if ( currentLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) {
+        image_barrier.srcAccessMask = 0;
+        image_barrier.dstAccessMask = 0;
+    }
+    else {
+        // Other layout transitions can be added here
+        image_barrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
+        image_barrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
+    }
 
     const VkDependencyInfo dependency_info = {
             .sType                   = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
