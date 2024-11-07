@@ -25,12 +25,12 @@ layout (location = 0) out vec3 out_pos;
 void main() {
 	Vertex v = pc.vertex_buffer.vertices[gl_VertexIndex];
 
-    out_pos = v.position;
+    out_pos = v.Position.xyz;
 	out_pos.xy *= -1.0;
 
 	// Remove translation from view matrix
 	mat4 view = mat4(mat3(pc.iblMatrices.view[gl_ViewIndex]));
-	vec4 pos = pc.iblMatrices.proj * view * vec4(v.position, 1.0);
+	vec4 pos = pc.iblMatrices.proj * view * vec4(v.Position.xyz, 1.0);
     
     gl_Position = pos.xyww;
 }

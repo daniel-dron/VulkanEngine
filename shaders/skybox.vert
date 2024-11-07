@@ -11,11 +11,11 @@ layout (location = 0) out vec3 out_pos;
 
 void main() {
 	Vertex v = pc.vertex_buffer.vertices[gl_VertexIndex];
-    out_pos = v.position;
+    out_pos = v.Position.xyz;
 
 	// Remove translation from view matrix
 	mat4 view = mat4(mat3(pc.scene.view));
-	vec4 pos = pc.scene.proj * view * vec4(v.position, 1.0);
+	vec4 pos = pc.scene.proj * view * vec4(v.Position.xyz, 1.0);
     
     gl_Position = pos.xyww;
 }

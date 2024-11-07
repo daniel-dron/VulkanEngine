@@ -11,7 +11,7 @@ void main()
 {
 	Vertex v = pc.vertexBuffer.vertices[gl_VertexIndex];
 	
-	vec4 position = vec4(v.position, 1.0f);
+	vec4 position = vec4(v.Position.xyz, 1.0f);
 
 	gl_Position = pc.scene.viewproj * pc.model *position;
 }

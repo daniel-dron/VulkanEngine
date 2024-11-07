@@ -16,5 +16,5 @@ layout( push_constant ) uniform constants {
 void main()
 {
 	Vertex v = pc.vertex_buffer.vertices[gl_VertexIndex];
-    gl_Position = pc.projection * pc.view * pc.model * vec4(v.position, 1.0);
+    gl_Position = pc.projection * pc.view * pc.model * vec4(v.Position.xyz, 1.0);
 }  

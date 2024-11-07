@@ -1,3 +1,5 @@
+#extension GL_EXT_scalar_block_layout : require
+
 struct Vertex {
     vec4 Position;   // 16 bytes (vec3 position + float uv_x)
     vec4 Normal;     // 16 bytes (vec3 normal + float uv_y)

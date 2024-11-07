@@ -17,18 +17,18 @@ void main()
 	Vertex v = pc.vertexBuffer.vertices[gl_VertexIndex];
 	Material material = pc.scene.materials.mat[pc.material_id];
 	
-	vec4 position = vec4(v.position, 1.0f);
+	vec4 position = vec4(v.Position.xyz, 1.0f);
 
 	gl_Position = pc.scene.viewproj * pc.model * position;
 
-	out_uvs.x = v.uv_x;
-	out_uvs.y = v.uv_y;
+	out_uvs.x = v.Position.z;
+	out_uvs.y = v.Normal.z;
 	out_frag_pos = (pc.model * position).xyz;
 
-	vec3 T = normalize(vec3(pc.model * vec4(v.tangent, 0.0)));
-    vec3 B = normalize(vec3(pc.model * vec4(v.bitangent, 0.0)));
-    vec3 N = normalize(vec3(pc.model * vec4(v.normal, 0.0)));
+	vec3 T = normalize(vec3(pc.model * vec4(v.Tangent.xyz, 0.0)));
+    vec3 B = normalize(vec3(pc.model * vec4(v.Bitangent.xyz, 0.0)));
+    vec3 N = normalize(vec3(pc.model * vec4(v.Normal.xyz, 0.0)));
     out_tbn = mat3(T, B, N);
 
-	out_normal = mat3(transpose(inverse(pc.model))) * v.normal;
+	out_normal = mat3(transpose(inverse(pc.model))) * v.Normal.xyz;
 }
