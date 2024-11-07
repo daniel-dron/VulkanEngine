@@ -909,7 +909,7 @@ namespace TL {
                         .instanceCount = 1,
                         .firstIndex    = renderable.FirstIndex,
                         .vertexOffset  = 0,
-                        .firstInstance = i };
+                        .firstInstance = 0 };
 
             draw_data = {
                     .WorldFromLocal      = renderable.Transform,
