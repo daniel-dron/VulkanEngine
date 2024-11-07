@@ -279,12 +279,11 @@ void TL_Engine::Draw( ) {
         }
         else {
             auto& ppi = vkctx->ImageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
-            ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
+            ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 
             image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
 
-            image::Blit( cmd, ppi.GetImage( ), { ppi.GetExtent( ).width, ppi.GetExtent( ).height },
-                         vkctx->images[renderer->swapchainImageIndex], vkctx->extent );
+            image::Blit( cmd, ppi.GetImage( ), { ppi.GetExtent( ).width, ppi.GetExtent( ).height }, vkctx->images[renderer->swapchainImageIndex], vkctx->extent );
             if ( m_drawStats ) {
                 DrawImGui( cmd, vkctx->views[renderer->swapchainImageIndex] );
             }
@@ -328,7 +327,7 @@ void TL_Engine::InitImages( ) {
 }
 
 void TL_Engine::InitScene( ) {
-    // m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
+     //m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
     m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
 
     m_mainDeletionQueue.PushFunction( [&]( ) {

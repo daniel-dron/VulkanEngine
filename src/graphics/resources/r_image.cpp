@@ -710,6 +710,9 @@ void TL::renderer::image::TransitionLayout( VkCommandBuffer cmd, VkImage image, 
         image_barrier.srcAccessMask = 0;
         image_barrier.dstAccessMask = 0;
     }
+    else if ( newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL ) {
+        image_barrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    }
     else {
         // Other layout transitions can be added here
         image_barrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
