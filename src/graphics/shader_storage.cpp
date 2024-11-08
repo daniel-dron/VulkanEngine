@@ -13,15 +13,25 @@
 
 #include <pch.h>
 
+#include <filesystem>
 #include <fstream>
 #include <graphics/resources/r_resources.h>
 #include "shader_storage.h"
 
-#include <Windows.h>
-
 #include "../engine/tl_engine.h"
 
-FILETIME GetTimestamp( const char* path );
+using namespace std::filesystem;
+
+std::time_t GetFileTimestamp( const std::string& file_path ) {
+    path p( file_path );
+    if ( exists( p ) ) {
+        auto file_time = last_write_time( p );
+        return std::chrono::duration_cast<std::chrono::seconds>( file_time.time_since_epoch( ) ).count( );
+    }
+    else {
+        return 0; // Return 0 if file doesn't exist
+    }
+}
 
 ShaderStorage::ShaderStorage( TL_VkContext* gfx ) :
     m_gfx( gfx ) {}
@@ -64,14 +74,13 @@ void ShaderStorage::Reconstruct( ) {
     // file code ends up being empty
 
     for ( auto& [key, shader] : m_shaders ) {
-        FILETIME timestamp = GetTimestamp( shader.name.c_str( ) );
-        if ( shader.low != timestamp.dwLowDateTime || shader.high != timestamp.dwHighDateTime ) {
+        auto timestamp = GetFileTimestamp( shader.name.c_str( ) );
+        if ( shader.lastChangeTime != timestamp ) {
             vkDestroyShaderModule( m_gfx->device, shader.handle, nullptr );
 
-            auto handle   = shaders::LoadShaderModule( m_gfx->device, shader.name.c_str( ) );
-            shader.handle = handle;
-            shader.low    = timestamp.dwLowDateTime;
-            shader.high   = timestamp.dwHighDateTime;
+            auto handle           = shaders::LoadShaderModule( m_gfx->device, shader.name.c_str( ) );
+            shader.handle         = handle;
+            shader.lastChangeTime = timestamp;
 
             TL_Engine::Get( ).console.AddLog( "SHADER [{}] has been reloaded", shader.name.c_str( ) );
 
@@ -86,8 +95,8 @@ void ShaderStorage::Add( const std::string& name ) {
         throw "no shader module";
     }
 
-    const FILETIME timestamp = GetTimestamp( name.c_str( ) );
-    m_shaders[name]          = Shader( module, timestamp.dwLowDateTime, timestamp.dwHighDateTime, name );
+    const auto timestamp = GetFileTimestamp( name.c_str( ) );
+    m_shaders[name]      = Shader( module, timestamp, name );
 
     TL_Engine::Get( ).console.AddLog( "[SHADER STORAGE]: Added {} shader", m_shaders[name].name.c_str( ) );
 }
@@ -118,18 +127,4 @@ VkShaderModule shaders::LoadShaderModule( const VkDevice device, const char* pat
         return VK_NULL_HANDLE;
     }
     return shader_module;
-}
-
-FILETIME GetTimestamp( const char* path ) {
-    const auto handle =
-            CreateFileA( path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr );
-    if ( !handle ) {
-        throw "no shader";
-    }
-
-    FILETIME timestamp;
-    GetFileTime( handle, nullptr, nullptr, &timestamp );
-    CloseHandle( handle );
-
-    return timestamp;
 }

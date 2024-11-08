@@ -1,3 +1,9 @@
+# Exclude warnings from the current directory
+set_directory_properties(
+    PROPERTIES
+    COMPILE_FLAGS "-w"
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 add_subdirectory(SDL EXCLUDE_FROM_ALL)
 
