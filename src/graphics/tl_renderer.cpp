@@ -22,9 +22,6 @@
 
 using namespace vk_init;
 using namespace utils;
-using namespace utils;
-using namespace utils;
-using namespace utils;
 
 namespace TL {
     void Renderer::Init( SDL_Window* window, Vec2 extent ) {

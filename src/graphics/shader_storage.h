@@ -22,6 +22,7 @@
 
 struct Shader {
     using CallbackId     = std::uint64_t;
+    using CallbackId     = std::uint64_t;
     using ReloadCallback = std::function<void( VkShaderModule module )>;
 
     VkShaderModule handle         = VK_NULL_HANDLE;

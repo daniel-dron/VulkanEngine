@@ -32,8 +32,11 @@
 #include "SDL2/SDL_stdinc.h"
 #include "SDL2/SDL_video.h"
 #include "glm/packing.hpp"
+#include "graphics/resources/r_resources.h"
 #include "input.h"
 #include "vma/vk_mem_alloc.h"
+
+#include <world/tl_scene.h>
 
 TL_Engine*            g_TL             = nullptr;
 utils::VisualProfiler g_visualProfiler = utils::VisualProfiler( 300 );
@@ -47,9 +50,16 @@ void TL_Engine::Init( ) {
     assert( g_TL == nullptr );
     g_TL = this;
 
+    using namespace world;
+
+    world::Entity entity_test;
+    entity_test.AddComponent<world::Renderable>( MeshHandle{ 0, 0 }, MaterialHandle{ 0, 0 } );
+
+    auto type = world::BaseComponent::EnumToType<world::Renderable>( );
+
     InitSdl( );
 
-    renderer = std::make_unique<TL::Renderer>( );
+    renderer = std::make_unique<Renderer>( );
     renderer->Init( m_window, { WIDTH, HEIGHT } );
 
     InitDefaultData( );
@@ -327,8 +337,8 @@ void TL_Engine::InitImages( ) {
 }
 
 void TL_Engine::InitScene( ) {
-     m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
-    //m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
+    m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
+    // m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
 
     m_mainDeletionQueue.PushFunction( [&]( ) {
         m_scene.reset( );
