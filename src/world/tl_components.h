@@ -41,7 +41,9 @@ namespace TL::world {
         static constexpr ComponentType EnumToType( );
 
         virtual void OnCreate( ) {}  // Called when the component is created and added to an entity.
+        virtual void OnStart( ) {}   // Called when the game/simulation is started.
         virtual void OnTick( ) {}    // Called every update tick.
+        virtual void OnStop( ) {}    // Called when the game/simulation is stopped.
         virtual void OnDestroy( ) {} // Called when the component or entity is destroyed.
 
         ComponentType GetType( ) const { return m_type; }

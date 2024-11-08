@@ -44,18 +44,12 @@ TL_Engine&            TL_Engine::Get( ) { return *g_TL; }
 static ImageId        selected_set = 0;
 
 using namespace TL;
-using namespace TL::renderer;
+using namespace renderer;
+using namespace world;
 
 void TL_Engine::Init( ) {
     assert( g_TL == nullptr );
     g_TL = this;
-
-    using namespace world;
-
-    world::Entity entity_test;
-    entity_test.AddComponent<world::Renderable>( MeshHandle{ 0, 0 }, MaterialHandle{ 0, 0 } );
-
-    auto type = world::BaseComponent::EnumToType<world::Renderable>( );
 
     InitSdl( );
 

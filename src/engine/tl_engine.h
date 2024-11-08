@@ -24,6 +24,8 @@
 #include "../graphics/tl_renderer.h"
 #include "../utils/profiler.h"
 
+#include <world/tl_scene.h>
+
 class TL_Engine;
 
 extern TL_Engine*            g_TL;
@@ -61,7 +63,6 @@ public:
 
     SDL_Window* m_window{ nullptr };
 
-
     DeletionQueue m_mainDeletionQueue;
 
     ImGuiPipeline m_imGuiPipeline = { };
@@ -79,6 +80,8 @@ public:
     std::shared_ptr<Camera>                      m_camera;
     std::unique_ptr<FirstPersonFlyingController> m_fpsController;
     CameraController*                            m_cameraController = nullptr;
+
+    TL::world::World m_world;
 
     bool m_open       = true;
     bool m_drawEditor = true;
