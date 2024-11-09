@@ -366,7 +366,7 @@ static std::shared_ptr<Node> LoadNode( Scene& scene, const aiScene* ai_scene, co
             const auto  mesh = node->mMeshes[i];
             const auto& aabb = ai_scene->mMeshes[mesh]->mAABB;
 
-            AABoundingBox bounding_box = {
+            renderer::AABB bounding_box = {
                     .min = { aabb.mMin.x, aabb.mMin.y, aabb.mMin.z },
                     .max = { aabb.mMax.x, aabb.mMax.y, aabb.mMax.z },
             };
@@ -762,6 +762,7 @@ static void LoadNode( const aiScene* aiScene, const aiNode* node, World& world, 
         auto mesh    = aiScene->mMeshes[mesh_id];
         entity->AddComponent<TL::world::Renderable>( meshes[mesh_id], materials[mesh->mMaterialIndex] );
     }
+    
 
     // Set transform
     auto transform = AssimpToGlm( node->mTransformation );

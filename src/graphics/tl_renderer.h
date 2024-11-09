@@ -52,7 +52,7 @@ namespace TL {
         float           fogStart;
         VkDeviceAddress materials;
         int             numberOfDirectionalLights = 0;
-        int             numberOfPointLights = 0;
+        int             numberOfPointLights       = 0;
     };
 
     struct MeshPushConstants {
@@ -155,7 +155,7 @@ namespace TL {
         renderer::MeshHandle     MeshHandle;
         renderer::MaterialHandle MaterialHandle;
         Mat4                     Transform;
-        AABoundingBox            Aabb;
+        renderer::AABB           Aabb;
         u32                      FirstIndex;
     };
 
@@ -236,8 +236,7 @@ namespace TL {
         std::vector<GpuPointLight>       m_pointLights;
 
         // Draw Commands
-        VisibilityResult             VisibilityCheckWithLOD( const Mat4& transform, const AABoundingBox* aabb,
-                                                             const Frustum& frustum ) const;
+        VisibilityResult             VisibilityCheckWithLOD( const Mat4& transform, const renderer::AABB* aabb, const Frustum& frustum ) const;
         void                         CreateDrawCommands( );
         std::vector<MeshDrawCommand> m_drawCommands;
         std::vector<MeshDrawCommand> m_shadowMapCommands;

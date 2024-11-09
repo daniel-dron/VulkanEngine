@@ -228,8 +228,6 @@ TL::renderer::MeshHandle TL::renderer::MeshPool::CreateMesh( const MeshContent& 
     // Create handle
     MeshHandle handle = { index, m_generations[index] };
 
-    mesh_data.Aabb = content.Aabb;
-
     // Calculate buffer sizes
     const size_t vertex_buffer_size = content.Vertices.size( ) * sizeof( Vertex );
     const size_t index_buffer_size  = content.Indices.size( ) * sizeof( u32 );

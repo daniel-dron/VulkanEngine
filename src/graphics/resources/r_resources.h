@@ -170,7 +170,6 @@ namespace TL::renderer {
         std::unique_ptr<Buffer> IndexBuffer  = nullptr;
         std::unique_ptr<Buffer> VertexBuffer = nullptr;
         MeshContent             Content;
-        AABB                    Aabb;
         u32                     IndexCount;
     };
 

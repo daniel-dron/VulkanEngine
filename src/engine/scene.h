@@ -24,11 +24,6 @@
 
 struct PointLight;
 
-struct AABoundingBox {
-    Vec3 min; // The point with the lowest coordinate in each cardinal direction (x, y, z)
-    Vec3 max; // The point with the highest coordinate in each cardinal direction (x, y, z)
-};
-
 struct MeshAsset {
     u32 MeshIndex;
     u32 MaterialIndex;
@@ -47,8 +42,8 @@ struct Material {
 };
 
 struct Node {
-    std::vector<MeshAsset>     MeshAssets;
-    std::vector<AABoundingBox> BoundingBoxes;
+    std::vector<MeshAsset>          MeshAssets;
+    std::vector<TL::renderer::AABB> BoundingBoxes;
 
     std::string Name;
 

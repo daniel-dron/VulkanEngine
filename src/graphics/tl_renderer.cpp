@@ -259,7 +259,7 @@ namespace TL {
                         .MeshHandle     = renderable_component->GetMeshHandle( ),
                         .MaterialHandle = renderable_component->GetMaterialHandle( ),
                         .Transform      = entity->GetTransformMatrix( ),
-                        .Aabb           = { },
+                        .Aabb           = renderable_component->GetMesh( ).Content.Aabb,
                         .FirstIndex     = 0 };
                 m_renderables.push_back( renderable );
             }
@@ -820,7 +820,7 @@ namespace TL {
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 9 );
     }
 
-    VisibilityResult Renderer::VisibilityCheckWithLOD( const Mat4& transform, const AABoundingBox* aabb,
+    VisibilityResult Renderer::VisibilityCheckWithLOD( const Mat4& transform, const renderer::AABB* aabb,
                                                        const Frustum& frustum ) const {
         if ( !settings.frustumCulling ) {
             return { true };
