@@ -104,4 +104,28 @@ namespace TL::world {
             m_children.erase( found );
         }
     }
+
+    void Entity::SetTransform( const Mat4& newTransform ) {
+        glm::vec3 skew{ };
+        glm::vec4 perspective{ };
+        glm::quat rotation{ };
+
+        decompose( newTransform, Transform.scale, rotation, Transform.position, skew, perspective );
+
+        extractEulerAngleXYZ( glm::mat4_cast( rotation ), Transform.euler.x, Transform.euler.y, Transform.euler.z );
+
+        Transform.model = newTransform;
+    }
+
+    Mat4 Entity::GetTransformMatrix( ) const {
+        const Mat4 local_transform = Transform.AsMatrix( );
+
+        if ( m_parent != INVALID_ENTITY ) {
+            if ( auto parent = m_world->GetEntity( m_parent ).value( ) ) {
+                return parent->GetTransformMatrix( ) * local_transform;
+            }
+        }
+
+        return local_transform;
+    }
 } // namespace TL::world

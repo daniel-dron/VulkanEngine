@@ -756,11 +756,19 @@ static void LoadNode( const aiScene* aiScene, const aiNode* node, World& world, 
     // Load node into entity
     auto entity = world.GetEntity( entityHandle ).value( );
 
+    // Set Renderable component if node has a mesh
     if ( node->mNumMeshes > 0 ) {
         auto mesh_id = node->mMeshes[0];
         auto mesh    = aiScene->mMeshes[mesh_id];
         entity->AddComponent<TL::world::Renderable>( meshes[mesh_id], materials[mesh->mMaterialIndex] );
     }
+
+    // Set transform
+    auto transform = AssimpToGlm( node->mTransformation );
+    if ( node->mTransformation == aiMatrix4x4( ) ) {
+        transform = glm::identity<Mat4>( );
+    }
+    entity->SetTransform( transform );
 
     // For each child node, create a child entity and call LoadNode on it
     for ( u32 i = 0; i < node->mNumChildren; i++ ) {

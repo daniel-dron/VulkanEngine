@@ -12,6 +12,7 @@
 ******************************************************************************/
 #pragma once
 
+#include "math/transform.h"
 #include "tl_components.h"
 
 #include <algorithm>
@@ -93,6 +94,10 @@ namespace TL::world {
 
         std::string Name;
 
+        void      SetTransform( const Mat4& newTransform );
+        Mat4      GetTransformMatrix( ) const;
+        Transform Transform;
+
     private:
         virtual void OnCreate( );
         virtual void OnStart( );
@@ -104,6 +109,7 @@ namespace TL::world {
 
         bool m_alreadyStarted = false; // Whether or not this entity has already been added to the world. If true, adding a new component will
                                        // implicitly call OnStart on the component.
+
 
         World*                    m_world;
         EntityHandle              m_handle = INVALID_ENTITY;
