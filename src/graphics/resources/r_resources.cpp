@@ -20,6 +20,7 @@
 #include <graphics/utils/vk_initializers.h>
 #include <imgui.h>
 
+#include "graphics/resources/r_buffer.h"
 #include "r_pipeline.h"
 
 using namespace vkb;
@@ -210,6 +211,9 @@ void TL::renderer::MeshPool::Init( ) {
 
     // Initialize generations to 0
     m_generations.fill( 0 );
+
+    // Create and allocate batch index buffer
+    m_batchIndexBuffer = std::make_unique<Buffer>( BufferType::TIndex, BATCH_INDEX_BUFFER_SIZE, 1, nullptr, "[TL] Batch Index Buffer" );
 }
 
 void TL::renderer::MeshPool::Shutdown( ) {
@@ -218,6 +222,8 @@ void TL::renderer::MeshPool::Shutdown( ) {
         mesh.IndexBuffer.reset( );
         mesh.VertexBuffer.reset( );
     }
+
+    m_batchIndexBuffer.reset( );
 }
 TL::renderer::MeshHandle TL::renderer::MeshPool::CreateMesh( const MeshContent& content ) {
     // Get available index and get reference to MeshData
@@ -259,6 +265,8 @@ TL::renderer::MeshHandle TL::renderer::MeshPool::CreateMesh( const MeshContent& 
     mesh_data.IndexCount = static_cast<u32>( content.Indices.size( ) );
     mesh_data.Content    = content;
 
+    m_updateIndexBuffer = true; // Adding a mesh invalidates the batch index buffer
+
     return handle;
 }
 
@@ -275,6 +283,8 @@ void TL::renderer::MeshPool::DestroyMesh( const MeshHandle handle ) {
         // Register index as available
         m_freeIndices.push_back( handle.index );
     }
+
+    m_updateIndexBuffer = true; // Destroying a mesh invalidates the batch index buffer
 }
 
 TL::renderer::MeshData& TL::renderer::MeshPool::GetMesh( const MeshHandle handle ) {
@@ -295,6 +305,37 @@ bool TL::renderer::MeshPool::IsValid( MeshHandle handle ) const {
     }
 
     return m_generations[handle.index] == handle.generation;
+}
+
+TL::Buffer* TL::renderer::MeshPool::GetBatchIndexBuffer( ) {
+    if ( !m_updateIndexBuffer ) {
+        return m_batchIndexBuffer.get( );
+    }
+
+    std::vector<u32> indices;
+
+    for ( u64 i = 0; i < m_meshDatas.size( ); i++ ) {
+        // If this index is in the free list, then the mesh is invalid
+        if ( std::find( m_freeIndices.begin( ), m_freeIndices.end( ), i ) != m_freeIndices.end( ) ) {
+            continue;
+        }
+
+        auto& mesh          = m_meshDatas[i];
+        mesh.IndexIntoBatch = indices.size( );
+        indices.insert( indices.end( ), mesh.Content.Indices.begin( ), mesh.Content.Indices.end( ) );
+    }
+
+    const auto staging = Buffer( BufferType::TStaging, sizeof( u32 ) * indices.size( ), 1, nullptr, "Stage" );
+    staging.Upload( indices.data( ) );
+
+    vkctx->Execute( [&]( const VkCommandBuffer cmd ) {
+        const VkBufferCopy index_copy = { .srcOffset = 0, .dstOffset = 0, .size = sizeof( u32 ) * indices.size( ) };
+        vkCmdCopyBuffer( cmd, staging.GetVkResource( ), m_batchIndexBuffer->GetVkResource( ), 1, &index_copy );
+    } );
+
+    m_updateIndexBuffer = false;
+
+    return m_batchIndexBuffer.get( );
 }
 
 

@@ -561,7 +561,7 @@ namespace TL {
         };
         vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( IndirectPushConstant ), &push_constants );
 
-        vkCmdBindIndexBuffer( cmd, m_currentFrameIndexBlob->GetVkResource( ), 0, VK_INDEX_TYPE_UINT32 );
+        vkCmdBindIndexBuffer( cmd, vkctx->MeshPool.GetBatchIndexBuffer( )->GetVkResource( ), 0, VK_INDEX_TYPE_UINT32 );
 
         vkCmdDrawIndexedIndirect(
                 cmd,
@@ -940,7 +940,7 @@ namespace TL {
             draw_command     = {
                         .indexCount    = mesh.IndexCount,
                         .instanceCount = 1,
-                        .firstIndex    = renderable.FirstIndex,
+                        .firstIndex    = mesh.IndexIntoBatch,
                         .vertexOffset  = 0,
                         .firstInstance = 0 };
 

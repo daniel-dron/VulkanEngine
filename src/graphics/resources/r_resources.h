@@ -171,6 +171,7 @@ namespace TL::renderer {
         std::unique_ptr<Buffer> VertexBuffer = nullptr;
         MeshContent             Content;
         u32                     IndexCount;
+        u32                     IndexIntoBatch = 0;
     };
 
     constexpr u32 MAX_MESHES = 2048;
@@ -185,12 +186,19 @@ namespace TL::renderer {
         MeshData&                GetMesh( MeshHandle handle );       // Asserted fetch. Recommended only for pre validated and hot paths (renderer code)
         std::optional<MeshData*> GetMeshSafe( MeshHandle handle );   // Returns possible material if present. Not recommended for hot paths.
         bool                     IsValid( MeshHandle handle ) const; // Check if the index is valid and it matches its current generation
+
+        TL::Buffer* GetBatchIndexBuffer( );
+
     private:
         std::array<MeshData, MAX_MESHES> m_meshDatas   = { };
         std::array<u16, MAX_MESHES>      m_generations = { }; // This indicates how many times the given handle was allocated.
                                                               // The same handle ID but different generation means the older one is invalid.
         u32                              m_meshCount   = 0;   // Keeps track of the number of meshes in the pool for stats.
         std::vector<u16>                 m_freeIndices = { }; // Filled with free indices. At the start, it contains all indices into m_meshDatas backwards
+
+        const u64                   BATCH_INDEX_BUFFER_SIZE = 1024 * 1024 * 10; // 10MB
+        std::unique_ptr<TL::Buffer> m_batchIndexBuffer;                         // Batch index buffer for indirect multi-draw. By default, 10MB.
+        bool                        m_updateIndexBuffer;                        // Wether or not to update the batch buffer.
 
         friend class Renderer;
     };
@@ -243,7 +251,7 @@ public:
     template<typename T = void>
     using Result = std::expected<T, GfxDeviceError>;
 
-             TL_VkContext( ) = default;
+    TL_VkContext( ) = default;
     explicit TL_VkContext( struct SDL_Window* window );
 
     Result<> Init( );
