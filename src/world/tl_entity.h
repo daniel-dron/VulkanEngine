@@ -36,19 +36,12 @@ namespace TL::world {
         u32  index;
         bool operator==( const EntityHandle& ) const = default;
     };
-    
-    template<>
-    struct ::std::hash<TL::world::EntityHandle> {
-        size_t operator( )( const TL::world::EntityHandle& h ) const {
-            return hash<uint16_t>( )( h.index );
-        }
-    };
 
     const EntityHandle INVALID_ENTITY = { 0 };
 
     class Entity {
     public:
-        Entity( const std::string& name, EntityHandle handleToSelf, EntityHandle parentHandle );
+        Entity( World* world, const std::string& name, EntityHandle handleToSelf, EntityHandle parentHandle );
         ~Entity( );
 
         // Creates and adds a new component to this entity. If a component of this type
@@ -96,6 +89,8 @@ namespace TL::world {
 
         const std::vector<EntityHandle>& GetChildren( ) { return m_children; }
 
+        EntityHandle GetHandle( ) const { return m_handle; }
+
         std::string Name;
 
     private:
@@ -119,3 +114,12 @@ namespace TL::world {
     };
 
 } // namespace TL::world
+
+namespace std {
+    template<>
+    struct hash<TL::world::EntityHandle> {
+        size_t operator( )( const TL::world::EntityHandle& h ) const {
+            return hash<uint16_t>( )( h.index );
+        }
+    };
+} // namespace std

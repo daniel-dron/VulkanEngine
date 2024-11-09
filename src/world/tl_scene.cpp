@@ -19,16 +19,23 @@
 #include "world/tl_scene.h"
 
 #include "tl_scene.h"
+#include "world/tl_entity.h"
 
 namespace TL::world {
 
+    World::World( ) {
+    }
+
     EntityHandle World::CreateEntity( const std::string& name, EntityHandle parent ) {
-        EntityHandle handle = { ( u32 )m_entities.size( ) };
+        EntityHandle handle = { ( u32 )m_entities.size( ) + ROOT_ENTITY.index + 1 }; // TODO: WILL BREAK AFTER ONE ENTITY IS REMOVED!!!
 
-        auto entity = std::make_shared<Entity>( name, handle, parent );
+        auto entity = std::make_shared<Entity>( this, name, handle, parent );
 
+        auto parent_entity = GetEntity( parent ).value( );
         m_entityList.emplace_back( entity );
         m_entities[handle] = entity;
+
+        parent_entity->AddChild( handle );
 
         return handle;
     }
@@ -55,8 +62,17 @@ namespace TL::world {
         return std::nullopt;
     }
 
+    bool World::IsValidEntity( EntityHandle handle ) const {
+        return GetEntity( handle ).has_value( );
+    }
 
     void World::OnStart( ) {
+        auto handle = ROOT_ENTITY;
+        auto root   = std::make_shared<Entity>( this, "ROOT", handle, INVALID_ENTITY );
+
+        m_entityList.emplace_back( root );
+        m_entities[handle] = root;
+
         if ( m_alreadyStarted ) {
             return;
         }

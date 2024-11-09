@@ -18,8 +18,8 @@
 #include "world/tl_entity.h"
 
 namespace TL::world {
-    Entity::Entity( const std::string& name, EntityHandle handleToSelfe, EntityHandle parentHandle ) :
-        Name( name ), m_handle( handleToSelfe ), m_parent( parentHandle ) {
+    Entity::Entity( World* world, const std::string& name, EntityHandle handleToSelfe, EntityHandle parentHandle ) :
+        Name( name ), m_world( world ), m_handle( handleToSelfe ), m_parent( parentHandle ) {
         OnCreate( );
     }
 
@@ -83,7 +83,7 @@ namespace TL::world {
 
         // Set this entity as its parent
         if ( auto entity = m_world->GetEntity( child ).value( ) ) {
-            
+
             // Remove from old parent
             if ( auto old_parent = m_world->GetEntity( entity->m_parent ).value( ) ) {
                 old_parent->RemoveChild( child );

@@ -24,6 +24,8 @@ namespace TL::world {
 
     class World {
     public:
+        World( );
+
         void OnStart( );
         void OnTick( );
         void OnStop( );
@@ -32,6 +34,7 @@ namespace TL::world {
         EntityHandle           CreateEntity( const std::string& name, EntityHandle parent = ROOT_ENTITY );
         void                   ObliterateEntity( EntityHandle entity );
         std::optional<Entity*> GetEntity( EntityHandle handle ) const;
+        bool                   IsValidEntity( EntityHandle handle ) const;
 
     private:
         bool m_alreadyStarted = false;

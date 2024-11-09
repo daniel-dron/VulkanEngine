@@ -331,8 +331,13 @@ void TL_Engine::InitImages( ) {
 }
 
 void TL_Engine::InitScene( ) {
-    m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
-    // m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
+    // m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
+    m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
+
+    m_world.OnStart( );
+
+    auto sponza_entity = m_world.CreateEntity( "Sponza" );
+    GltfLoader::LoadWorldFromGltf( "../../assets/sponza/sponza.gltf", m_world, sponza_entity );
 
     m_mainDeletionQueue.PushFunction( [&]( ) {
         m_scene.reset( );
