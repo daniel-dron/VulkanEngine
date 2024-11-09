@@ -18,6 +18,7 @@
 #include <graphics/utils/vk_types.h>
 
 #include "draw_command.h"
+#include "world/tl_scene.h"
 
 struct Scene;
 struct AABoundingBox;
@@ -50,8 +51,8 @@ namespace TL {
         float           fogEnd;
         float           fogStart;
         VkDeviceAddress materials;
-        int             numberOfDirectionalLights;
-        int             numberOfPointLights;
+        int             numberOfDirectionalLights = 0;
+        int             numberOfPointLights = 0;
     };
 
     struct MeshPushConstants {
@@ -147,7 +148,7 @@ namespace TL {
         Frustum lastSavedFrustum = { };   // The frustum to be used when frustum checks are frozen.
                                           // Used for debug purposes
 
-        bool UseIndirectDraw = true;
+        bool UseIndirectDraw = false;
     };
 
     struct Renderable {
@@ -184,6 +185,7 @@ namespace TL {
 
         // Upload scene to the rendere
         void UpdateScene( const Scene& scene );
+        void UpdateWorld( const world::World& world );
 
         void OnResize( u32 width, u32 height );
 

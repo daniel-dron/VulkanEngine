@@ -12,6 +12,7 @@
 ******************************************************************************/
 #pragma once
 
+#include "graphics/resources/r_resources.h"
 namespace TL::world {
 
     class Entity;
@@ -60,11 +61,13 @@ namespace TL::world {
     public:
         Renderable( Entity* owner, renderer::MeshHandle mesh, renderer::MaterialHandle material ) noexcept;
 
-        renderer::MeshData& GetMesh( ) const;
-        void                SetMesh( renderer::MeshHandle mesh );
+        renderer::MeshHandle GetMeshHandle( ) const { return m_mesh; }
+        renderer::MeshData&  GetMesh( ) const;
+        void                 SetMesh( renderer::MeshHandle mesh );
 
-        renderer::MaterialData& GetMaterial( ) const;
-        void                    SetMaterial( renderer::MaterialHandle material );
+        renderer::MaterialHandle GetMaterialHandle( ) const { return m_material; }
+        renderer::MaterialData&  GetMaterial( ) const;
+        void                     SetMaterial( renderer::MaterialHandle material );
 
     private:
         renderer::MeshHandle     m_mesh;

@@ -36,6 +36,8 @@ namespace TL::world {
         std::optional<Entity*> GetEntity( EntityHandle handle ) const;
         bool                   IsValidEntity( EntityHandle handle ) const;
 
+        const std::vector<std::shared_ptr<Entity>>& GetEntityListRaw( ) const { return m_entityList; }
+
     private:
         bool m_alreadyStarted = false;
 

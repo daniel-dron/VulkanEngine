@@ -782,5 +782,6 @@ void TL_Engine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targetIm
 void TL_Engine::UpdateScene( ) const {
     ZoneScopedN( "update_scene" );
     utils::ScopedProfiler scene_task( "Scene", utils::TaskType::Cpu );
-    renderer->UpdateScene( *m_scene );
+    // renderer->UpdateScene( *m_scene );
+    renderer->UpdateWorld( m_world );
 }

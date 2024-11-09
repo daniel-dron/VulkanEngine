@@ -22,6 +22,7 @@
 
 using namespace vk_init;
 using namespace utils;
+using namespace TL::world;
 
 namespace TL {
     void Renderer::Init( SDL_Window* window, Vec2 extent ) {
@@ -154,6 +155,7 @@ namespace TL {
         // increase frame number for next loop
         vkctx->frameNumber++;
     }
+
     void Renderer::UpdateScene( const Scene& scene ) {
         // 1. Parse renderable entities (must have atleast 1 mesh)
         m_renderables.clear( );
@@ -245,6 +247,32 @@ namespace TL {
         m_firstIndices          = scene.FirstIndices;
     }
 
+    void Renderer::UpdateWorld( const World& world ) {
+        auto entities = world.GetEntityListRaw( );
+
+        m_renderables.clear( );
+
+        for ( const auto& entity : entities ) {
+            // Has renderable
+            if ( auto renderable_component = entity->GetComponent<world::Renderable>( ) ) {
+                Renderable renderable = {
+                        .MeshHandle     = renderable_component->GetMeshHandle( ),
+                        .MaterialHandle = renderable_component->GetMaterialHandle( ),
+                        .Transform      = entity->GetTransformMatrix( ),
+                        .Aabb           = { },
+                        .FirstIndex     = 0 };
+                m_renderables.push_back( renderable );
+            }
+        }
+
+        m_sceneData.view                      = m_camera->GetViewMatrix( );
+        m_sceneData.proj                      = m_camera->GetProjectionMatrix( );
+        m_sceneData.viewproj                  = m_sceneData.proj * m_sceneData.view;
+        m_sceneData.cameraPosition            = Vec4( m_camera->GetPosition( ), 0.0f );
+        m_sceneData.numberOfDirectionalLights = static_cast<int>( m_directionalLights.size( ) );
+        m_sceneData.numberOfPointLights       = static_cast<int>( m_pointLights.size( ) );
+    }
+
     void Renderer::OnResize( u32 width, u32 height ) {
         m_extent = { width, height };
         m_camera->SetAspectRatio( static_cast<f32>( width ), static_cast<f32>( height ) );
@@ -265,8 +293,13 @@ namespace TL {
 
         // Upload scene information
         m_gpuIbl->Upload( &iblSettings, sizeof( IblSettings ) );
-        m_gpuDirectionalLightsBuffer->Upload( m_directionalLights.data( ), sizeof( GpuDirectionalLight ) * m_directionalLights.size( ) );
-        m_gpuPointLightsBuffer->Upload( m_pointLights.data( ), sizeof( GpuPointLight ) * m_pointLights.size( ) );
+        if ( m_directionalLights.size( ) > 0 ) {
+            m_gpuDirectionalLightsBuffer->Upload( m_directionalLights.data( ), sizeof( GpuDirectionalLight ) * m_directionalLights.size( ) );
+        }
+
+        if ( m_pointLights.size( ) > 0 ) {
+            m_gpuPointLightsBuffer->Upload( m_pointLights.data( ), sizeof( GpuPointLight ) * m_pointLights.size( ) );
+        }
 
         m_sceneData.materials = vkctx->MaterialPool.m_materialsGpuBuffer->GetDeviceAddress( );
         m_sceneBufferGpu->Upload( &m_sceneData, sizeof( GpuSceneData ) );
