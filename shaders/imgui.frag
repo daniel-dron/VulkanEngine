@@ -2,7 +2,7 @@
 
 #extension GL_GOOGLE_include_directive : require
 
-#include "bindless.glsl"
+#include "common/bindless.glsl"
 #include "imgui_push_constants.glsl"
 #include "input_structures.glsl"
 

@@ -4,9 +4,9 @@
 #extension GL_EXT_buffer_reference : require
 #extension GL_EXT_scalar_block_layout : require
 
-#include "bindless.glsl"
+#include "common/bindless.glsl"
 #include "input_structures.glsl"
-#include "scene.glsl"
+#include "common/scene.glsl"
 
 layout (set = 1, binding = 0) uniform IBL {
     float irradiance_factor;

@@ -83,7 +83,7 @@ public:
     TL::world::World m_world;
 
     bool m_open       = true;
-    bool m_drawEditor = true;
+    bool m_drawEditor = false;
     bool m_drawStats  = true;
 
     float m_timer = 0;

@@ -41,7 +41,7 @@
 TL_Engine*            g_TL             = nullptr;
 utils::VisualProfiler g_visualProfiler = utils::VisualProfiler( 300 );
 TL_Engine&            TL_Engine::Get( ) { return *g_TL; }
-static ImageId        selected_set = 0;
+static ImageId        selected_set = 5;
 
 using namespace TL;
 using namespace renderer;
@@ -240,7 +240,7 @@ void TL_Engine::ResizeSwapchain( uint32_t width, uint32_t height ) {
 
     vkctx->RecreateSwapchain( width, height );
     renderer->OnResize( width, height );
-    selected_set = vkctx->GetCurrentFrame( ).postProcessImage;
+    selected_set = vkctx->GetCurrentFrame( ).hdrColor;
 }
 
 void TL_Engine::Cleanup( ) {
@@ -282,8 +282,8 @@ void TL_Engine::Draw( ) {
             image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
         }
         else {
-            auto& ppi = vkctx->ImageCodex.GetImage( vkctx->GetCurrentFrame( ).postProcessImage );
-            ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
+            auto& ppi = vkctx->ImageCodex.GetImage( vkctx->GetCurrentFrame( ).hdrColor );
+            ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL );
 
             image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
 
@@ -293,6 +293,7 @@ void TL_Engine::Draw( ) {
             }
 
             image::TransitionLayout( cmd, vkctx->images[renderer->swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR );
+            ppi.TransitionLayout( cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
         }
     }
 
@@ -393,7 +394,7 @@ static void drawSceneHierarchy( Node& node ) {
 void TL_Engine::Run( ) {
     bool b_quit = false;
 
-    selected_set              = vkctx->GetCurrentFrame( ).postProcessImage;
+    selected_set              = vkctx->GetCurrentFrame( ).hdrColor;
     static int selected_set_n = 0;
 
     // main loop

@@ -2,7 +2,7 @@
 
 #extension GL_GOOGLE_include_directive : require
 
-#include "bindless.glsl"
+#include "common/bindless.glsl"
 #include "skybox_push_constants.glsl"
 
 layout (location = 0) in vec3 in_pos;

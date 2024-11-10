@@ -66,7 +66,7 @@ target_link_libraries(TwilightEngine PUBLIC tracy assimp glm vma fmt::fmt vkboot
 # SHADERS
 set(SHADER_SOURCE_DIR "${PROJECT_SOURCE_DIR}/../shaders")
 set(SHADER_BINARY_DIR "${PROJECT_SOURCE_DIR}/../bin/shaders/")
-file(GLOB GLSL_SHADERS ${SHADER_SOURCE_DIR}/*.vert ${SHADER_SOURCE_DIR}/*.frag ${SHADER_SOURCE_DIR}/*.comp)
+file(GLOB_RECURSE GLSL_SHADERS ${SHADER_SOURCE_DIR}/*.vert ${SHADER_SOURCE_DIR}/*.frag ${SHADER_SOURCE_DIR}/*.comp)
 file(GLOB_RECURSE ALL_GLSL_SHADER_FILES ${SHADER_SOURCE_DIR}/*.vert ${SHADER_SOURCE_DIR}/*.frag ${SHADER_SOURCE_DIR}/*.comp ${SHADER_SOURCE_DIR}/*.glsl)
 
 message(STATUS ${ALL_GLSL_SHADER_FILES})

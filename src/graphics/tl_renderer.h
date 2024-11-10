@@ -99,6 +99,21 @@ namespace TL {
         uint32_t        brdfLut;
     };
 
+    enum class DebugRenderTarget : u32 {
+        ALBEDO,
+        NORMAL,
+        PBR_FACTORS,
+    };
+
+    struct DebugPushConstants {
+        VkDeviceAddress   SceneDataAddress;
+        uint32_t          AlbedoTex;
+        uint32_t          NormalTex;
+        uint32_t          PositionTex;
+        uint32_t          PbrTex;
+        DebugRenderTarget RenderTarget = DebugRenderTarget::NORMAL;
+    };
+
     struct IblSettings {
         float irradianceFactor;
         float radianceFactor;
@@ -148,7 +163,9 @@ namespace TL {
         Frustum lastSavedFrustum = { };   // The frustum to be used when frustum checks are frozen.
                                           // Used for debug purposes
 
-        bool UseIndirectDraw = false;
+        DebugRenderTarget RenderTarget = DebugRenderTarget::NORMAL;
+
+        bool UseIndirectDraw = true;
     };
 
     struct Renderable {
@@ -217,6 +234,7 @@ namespace TL {
 
         void GBufferPass( );
         void IndirectGBufferPass( );
+        void DebugPass( );
         void ShadowMapPass( );
         void PbrPass( );
         void SkyboxPass( );

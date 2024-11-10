@@ -2,8 +2,8 @@
 #extension GL_EXT_buffer_reference : require
 #extension GL_EXT_scalar_block_layout : require
 
-#include "vertex.glsl"
-#include "scene.glsl"
+#include "common/vertex.glsl"
+#include "common/scene.glsl"
 
 layout (push_constant) uniform constants {
     SceneBuffer scene;

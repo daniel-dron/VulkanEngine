@@ -5,9 +5,9 @@
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_EXT_multiview : require
 
-#include "bindless.glsl"
-#include "vertex.glsl"
-#include "scene.glsl"
+#include "common/bindless.glsl"
+#include "common/vertex.glsl"
+#include "common/scene.glsl"
 
 layout (buffer_reference, scalar) readonly buffer IblMatrices {
     mat4 proj;

@@ -3,9 +3,8 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_buffer_reference : require
 
-#include "bindless.glsl"
-#include "input_structures.glsl"
-#include "push_constants.glsl"
+#include "../common/bindless.glsl"
+#include "../common/push_constants.glsl"
 
 layout (location = 0) out vec2 out_uvs;
 layout (location = 1) out vec3 out_frag_pos;

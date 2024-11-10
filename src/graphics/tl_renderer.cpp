@@ -108,7 +108,8 @@ namespace TL {
             SetViewportAndScissor( frame.commandBuffer );
             GBufferPass( );
         }
-        PbrPass( );
+        // PbrPass( );
+        DebugPass( );
         SkyboxPass( );
 
         PostProcessPass( );
@@ -578,6 +579,60 @@ namespace TL {
 
         vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 3 );
         vkCmdEndRendering( cmd );
+        END_LABEL( cmd );
+    }
+
+    void Renderer::DebugPass( ) {
+        const auto& frame   = vkctx->GetCurrentFrame( );
+        auto        cmd     = frame.commandBuffer;
+        const auto& gbuffer = frame.gBuffer;
+        auto&       hdr     = vkctx->ImageCodex.GetImage( frame.hdrColor );
+
+        static auto pipeline_config = PipelineConfig{
+                .name                 = "pbr",
+                .vertex               = "../shaders/fullscreen_tri.vert.spv",
+                .pixel                = "../shaders/debug.frag.spv",
+                .cullMode             = VK_CULL_MODE_FRONT_BIT,
+                .frontFace            = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                .depthTest            = false,
+                .colorTargets         = { { .format = hdr.GetFormat( ), .blendType = PipelineConfig::BlendType::OFF } },
+                .pushConstantRanges   = { { .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                            .offset     = 0,
+                                            .size       = sizeof( DebugPushConstants ) } },
+                .descriptorSetLayouts = { vkctx->GetBindlessLayout( ) } };
+        auto pipeline = vkctx->GetOrCreatePipeline( pipeline_config );
+
+        VkClearValue              clear_color      = { 0.0f, 0.0f, 0.0f, 0.0f };
+        VkRenderingAttachmentInfo color_attachment = AttachmentInfo( hdr.GetBaseView( ), &clear_color );
+        VkRenderingInfo           render_info      = { .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                                       .pNext                = nullptr,
+                                                       .renderArea           = VkRect2D{ VkOffset2D{ 0, 0 }, vkctx->extent },
+                                                       .layerCount           = 1,
+                                                       .colorAttachmentCount = 1,
+                                                       .pColorAttachments    = &color_attachment,
+                                                       .pDepthAttachment     = nullptr,
+                                                       .pStencilAttachment   = nullptr };
+        START_LABEL( cmd, "Debug Pass", Vec4( 1.0f, 0.0f, 1.0f, 1.0f ) );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frame.queryPoolTimestamps, 4 );
+        vkCmdBeginRendering( cmd, &render_info );
+
+        vkCmdBindPipeline( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkResource( ) );
+
+        auto bindless_set = vkctx->GetBindlessSet( );
+        vkCmdBindDescriptorSets( cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetLayout( ), 0, 1, &bindless_set, 0, nullptr );
+
+        DebugPushConstants push_constants = { .SceneDataAddress = m_sceneBufferGpu->GetDeviceAddress( ),
+                                              .AlbedoTex        = gbuffer.albedo,
+                                              .NormalTex        = gbuffer.normal,
+                                              .PositionTex      = gbuffer.position,
+                                              .PbrTex           = gbuffer.pbr,
+                                              .RenderTarget     = settings.RenderTarget };
+        vkCmdPushConstants( cmd, pipeline->GetLayout( ), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( DebugPushConstants ), &push_constants );
+
+        vkCmdDraw( cmd, 3, 1, 0, 0 );
+
+        vkCmdEndRendering( cmd );
+        vkCmdWriteTimestamp( cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frame.queryPoolTimestamps, 5 );
         END_LABEL( cmd );
     }
 

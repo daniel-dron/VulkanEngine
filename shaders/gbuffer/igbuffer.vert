@@ -7,25 +7,9 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_buffer_reference2 : require
 
-#include "bindless.glsl"
-#include "input_structures.glsl"
-#include "scene.glsl"
-#include "vertex.glsl"
-
-struct PerDrawData {
-	mat4 			WorldFromLocal;
-	VertexBuffer	VertexBufferAddress;
-	int             MaterialId;
-};
-
-layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer PerDrawDataList {
-	PerDrawData datas[];
-};
-
-layout( push_constant, scalar ) uniform constants {
-	SceneBuffer scene;
-	PerDrawDataList draw_data;
-} pc;
+#include "../common/bindless.glsl"
+#include "../common/scene.glsl"
+#include "indirect.glsl"
 
 layout (location = 0) out vec2 out_uvs;
 layout (location = 1) out vec3 out_frag_pos;

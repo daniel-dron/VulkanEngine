@@ -4,8 +4,8 @@
 #extension GL_EXT_buffer_reference : require
 #extension GL_EXT_scalar_block_layout : require
 
-#include "bindless.glsl"
-#include "vertex.glsl"
+#include "common/bindless.glsl"
+#include "common/vertex.glsl"
 
 layout (buffer_reference, scalar) readonly buffer IblMatrices {
     mat4 proj;
