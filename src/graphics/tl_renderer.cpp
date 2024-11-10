@@ -19,6 +19,7 @@
 #include <graphics/utils/vk_initializers.h>
 #include <stack>
 #include "resources/r_pipeline.h"
+#include "utils/profiler.h"
 
 using namespace vk_init;
 using namespace utils;
@@ -92,6 +93,8 @@ namespace TL {
 
     void Renderer::Frame( ) noexcept {
         auto& frame = vkctx->GetCurrentFrame( );
+
+        ScopedProfiler task( "Passes", utils::Cpu );
 
         if ( settings.UseIndirectDraw ) {
             // TODO: shadow map pass
@@ -252,16 +255,19 @@ namespace TL {
 
         m_renderables.clear( );
 
-        for ( const auto& entity : entities ) {
-            // Has renderable
-            if ( auto renderable_component = entity->GetComponent<world::Renderable>( ) ) {
-                Renderable renderable = {
-                        .MeshHandle     = renderable_component->GetMeshHandle( ),
-                        .MaterialHandle = renderable_component->GetMaterialHandle( ),
-                        .Transform      = entity->GetTransformMatrix( ),
-                        .Aabb           = renderable_component->GetMesh( ).Content.Aabb,
-                        .FirstIndex     = 0 };
-                m_renderables.push_back( renderable );
+        {
+            ScopedProfiler task( "Parse World Renderables", Cpu );
+            for ( const auto& entity : entities ) {
+                // Has renderable
+                if ( auto renderable_component = entity->GetComponent<world::Renderable>( ) ) {
+                    Renderable renderable = {
+                            .MeshHandle     = renderable_component->GetMeshHandle( ),
+                            .MaterialHandle = renderable_component->GetMaterialHandle( ),
+                            .Transform      = entity->GetTransformMatrix( ),
+                            .Aabb           = renderable_component->GetMesh( ).Content.Aabb,
+                            .FirstIndex     = 0 };
+                    m_renderables.push_back( renderable );
+                }
             }
         }
 

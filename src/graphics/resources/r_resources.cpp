@@ -11,6 +11,7 @@
 ******************************************************************************
 ******************************************************************************/
 
+#include <cstdint>
 #include <pch.h>
 
 #include "r_resources.h"
@@ -19,6 +20,7 @@
 #include <VkBootstrap.h>
 #include <graphics/utils/vk_initializers.h>
 #include <imgui.h>
+#include <vulkan/vulkan_core.h>
 
 #include "graphics/resources/r_buffer.h"
 #include "r_pipeline.h"
@@ -29,7 +31,7 @@ namespace TL {
     std::unique_ptr<TL_VkContext> vkctx = nullptr;
 }
 
-constexpr bool B_USE_VALIDATION_LAYERS = false;
+constexpr bool B_USE_VALIDATION_LAYERS = true;
 
 ImmediateExecutor::Result<> ImmediateExecutor::Init( TL_VkContext* gfx ) {
     this->m_gfx = gfx;
@@ -312,6 +314,10 @@ TL::Buffer* TL::renderer::MeshPool::GetBatchIndexBuffer( ) {
         return m_batchIndexBuffer.get( );
     }
 
+    // Wait for currently presenting frame to end
+    auto& frame = vkctx->frames[( vkctx->frameNumber + 1 ) % vkctx->FrameOverlap];
+    VKCALL( vkWaitForFences( vkctx->device, 1, &frame.fence, true, UINT64_MAX ) );
+
     std::vector<u32> indices;
 
     for ( u64 i = 0; i < m_meshDatas.size( ); i++ ) {
@@ -324,6 +330,8 @@ TL::Buffer* TL::renderer::MeshPool::GetBatchIndexBuffer( ) {
         mesh.IndexIntoBatch = indices.size( );
         indices.insert( indices.end( ), mesh.Content.Indices.begin( ), mesh.Content.Indices.end( ) );
     }
+
+    assert( indices.size( ) * sizeof( u32 ) <= BATCH_INDEX_BUFFER_SIZE );
 
     const auto staging = Buffer( BufferType::TStaging, sizeof( u32 ) * indices.size( ), 1, nullptr, "Stage" );
     staging.Upload( indices.data( ) );

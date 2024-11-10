@@ -762,7 +762,6 @@ static void LoadNode( const aiScene* aiScene, const aiNode* node, World& world, 
         auto mesh    = aiScene->mMeshes[mesh_id];
         entity->AddComponent<TL::world::Renderable>( meshes[mesh_id], materials[mesh->mMaterialIndex] );
     }
-    
 
     // Set transform
     auto transform = AssimpToGlm( node->mTransformation );

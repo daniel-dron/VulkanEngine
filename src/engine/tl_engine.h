@@ -76,7 +76,6 @@ public:
     ImageId m_errorCheckerboardImage = TL::renderer::ImageCodex::InvalidImageId;
 
     std::shared_ptr<Node>                        m_selectedNode = nullptr;
-    std::unique_ptr<Scene>                       m_scene;
     std::shared_ptr<Camera>                      m_camera;
     std::unique_ptr<FirstPersonFlyingController> m_fpsController;
     CameraController*                            m_cameraController = nullptr;

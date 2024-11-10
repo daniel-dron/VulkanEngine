@@ -331,31 +331,18 @@ void TL_Engine::InitImages( ) {
 }
 
 void TL_Engine::InitScene( ) {
-    // m_scene = GltfLoader::Load( *vkctx, "../../assets/bistro/untitled.gltf" );
-    m_scene = GltfLoader::Load( *vkctx, "../../assets/sponza/sponza.gltf" );
-
     m_world.OnStart( );
+
+    auto bistro_entity = m_world.CreateEntity( "Bistro" );
+    GltfLoader::LoadWorldFromGltf( "../../assets/bistro/untitled.gltf", m_world, bistro_entity );
 
     auto sponza_entity = m_world.CreateEntity( "Sponza" );
     GltfLoader::LoadWorldFromGltf( "../../assets/sponza/sponza.gltf", m_world, sponza_entity );
-
-    m_mainDeletionQueue.PushFunction( [&]( ) {
-        m_scene.reset( );
-    } );
 
     // Use camera from renderer
     m_camera           = renderer->GetCamera( );
     m_fpsController    = std::make_unique<FirstPersonFlyingController>( m_camera.get( ), 0.1f, 5.0f );
     m_cameraController = m_fpsController.get( );
-
-    if ( m_scene->DirectionalLights.size( ) != 0 ) {
-        auto& light    = m_scene->DirectionalLights.at( 0 );
-        light.power    = 30.0f;
-        light.distance = 100.0f;
-        light.right    = 115.0f;
-        light.up       = 115.0f;
-        light.farPlane = 131.0f;
-    }
 }
 
 void TL_Engine::DrawNodeHierarchy( const std::shared_ptr<Node>& node ) {
@@ -579,13 +566,6 @@ void TL_Engine::Run( ) {
                     ImGui::PopStyleVar( );
                 }
 
-                if ( ImGui::Begin( "Scene" ) ) {
-                    for ( auto& node : m_scene->TopNodes ) {
-                        DrawNodeHierarchy( node );
-                    }
-                }
-                ImGui::End( );
-
                 if ( EG_INPUT.WasKeyPressed( EG_KEY::Z ) ) {
                     ImGui::OpenPopup( "Viewport Context" );
                 }
@@ -608,9 +588,6 @@ void TL_Engine::Run( ) {
                     }
                     if ( ImGui::RadioButton( "HDR", &selected_set_n, 5 ) ) {
                         selected_set = vkctx->GetCurrentFrame( ).hdrColor;
-                    }
-                    if ( ImGui::RadioButton( "ShadowMap", &selected_set_n, 6 ) ) {
-                        selected_set = m_scene->DirectionalLights.at( 0 ).shadowMap;
                     }
                     if ( ImGui::RadioButton( "Depth", &selected_set_n, 7 ) ) {
                         selected_set = vkctx->GetCurrentFrame( ).depth;
@@ -635,11 +612,11 @@ void TL_Engine::Run( ) {
                                 m_selectedNode->Transform.DrawDebug( m_selectedNode->Name );
                             }
 
-                            for ( auto& light : m_scene->PointLights ) {
-                                if ( light.node == m_selectedNode.get( ) ) {
-                                    light.DrawDebug( );
-                                }
-                            }
+                            // for ( auto& light : m_scene->PointLights ) {
+                            //     if ( light.node == m_selectedNode.get( ) ) {
+                            //         light.DrawDebug( );
+                            //     }
+                            // }
                         }
                         ImGui::Unindent( );
                     }
@@ -682,45 +659,45 @@ void TL_Engine::Run( ) {
                         ImGui::Unindent( );
                     }
 
-                    if ( ImGui::CollapsingHeader( "Directional Lights" ) ) {
-                        ImGui::Indent( );
-                        for ( auto i = 0; i < m_scene->DirectionalLights.size( ); i++ ) {
-                            if ( ImGui::CollapsingHeader( std::format( "Sun {}", i ).c_str( ) ) ) {
-                                ImGui::PushID( i );
+                    // if ( ImGui::CollapsingHeader( "Directional Lights" ) ) {
+                    //     ImGui::Indent( );
+                    //     for ( auto i = 0; i < m_scene->DirectionalLights.size( ); i++ ) {
+                    //         if ( ImGui::CollapsingHeader( std::format( "Sun {}", i ).c_str( ) ) ) {
+                    //             ImGui::PushID( i );
 
-                                auto& light = m_scene->DirectionalLights.at( i );
-                                ImGui::ColorEdit3( "Color HSV", &light.hsv.hue,
-                                                   ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV |
-                                                           ImGuiColorEditFlags_PickerHueWheel );
-                                ImGui::DragFloat( "Power", &light.power, 0.1f );
+                    //             auto& light = m_scene->DirectionalLights.at( i );
+                    //             ImGui::ColorEdit3( "Color HSV", &light.hsv.hue,
+                    //                                ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_InputHSV |
+                    //                                        ImGuiColorEditFlags_PickerHueWheel );
+                    //             ImGui::DragFloat( "Power", &light.power, 0.1f );
 
-                                auto euler = glm::degrees( light.node->Transform.euler );
+                    //             auto euler = glm::degrees( light.node->Transform.euler );
 
-                                if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
-                                    renderer->settings.reRenderShadowMaps = true;
-                                    light.node->Transform.euler           = glm::radians( euler );
-                                }
+                    //             if ( ImGui::DragFloat3( "Rotation", glm::value_ptr( euler ) ) ) {
+                    //                 renderer->settings.reRenderShadowMaps = true;
+                    //                 light.node->Transform.euler           = glm::radians( euler );
+                    //             }
 
-                                auto shadow_map_pos =
-                                        glm::normalize( light.node->Transform.AsMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) *
-                                        light.distance;
-                                ImGui::DragFloat3( "Pos", glm::value_ptr( shadow_map_pos ) );
+                    //             auto shadow_map_pos =
+                    //                     glm::normalize( light.node->Transform.AsMatrix( ) * glm::vec4( 0, 0, -1, 0 ) ) *
+                    //                     light.distance;
+                    //             ImGui::DragFloat3( "Pos", glm::value_ptr( shadow_map_pos ) );
 
-                                renderer->settings.reRenderShadowMaps |=
-                                        ImGui::DragFloat( "Distance", &light.distance );
-                                renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Right", &light.right );
-                                renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Up", &light.up );
-                                renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Near", &light.nearPlane );
-                                renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Far", &light.farPlane );
+                    //             renderer->settings.reRenderShadowMaps |=
+                    //                     ImGui::DragFloat( "Distance", &light.distance );
+                    //             renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Right", &light.right );
+                    //             renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Up", &light.up );
+                    //             renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Near", &light.nearPlane );
+                    //             renderer->settings.reRenderShadowMaps |= ImGui::DragFloat( "Far", &light.farPlane );
 
-                                ImGui::Image( ( ImTextureID ) static_cast<uintptr_t>( light.shadowMap ),
-                                              ImVec2( 200.0f, 200.0f ) );
+                    //             ImGui::Image( ( ImTextureID ) static_cast<uintptr_t>( light.shadowMap ),
+                    //                           ImVec2( 200.0f, 200.0f ) );
 
-                                ImGui::PopID( );
-                            }
-                        }
-                        ImGui::Unindent( );
-                    }
+                    //             ImGui::PopID( );
+                    //         }
+                    //     }
+                    //     ImGui::Unindent( );
+                    // }
                 }
                 ImGui::End( );
 
@@ -781,7 +758,5 @@ void TL_Engine::DrawImGui( const VkCommandBuffer cmd, const VkImageView targetIm
 
 void TL_Engine::UpdateScene( ) const {
     ZoneScopedN( "update_scene" );
-    utils::ScopedProfiler scene_task( "Scene", utils::TaskType::Cpu );
-    // renderer->UpdateScene( *m_scene );
     renderer->UpdateWorld( m_world );
 }

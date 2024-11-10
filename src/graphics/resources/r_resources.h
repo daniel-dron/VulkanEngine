@@ -196,8 +196,8 @@ namespace TL::renderer {
         u32                              m_meshCount   = 0;   // Keeps track of the number of meshes in the pool for stats.
         std::vector<u16>                 m_freeIndices = { }; // Filled with free indices. At the start, it contains all indices into m_meshDatas backwards
 
-        const u64                   BATCH_INDEX_BUFFER_SIZE = 1024 * 1024 * 10; // 10MB
-        std::unique_ptr<TL::Buffer> m_batchIndexBuffer;                         // Batch index buffer for indirect multi-draw. By default, 10MB.
+        const u64                   BATCH_INDEX_BUFFER_SIZE = 1024 * 1024 * 64; // 64MB
+        std::unique_ptr<TL::Buffer> m_batchIndexBuffer;                         // Batch index buffer for indirect multi-draw. By default, 64MB.
         bool                        m_updateIndexBuffer;                        // Wether or not to update the batch buffer.
 
         friend class Renderer;
